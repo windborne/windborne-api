@@ -126,7 +126,7 @@ Get the predicted path for a specific mission:
 ```python
 import windborne as wb
 
-mission_id = "494f8cb2-5fed-4c81-b3c4-5eacaa2ba4e0"
+mission_id = "your_mission_id"
 predicted_path = wb.get_predicted_path(mission_id)
 print(predicted_path)
 ```
