@@ -107,7 +107,7 @@ Get the launch site information for a specific mission:
 ```python
 import windborne as wb
 
-mission_id = "494f8cb2-5fed-4c81-b3c4-5eacaa2ba4e0"
+mission_id = "your_mission_id"
 launch_site_info = wb.get_mission_launch_site(mission_id)
 print(launch_site_info)
 ```
