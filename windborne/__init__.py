@@ -1,12 +1,12 @@
 # Import key functions and classes for easier access when users import the package
-from .api import (
+from .data_api import (
     get_observations,
     get_super_observations,
     get_flying_missions,
     get_mission_launch_site,
-    get_predicted_path
+    get_predicted_path,
+    poll_observations
 )
-from .utils import poll_observations, sync_to_s3
 
 # Define what should be available when users import *
 __all__ = [
@@ -15,7 +15,5 @@ __all__ = [
     "get_flying_missions",
     "get_mission_launch_site",
     "get_predicted_path",
-    "poll_observations",
-    "sync_to_s3"
+    "poll_observations"
 ]
-

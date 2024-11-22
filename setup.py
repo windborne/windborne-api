@@ -6,8 +6,10 @@ setup(
     packages=find_packages(),
     install_requires=[
         "requests",
-        "boto3"
+        "boto3",
+        "PyJWT"
     ],
+    python_requires=">=3.6",
     description="A Python library for interacting with Windborne Data and Forecasts API",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
