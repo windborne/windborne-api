@@ -173,10 +173,6 @@ def poll_observations(start_time, end_time=None, interval=60, save_to_file=None,
                             buckets[bucket_key] = {}
                         buckets[bucket_key][obs_id] = processed_obs
 
-                    if bucket_key not in buckets:
-                        buckets[bucket_key] = {}
-                    buckets[bucket_key][obs_id] = processed_obs
-
         # Update pagination
         next_timestamp = observations_page.get('next_since')
         has_next_page = observations_page.get('has_next_page', False)
@@ -193,8 +189,7 @@ def poll_observations(start_time, end_time=None, interval=60, save_to_file=None,
     if save_to_file:
         if save_to_file.endswith('.json'):
             # Save as JSON
-            json_file = save_to_file if save_to_file.endswith('.json') else save_to_file + '.json'
-            save_response_to_file(json_file, {"observations": list(all_observations.values())})
+            save_response_to_file(save_to_file, {"observations": list(all_observations.values())})
         else:
             # We don't use save_response_to_file as we handled here the headers
             with open(save_to_file, mode='w', newline='') as file:
