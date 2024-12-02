@@ -66,9 +66,9 @@ def get_super_observations(since=None, min_time=None, max_time=None, include_ids
     
     return response
 
-def poll_observations(start_time, end_time=None, interval=60, save_to_file=None, csv_data_key="observations", bucket_hours=6):
+def poll_observations(start_time, end_time=None, interval=60, save_to_file=None, csv_data_key="observations", bucket_hours=6, output_format='csv'):
     """
-    Fetches observations between a start time and an optional end time and saves to CSV files.
+    Fetches observations between a start time and an optional end time and saves to files in specified format.
     Files are broken up into time buckets, with filenames containing the time at the mid-point of the bucket.
     For example, for 6-hour buckets centered on 00 UTC, the start time should be 21 UTC of the previous day.
 
@@ -79,9 +79,27 @@ def poll_observations(start_time, end_time=None, interval=60, save_to_file=None,
         save_to_file (str): If provided, saves all data to a single file instead of bucketing.
         csv_data_key (str): Key to extract data for CSV saving (default: "observations").
         bucket_hours (int): Size of time buckets in hours. Defaults to 6 hours.
+        output_format (str): Format to save data in ('csv' or 'little_r'). Defaults to 'csv'.
     """
+
+    # We must have a start_time set
     if not start_time:
         print("Please provide a start time in the format 'YYYY-MM-DD_HH:MM'.")
+        return
+
+    # Supported formats for saving into a single file:
+    #   - .csv (default)
+    #   - .little_r
+    if output_format not in ['csv', 'little_r']:
+        print("Invalid output format. Please use 'csv' or 'little_r'.")
+        return
+
+    # Supported formats for saving into a single file:
+    # NOTE: for poll_observation we handle .csv saving within poll_observation and not using save_response_to_file
+    #   - .csv
+    #   - .json
+    if save_to_file and not save_to_file.endswith(('.json', '.csv')):
+        print("Unsupported file format. Please use either .json or .csv.")
         return
 
     # Convert start_time to datetime
@@ -127,7 +145,7 @@ def poll_observations(start_time, end_time=None, interval=60, save_to_file=None,
                 continue
 
             observations = observations_page.get(csv_data_key, [])
-            print(f"Fetched {len(observations)} observations")
+            print(f"Fetched {len(observations)} {'observation' if len(observations) == 1 else 'observations'}")
 
         except Exception as e:
             print(f"Error occurred: {e}")
@@ -196,10 +214,11 @@ def poll_observations(start_time, end_time=None, interval=60, save_to_file=None,
                 writer = csv.DictWriter(file, fieldnames=headers)
                 writer.writeheader()
                 writer.writerows(all_observations.values())
-        print(f"Saved {len(all_observations)} observations to {save_to_file}")
+        print(f"Saved {len(all_observations)} {'observation' if len(all_observations) == 1 else 'observations'} to {save_to_file}")
     else:
         # Track statistics per mission
         mission_stats = {}  # {mission_name: {'files': 0, 'observations': 0}}
+        total_observations_written = 0
 
         # Save bucketed data
         for (bucket_center, mission_name), observations in buckets.items():
@@ -207,25 +226,112 @@ def poll_observations(start_time, end_time=None, interval=60, save_to_file=None,
                 # Format hour to be the actual bucket center
                 bucket_hour = int((bucket_center.hour + bucket_hours/2) % 24)
 
-                output_file = (f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d_%dh.csv" %
-                               (bucket_center.year, bucket_center.month, bucket_center.day,
-                                bucket_hour, bucket_hours))
+                if output_format == 'csv':
+                    output_file = (f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d_%dh.csv" %
+                                   (bucket_center.year, bucket_center.month, bucket_center.day,
+                                    bucket_hour, bucket_hours))
 
-                os.makedirs(os.path.dirname(output_file) or '.', exist_ok=True)
+                    os.makedirs(os.path.dirname(output_file) or '.', exist_ok=True)
 
-                with open(output_file, mode='w', newline='') as file:
-                    writer = csv.DictWriter(file, fieldnames=headers)
-                    writer.writeheader()
-                    writer.writerows(observations.values())
+                    with open(output_file, mode='w', newline='') as file:
+                        writer = csv.DictWriter(file, fieldnames=headers)
+                        writer.writeheader()
+                        writer.writerows(observations.values())
+                    total_observations_written += len(observations)
+                else:  # little_r format
+                    output_file = (f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d:00_%dh.little_r" %
+                                   (bucket_center.year, bucket_center.month, bucket_center.day,
+                                    bucket_hour, bucket_hours))
 
+                    os.makedirs(os.path.dirname(output_file) or '.', exist_ok=True)
+
+                    with open(output_file, 'w') as file:
+                        for obs_id, point in observations.items():
+                            # Safe conversion functions for numeric values
+                            def safe_float(value, default=-888888.0):
+                                try:
+                                    if value in (None, '', 'None'):
+                                        return default
+                                    return float(value)
+                                except (ValueError, TypeError):
+                                    return default
+
+                            # Process numeric values
+                            latitude = safe_float(point.get('latitude'))
+                            longitude = safe_float(point.get('longitude'))
+                            altitude = safe_float(point.get('altitude'))
+                            pressure = safe_float(point.get('pressure'))
+                            if pressure != -888888.0:
+                                pressure *= 100.0  # Convert hPa to Pa
+                            temperature = safe_float(point.get('temperature'))
+                            if temperature != -888888.0:
+                                temperature += 273.15  # Convert C to K
+                            humidity = safe_float(point.get('humidity'))
+                            speed_u = safe_float(point.get('speed_u'))
+                            speed_v = safe_float(point.get('speed_v'))
+
+                            # Format header
+                            header_parts = [
+                                f"{latitude:20.5f}",
+                                f"{longitude:20.5f}",
+                                f"{obs_id:<40}",
+                                f"{point.get('mission_name', ''):<40}",
+                                f"{'FM-35 TEMP':<40}",
+                                f"{'WindBorne':<40}",
+                                f"{-888888.0:20.5f}",  # elevation
+                                f"{-888888:>10d}",
+                                f"{0:>10d}",
+                                f"{0:>10d}",
+                                f"{0:>10d}",
+                                f"{0:>10d}",
+                                f"{'T':>10}",
+                                f"{'F':>10}",
+                                f"{'F':>10}",
+                                f"{-888888:>10d}",
+                                f"{-888888:>10d}",
+                                f"{point['time'].replace('-', '').replace(' ', '').replace(':', ''):>20}"
+                            ]
+
+                            # Add fixed values for header
+                            for _ in range(13):
+                                header_parts.extend([f"{-888888.0:13.5f}", f"{0:>7d}"])
+
+                            header = ''.join(header_parts)
+
+                            # Format data record
+                            data_parts = [
+                                f"{pressure:13.5f}", f"{0:>7d}",
+                                f"{altitude:13.5f}", f"{0:>7d}",
+                                f"{temperature:13.5f}", f"{0:>7d}",
+                                f"{-888888.0:13.5f}", f"{0:>7d}",
+                                f"{-888888.0:13.5f}", f"{0:>7d}",
+                                f"{-888888.0:13.5f}", f"{0:>7d}",
+                                f"{speed_u:13.5f}", f"{0:>7d}",
+                                f"{speed_v:13.5f}", f"{0:>7d}",
+                                f"{humidity:13.5f}", f"{0:>7d}",
+                                f"{-888888.0:13.5f}", f"{0:>7d}"
+                            ]
+
+                            data_record = ''.join(data_parts)
+
+                            # End record and tail record are fixed
+                            end_record = '-777777.00000      0-777777.00000      0-888888.00000      0-888888.00000      0-888888.00000      0-888888.00000      0-888888.00000      0-888888.00000      0-888888.00000      0-888888.00000      0'
+                            tail_record = '     39      0      0'
+
+                            # Write the complete record
+                            file.write('\n'.join([header, data_record, end_record, tail_record, '']))
+                    total_observations_written += len(observations)
                 # Update statistics
                 if mission_name not in mission_stats:
                     mission_stats[mission_name] = {'files': 0, 'observations': 0}
                 mission_stats[mission_name]['files'] += 1
                 mission_stats[mission_name]['observations'] += len(observations)
+        # Print total observations written
+        print(f"Total {'observation' if total_observations_written == 1 else 'observations'} written: {total_observations_written}")
+        print("-----------------------------------------------------")
         # Print summary for each mission
         for mission_name, stats in mission_stats.items():
-            print(f"Mission {mission_name}: Saved {stats['observations']} observations across {stats['files']} files")
+            print(f"Mission {mission_name}: Saved {stats['observations']} {'observation' if stats['observations'] == 1 else 'observations'} across {stats['files']} {'file' if stats['files'] == 1 else 'files'}")
     print("-----------------------------------------------------")
     print("All observations have been processed and saved.")
 
