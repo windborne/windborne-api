@@ -9,8 +9,13 @@ setup(
         "boto3",
         "PyJWT"
     ],
+    entry_points={
+        'console_scripts': [
+            'windborne=windborne.cli:main',
+        ],
+    },
     python_requires=">=3.6",
-    description="A Python library for interacting with Windborne Data and Forecasts API",
+    description="A Python library for interacting with WindBorne Data and Forecasts API",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     author="WindBorne Systems",

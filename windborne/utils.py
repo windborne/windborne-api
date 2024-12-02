@@ -13,9 +13,17 @@ def to_unix_timestamp(date_string):
         return date_string  # If it's already an integer, return as is
     if isinstance(date_string, str):
         formats = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d_%H:%M"]
+        current_time = datetime.now()
         for fmt in formats:
             try:
                 dt = datetime.strptime(date_string, fmt)
+                if dt > current_time:
+                    print("Looks like you are coming from the future!")
+                    print("\nAs Cavafy might say:\n"
+                          "'For some, the future is a beacon of hope,\n"
+                          "A path unwritten, yet vast in scope.\n"
+                          "Let it come with wisdom and grace,\n"
+                          "And find us ready to embrace its face.'\n")
                 return int(dt.timestamp())
             except ValueError:
                 continue

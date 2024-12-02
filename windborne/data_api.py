@@ -1,5 +1,6 @@
 from .config import API_BASE_URL, make_api_request
 from .utils import to_unix_timestamp, save_response_to_file
+
 import time
 import os
 from math import floor
@@ -8,6 +9,27 @@ import csv
 
 
 def get_observations(since=None, min_time=None, max_time=None, include_ids=None, include_mission_name=None, include_updated_at=None, mission_id=None, min_latitude=None, max_latitude=None, min_longitude=None, max_longitude=None, save_to_file=None):
+    """
+    Retrieves observations based on specified filters including geographical bounds.
+
+    Args:
+        since (str): Filter observations after this timestamp.
+        min_time (str): Minimum timestamp for observations.
+        max_time (str): Maximum timestamp for observations.
+        include_ids (bool): Include observation IDs in response.
+        include_mission_name (bool): Include mission names in response.
+        include_updated_at (bool): Include update timestamps in response.
+        mission_id (str): Filter observations by mission ID.
+        min_latitude (float): Minimum latitude boundary.
+        max_latitude (float): Maximum latitude boundary.
+        min_longitude (float): Minimum longitude boundary.
+        max_longitude (float): Maximum longitude boundary.
+        save_to_file (str): Optional path to save the response data.
+                           If provided, saves the data in CSV format.
+
+    Returns:
+        dict: The API response containing filtered observations.
+    """
     url = f"{API_BASE_URL}/observations.json"
     
     # Convert date strings to Unix timestamps
@@ -39,6 +61,23 @@ def get_observations(since=None, min_time=None, max_time=None, include_ids=None,
     return response
 
 def get_super_observations(since=None, min_time=None, max_time=None, include_ids=None, include_mission_name=None, include_updated_at=None, mission_id=None, save_to_file=None):
+    """
+    Retrieves super observations based on specified filters.
+
+    Args:
+        since (str): Filter observations after this timestamp.
+        min_time (str): Minimum timestamp for observations.
+        max_time (str): Maximum timestamp for observations.
+        include_ids (bool): Include observation IDs in response.
+        include_mission_name (bool): Include mission names in response.
+        include_updated_at (bool): Include update timestamps in response.
+        mission_id (str): Filter observations by mission ID.
+        save_to_file (str): Optional path to save the response data.
+                           If provided, saves the data in CSV format.
+
+    Returns:
+        dict: The API response containing filtered super observations.
+    """
     url = f"{API_BASE_URL}/super_observations.json"
     
     params = {
@@ -66,7 +105,7 @@ def get_super_observations(since=None, min_time=None, max_time=None, include_ids
     
     return response
 
-def poll_observations(start_time, end_time=None, interval=60, save_to_file=None, csv_data_key="observations", bucket_hours=6, output_format='csv'):
+def poll_observations(start_time, end_time=None, interval=60, save_to_file=None, bucket_hours=6.0, output_format=None):
     """
     Fetches observations between a start time and an optional end time and saves to files in specified format.
     Files are broken up into time buckets, with filenames containing the time at the mid-point of the bucket.
@@ -77,9 +116,8 @@ def poll_observations(start_time, end_time=None, interval=60, save_to_file=None,
         end_time (str): Optional end time in the format 'YYYY-MM-DD_HH:MM'.
         interval (int): Interval in seconds between polls if pagination is required (default: 60).
         save_to_file (str): If provided, saves all data to a single file instead of bucketing.
-        csv_data_key (str): Key to extract data for CSV saving (default: "observations").
         bucket_hours (int): Size of time buckets in hours. Defaults to 6 hours.
-        output_format (str): Format to save data in ('csv' or 'little_r'). Defaults to 'csv'.
+        output_format (str): Format to save data in ('csv' or 'little_r').
     """
 
     # We must have a start_time set
@@ -90,7 +128,7 @@ def poll_observations(start_time, end_time=None, interval=60, save_to_file=None,
     # Supported formats for saving into a single file:
     #   - .csv (default)
     #   - .little_r
-    if output_format not in ['csv', 'little_r']:
+    if output_format and output_format not in ['csv', 'little_r']:
         print("Invalid output format. Please use 'csv' or 'little_r'.")
         return
 
@@ -129,6 +167,8 @@ def poll_observations(start_time, end_time=None, interval=60, save_to_file=None,
     # Initialize the polling loop
     current_timestamp = int(start_dt.timestamp())
     has_next_page = True
+
+    csv_data_key = 'observations'
 
     while has_next_page:
         try:
@@ -207,7 +247,7 @@ def poll_observations(start_time, end_time=None, interval=60, save_to_file=None,
     if save_to_file:
         if save_to_file.endswith('.json'):
             # Save as JSON
-            save_response_to_file(save_to_file, {"observations": list(all_observations.values())})
+            save_response_to_file(save_to_file, all_observations)
         else:
             # We don't use save_response_to_file as we handled here the headers
             with open(save_to_file, mode='w', newline='') as file:
@@ -335,27 +375,110 @@ def poll_observations(start_time, end_time=None, interval=60, save_to_file=None,
     print("-----------------------------------------------------")
     print("All observations have been processed and saved.")
 
-def get_flying_missions(save_to_file=None):
+def get_flying_missions(cli_mode = False, save_to_file=None):
+    """
+    Retrieves a list of currently flying missions.
+    In CLI mode, displays missions in a formatted table.
+
+    Args:
+        cli_mode (bool): If True, displays formatted output to console.
+        save_to_file (str): Optional path to save the response data.
+                           If provided, saves the data in CSV or JSON format.
+
+    Returns:
+        dict: The API response containing list of flying missions.
+    """
+
     url = f"{API_BASE_URL}/missions.json"
-    response = make_api_request(url)
+    flying_missions_response = make_api_request(url)
+    flying_missions = flying_missions_response.get("missions", [])
 
-    save_response_to_file(save_to_file, response, csv_data_key='missions')
+    # Display currently flying missions only if we are in cli and we don't save info in file
+    if flying_missions and cli_mode and not save_to_file:
+        print("\nCurrently flying missions:\n")
+
+        # Define headers and data
+        headers = ["Index", "Mission ID", "Mission Name"]
+        rows = [
+            [str(i), mission.get("id", "N/A"), mission.get("name", "Unnamed Mission")]
+            for i, mission in enumerate(flying_missions, start=1)
+        ]
+
+        # Kinda overkill | but it's a good practice if we ever change missions naming convention
+        # Calculate column widths
+        col_widths = [max(len(cell) for cell in col) + 2 for col in zip(headers, *rows)]
+
+        # Display table
+        print("".join(f"{headers[i]:<{col_widths[i]}}" for i in range(len(headers))))
+        print("".join("-" * col_width for col_width in col_widths))
+        for row in rows:
+            print("".join(f"{row[i]:<{col_widths[i]}}" for i in range(len(row))))
+
+    save_response_to_file(save_to_file, flying_missions_response, csv_data_key='missions')
     
-    return response
+    return flying_missions_response
 
-def get_mission_launch_site(mission_id=None, save_to_file=None):
+def get_mission_launch_site(cli_mode=False, mission_id=None, save_to_file=None):
+    """
+    Retrieves launch site information for a specified mission.
+    In CLI mode, displays the launch site details in a formatted table.
+
+    Args:
+        cli_mode (bool): If True, displays formatted output to console.
+        mission_id (str): The ID of the mission to fetch launch site data for.
+        save_to_file (str): Optional path to save the response data.
+                           If provided, saves the data in CSV format.
+
+    Returns:
+        dict: The API response containing launch site information.
+    """
     if not mission_id:
-        print("To get a mission's launch site you must provide the mission's ID.")
+        print("To get a mission's launch site, you must provide the mission's ID.")
         return
+
     url = f"{API_BASE_URL}/missions/{mission_id}/launch_site.json"
-    
     response = make_api_request(url)
 
+    # Display mission launch site only if we are in cli and we don't save info in file
+    if response and cli_mode and not save_to_file:
+        print("\nMission Launch Site Details:\n")
+
+        # Check if response contains 'launch_site'
+        launch_site = response.get('launch_site')
+        if isinstance(launch_site, dict):
+            # Define headers and data
+            headers = ["Field", "Value"]
+            rows = [[key, str(value) if value is not None else "N/A"] for key, value in launch_site.items()]
+
+            # Calculate column widths
+            col_widths = [max(len(row[i]) for row in ([headers] + rows)) + 2 for i in range(len(headers))]
+
+            # Display table
+            print("".join(f"{headers[i]:<{col_widths[i]}}" for i in range(len(headers))))
+            print("".join("-" * col_width for col_width in col_widths))
+            for row in rows:
+                print("".join(f"{row[i]:<{col_widths[i]}}" for i in range(len(row))))
+        else:
+            print("Unexpected data format received. Unable to display launch site details.")
+
+    # Save the response to a file if a path is provided
     save_response_to_file(save_to_file, response, csv_data_key='launch_site')
-    
+
     return response
 
 def get_predicted_path(mission_id=None, save_to_file=None):
+    """
+        Fetches the predicted flight path for a given mission.
+        Displays currently flying missions if the provided mission ID is invalid.
+
+        Args:
+            mission_id (str): The ID of the mission to fetch the prediction for.
+            save_to_file (str): Optional path to save the response data.
+                               If provided, saves the data in CSV format.
+
+        Returns:
+            dict: The API response containing the predicted flight path data.
+    """
     if not mission_id:
         print("To get the predicted flight path for a given mission you must provide a mission ID.")
         return

@@ -1,10 +1,8 @@
-# windborne: a Python Library for interacting with WindBorne Data and Forecasts API
+# WindBorne API python library
 
-windborne is a Python library designed to interact seamlessly with the WindBorne Data API, facilitating efficient retrieval and management of atmospheric data collected by WindBorne's global constellation of smart weather balloons. We soon intend to integrate Forecasts API to this library as well!
+A Python lib for interacting with the WindBorne API to fetch and process observations and forecast data.
 
 ## Installation
-
-Install the library using pip:
 
 ```bash
 pip install windborne
@@ -22,158 +20,119 @@ WindBorne uses API keys to authenticate API requests. If an API request is not p
 
 Replace `'your_client_id'` and `'your_api_key'` with the credentials provided. To get an API key, email data@windbornesystems.com.
 
-## Usage Examples
 
-Below are examples demonstrating how to use each endpoint and utility function provided by the windborne library.
+## Features
 
-### 1. Fetch Observations
+- Poll observations within specified time ranges
+- Fetch filtered observations and super-observations
+- Get information about currently flying missions
+- Retrieve mission launch sites and predicted flight paths
+- Save data in CSV, JSON, or Little-R formats
+- Command-line interface for all operations
 
-Retrieve observations with optional filtering parameters:
+## Command Line Usage
+### Poll Observations
+```bash
+windborne poll-observations start_time [end_time] output [-i INTERVAL] [-b BUCKET_HOURS]
+
+# Example: Poll from 2024-12-01 21:00 UTC, save in 6-hour buckets as CSV
+windborne poll-observations 2024-12-01_21:00 csv -b 6
+
+# Example: Poll to single file
+windborne poll-observations 2024-12-01_21:00 output.csv
+```
+
+### Get Observations
+```bash
+windborne observations [-s SINCE] [-mt MIN_TIME] [-xt MAX_TIME] [-m MISSION_ID] 
+              [-ml MIN_LAT] [-xl MAX_LAT] [-mg MIN_LON] [-xg MAX_LON]
+              [-id] [-mn] [-u] [output]
+
+# Example: Get observations with mission name
+windborne observations -s 2024-03-01_00:00 -mn output.csv
+```
+
+### Get Super Observations
+```bash
+windborne super-observations [-s SINCE] [-mt MIN_TIME] [-xt MAX_TIME] [-m MISSION_ID]
+                [-id] [-mn] [-u] [output]
+```
+
+### Get Flying Missions
+```bash
+windborne flying-missions [output]
+```
+
+### Get Mission Launch Site
+```bash
+windborne launch-site MISSION_ID [output]
+```
+
+### Get Predicted Path
+```bash
+windborne predict-path MISSION_ID [output]
+```
+
+## Python API
 
 ```python
-import windborne as wb
-
-observations = wb.get_observations(
-    since="2024-11-15 00:00:00"
+from windborne import (
+    poll_observations,
+    get_observations,
+    get_super_observations,
+    get_flying_missions,
+    get_mission_launch_site,
+    get_predicted_path
 )
 
-print(observations)
-```
-
-You can save the observations in a .json file.
-
-```python
-import windborne as wb
-
-wb.get_observations(since="2024-11-15 00:00:00", save_to_file="observations.json")
-```
-
-
-**Parameters:**
-
-- `since`: Start fetching data from this timestamp.
-- `min_time` and `max_time`: Filter observations within this time range.
-- `include_ids`, `include_mission_name`: Include additional information if set to `True`.
-- `mission_id`: Filter observations from a specific mission.
-- `min_latitude`, `max_latitude`, `min_longitude`, `max_longitude`: Geographic bounds for filtering.
-
-### 2. Fetch Super Observations
-
-Retrieve super observations with optional filtering parameters:
-
-```python
-import windborne as wb
-
-super_observations = wb.get_super_observations(
-    since="2024-11-15 00:00:00"
+# Poll observations with time bucketing
+poll_observations(
+    start_time='2024-03-01_21:00',
+    bucket_hours=6,
+    output_format='csv'
 )
 
-print(super_observations)
+# Get filtered observations
+observations = get_observations(
+    since='2024-03-01_00:00',
+    min_latitude=45.0,
+    max_latitude=50.0,
+    include_mission_name=True
+)
+
+# Get currently flying missions
+missions = get_flying_missions()
 ```
 
-You can save the observations in a .json file.
+## Data Formats
 
-```python
-import windborne as wb
+### CSV Output Fields
+- timestamp
+- time
+- latitude
+- longitude
+- altitude
+- humidity
+- mission_name
+- pressure
+- specific_humidity
+- speed_u
+- speed_v
+- temperature
 
-wb.get_super_observations(since="2024-11-15 00:00:00", save_to_file="observations.json")
+### Little-R Format
+Supports standard Little-R format with:
+- Pressure (Pa)
+- Temperature (K)
+- Wind components (u, v)
+- Humidity
+- Location data (lat, lon, alt)
 
-```
-
-**Parameters:**
-
-- `since`: Start fetching data from this timestamp.
-- `min_time` and `max_time`: Filter observations within this time range.
-- `include_ids`, `include_mission_name`: Include additional information if set to `True`.
-- `mission_id`: Filter observations from a specific mission.
-
-### 3. Retrieve Flying Missions
-
-Get a list of currently flying missions:
-You may use pprint to display the missions.
-
-```python
-import windborne as wb
-from pprint import pprint
-
-flying_missions = wb.get_flying_missions()
-pprint(flying_missions)
-```
-
-### 4. Retrieve Mission Launch Site
-
-Get the launch site information for a specific mission:
-
-```python
-import windborne as wb
-
-mission_id = "your_mission_id"
-launch_site_info = wb.get_mission_launch_site(mission_id)
-print(launch_site_info)
-```
-
-To save mission's launch site in a .json file:
-
-```python
-import windborne as wb
-
-wb.get_mission_launch_site(mission_id, save_to_file="mission_launch_site.json")
-```
-### 5. Retrieve Predicted Path
-
-Get the predicted path for a specific mission:
-
-```python
-import windborne as wb
-
-mission_id = "your_mission_id"
-predicted_path = wb.get_predicted_path(mission_id)
-print(predicted_path)
-```
-
-To save mission's predicted path in a .json file:
-
-```python
-import windborne as wb
-
-wb.predicted_path(mission_id, save_to_file="mission_predicted_path.json")
-```
-
-### 6. Poll Observations Continuously
-
-Continuously poll the observations endpoint at a specified interval:
-
-```python
-import windborne as wb
-
-# Poll every 60 seconds
-poll_observations(interval=60, params={"since": "2024-11-01 00:00:00"})
-```
-
-**Parameters:**
-
-- `interval`: Time in seconds between each poll.
-- `params`: Dictionary of parameters to pass to `get_observations`.
-
-### 7. Sync Data to AWS S3
-
-Upload data to an AWS S3 bucket:
-
-```python
-import windborne as wb
-
-data = {"key": "value"}  # Replace with actual data
-bucket_name = "your-s3-bucket"
-object_name = "data.json"
-
-wb.sync_to_s3(data, bucket_name, object_name)
-```
-
-**Parameters:**
-
-- `data`: Data to upload.
-- `bucket_name`: Name of the S3 bucket.
-- `object_name`: S3 object name (e.g., file name).
+## Error Handling
+- Validates input parameters and file formats
+- Retries failed API requests with 60-second intervals
+- Provides clear error messages for invalid mission IDs
+- Handles missing or null data gracefully
 
 ## Additional Information
 
