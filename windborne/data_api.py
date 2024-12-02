@@ -1,9 +1,9 @@
 from .config import API_BASE_URL, make_api_request
 from .utils import to_unix_timestamp, save_response_to_file
-
-import os
 import time
-from datetime import datetime, timezone
+import os
+from math import floor
+from datetime import datetime, timezone, timedelta
 import csv
 
 
@@ -66,86 +66,173 @@ def get_super_observations(since=None, min_time=None, max_time=None, include_ids
     
     return response
 
-def poll_observations(start_time, end_time=None, interval=60, save_to_file=None, csv_data_key="observations"):
+def poll_observations(start_time, end_time=None, interval=60, save_to_file=None, csv_data_key="observations", bucket_hours=6):
     """
-    Fetches observations between a start time and an optional end time and saves to a CSV file.
+    Fetches observations between a start time and an optional end time and saves to CSV files.
+    Files are broken up into time buckets, with filenames containing the time at the mid-point of the bucket.
+    For example, for 6-hour buckets centered on 00 UTC, the start time should be 21 UTC of the previous day.
 
     Args:
         start_time (str): The start time in the format 'YYYY-MM-DD_HH:MM'.
-        end_time (str): The optional end time in the format 'YYYY-MM-DD_HH:MM'. Defaults to None.
-        interval (int): The interval in seconds between polls if pagination is required (default: 60).
-        save_to_file (str): The file path where observations will be saved. Defaults to generated filename.
+        end_time (str): Optional end time in the format 'YYYY-MM-DD_HH:MM'.
+        interval (int): Interval in seconds between polls if pagination is required (default: 60).
+        save_to_file (str): If provided, saves all data to a single file instead of bucketing.
         csv_data_key (str): Key to extract data for CSV saving (default: "observations").
+        bucket_hours (int): Size of time buckets in hours. Defaults to 6 hours.
     """
     if not start_time:
         print("Please provide a start time in the format 'YYYY-MM-DD_HH:MM'.")
         return
 
-    # Convert start_time and end_time to timestamps
-    start_timestamp = to_unix_timestamp(start_time)
+    # Convert start_time to datetime
+    start_dt = datetime.strptime(start_time, '%Y-%m-%d_%H:%M').replace(tzinfo=timezone.utc)
+
+    # Calculate first center time that's after start_time
+    hours_since_day_start = start_dt.hour + start_dt.minute / 60
+    bucket_number = hours_since_day_start // bucket_hours
+    first_center = start_dt.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(hours=(bucket_number + 1) * bucket_hours)
+
     if end_time:
-        end_timestamp = to_unix_timestamp(end_time),
-        end_label = end_time
+        end_dt = datetime.strptime(end_time, '%Y-%m-%d_%H:%M').replace(tzinfo=timezone.utc)
     else:
-        end_timestamp = None
-        end_label = 'latest'
+        end_dt = datetime.now(timezone.utc)
 
-    # Generate default filename if not provided
-    if save_to_file is None:
-        save_to_file = f"observations_{start_time}_{end_label}.csv"
-
-    # Check if the file already exists
-    file_exists = os.path.exists(save_to_file)
-    if file_exists:
-        print(f"File '{save_to_file}' already exists. Delete it or choose a different filename.")
-    else:
-        print(f"Creating new file: '{save_to_file}'")
-
-    # Rearranged headers for CSV
-    rearranged_headers = [
+    # Headers for CSV files
+    headers = [
         "timestamp", "time", "latitude", "longitude", "altitude", "humidity",
         "mission_name", "pressure", "specific_humidity", "speed_u", "speed_v", "temperature"
     ]
 
+    if save_to_file:
+        all_observations = {}
+    else:
+        buckets = {}
+
     # Initialize the polling loop
+    current_timestamp = int(start_dt.timestamp())
     has_next_page = True
 
-    while has_next_page and (end_timestamp is None or start_timestamp <= end_timestamp):
-        # Fetch a page of observations
-        observations_page = get_observations(since=start_timestamp, include_mission_name=True)
-        print(f"Fetched {len(observations_page.get(csv_data_key, []))} observations")
+    while has_next_page:
+        try:
+            # Fetch observations
+            observations_page = get_super_observations(
+                since=current_timestamp,
+                max_time=int(end_dt.timestamp()),
+                include_mission_name=True
+            )
 
-        # Process and save data to CSV
-        data = observations_page.get(csv_data_key, [])
-        processed_data = []
-        for item in data:
-            # Compute the time field from timestamp
-            computed_time = datetime.fromtimestamp(item['timestamp'], tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
-            item['time'] = computed_time
-            processed_data.append({header: item.get(header, '') for header in rearranged_headers})
+            if observations_page is None:
+                print("Received null response from API. Retrying in 60 seconds...")
+                time.sleep(interval)
+                continue
 
-        # Write data to CSV
-        write_mode = 'a' if file_exists else 'w'
-        with open(save_to_file, mode=write_mode, newline='') as file:
-            writer = csv.DictWriter(file, fieldnames=rearranged_headers)
-            # Write headers only if the file is being created
-            if not file_exists:
-                writer.writeheader()
-                file_exists = True  # Ensure headers are only written once
-            writer.writerows(processed_data)
+            observations = observations_page.get(csv_data_key, [])
+            print(f"Fetched {len(observations)} observations")
 
-        # Check for next page
-        has_next_page = observations_page.get('has_next_page', False)
-        start_timestamp = observations_page.get('next_since', start_timestamp)
-
-        if not has_next_page:
-            print("---------------------------------------------------")
-            print("Your latest observations don't have a next page.")
-            print("---------------------------------------------------")
-            print(f"Sleeping for {interval} seconds")
+        except Exception as e:
+            print(f"Error occurred: {e}")
+            print("Retrying in 60 seconds...")
             time.sleep(interval)
+            continue
 
-    print(f"Observations saved to {save_to_file}")
+        for obs in observations:
+            timestamp = obs.get('timestamp')
+            if not timestamp:
+                continue
+
+            try:
+                obs_time = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+            except (OSError, ValueError, TypeError, OverflowError):
+                continue
+
+            mission_name = obs.get('mission_name', 'Unknown')
+            obs['time'] = obs_time.strftime('%Y-%m-%d %H:%M:%S')
+
+            processed_obs = {}
+            for header in headers:
+                value = obs.get(header)
+                if value is None or value == '' or (isinstance(value, str) and not value.strip()):
+                    processed_obs[header] = 'None'
+                else:
+                    processed_obs[header] = value
+
+            obs_id = f"{timestamp}_{mission_name}"
+
+            if save_to_file:
+                all_observations[obs_id] = processed_obs
+            else:
+                if obs_time >= start_dt:  # Only process observations after start time
+                    hours_diff = (obs_time - first_center).total_seconds() / 3600
+                    bucket_index = floor(hours_diff / bucket_hours)  # Changed from round to floor
+                    bucket_center = first_center + timedelta(hours=bucket_index * bucket_hours)
+                    bucket_end = bucket_center + timedelta(hours=bucket_hours)  # Full window after center
+
+                    if obs_time < bucket_end:  # Include observations up to the end of the bucket
+                        bucket_key = (bucket_center, mission_name)
+                        if bucket_key not in buckets:
+                            buckets[bucket_key] = {}
+                        buckets[bucket_key][obs_id] = processed_obs
+
+                    if bucket_key not in buckets:
+                        buckets[bucket_key] = {}
+                    buckets[bucket_key][obs_id] = processed_obs
+
+        # Update pagination
+        next_timestamp = observations_page.get('next_since')
+        has_next_page = observations_page.get('has_next_page', False)
+
+        if not has_next_page or not next_timestamp or next_timestamp <= current_timestamp:
+            print("-----------------------------------------------------\n")
+            print("No more pages available or reached end of time range.")
+            print("\n-----------------------------------------------------")
+            break
+
+        current_timestamp = next_timestamp
+
+    # Save data
+    if save_to_file:
+        if save_to_file.endswith('.json'):
+            # Save as JSON
+            json_file = save_to_file if save_to_file.endswith('.json') else save_to_file + '.json'
+            save_response_to_file(json_file, {"observations": list(all_observations.values())})
+        else:
+            # We don't use save_response_to_file as we handled here the headers
+            with open(save_to_file, mode='w', newline='') as file:
+                writer = csv.DictWriter(file, fieldnames=headers)
+                writer.writeheader()
+                writer.writerows(all_observations.values())
+        print(f"Saved {len(all_observations)} observations to {save_to_file}")
+    else:
+        # Track statistics per mission
+        mission_stats = {}  # {mission_name: {'files': 0, 'observations': 0}}
+
+        # Save bucketed data
+        for (bucket_center, mission_name), observations in buckets.items():
+            if observations:
+                # Format hour to be the actual bucket center
+                bucket_hour = int((bucket_center.hour + bucket_hours/2) % 24)
+
+                output_file = (f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d_%dh.csv" %
+                               (bucket_center.year, bucket_center.month, bucket_center.day,
+                                bucket_hour, bucket_hours))
+
+                os.makedirs(os.path.dirname(output_file) or '.', exist_ok=True)
+
+                with open(output_file, mode='w', newline='') as file:
+                    writer = csv.DictWriter(file, fieldnames=headers)
+                    writer.writeheader()
+                    writer.writerows(observations.values())
+
+                # Update statistics
+                if mission_name not in mission_stats:
+                    mission_stats[mission_name] = {'files': 0, 'observations': 0}
+                mission_stats[mission_name]['files'] += 1
+                mission_stats[mission_name]['observations'] += len(observations)
+        # Print summary for each mission
+        for mission_name, stats in mission_stats.items():
+            print(f"Mission {mission_name}: Saved {stats['observations']} observations across {stats['files']} files")
+    print("-----------------------------------------------------")
+    print("All observations have been processed and saved.")
 
 def get_flying_missions(save_to_file=None):
     url = f"{API_BASE_URL}/missions.json"
