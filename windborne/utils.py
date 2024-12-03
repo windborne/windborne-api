@@ -18,12 +18,12 @@ def to_unix_timestamp(date_string):
             try:
                 dt = datetime.strptime(date_string, fmt)
                 if dt > current_time:
-                    print("Looks like you are coming from the future!")
+                    print("Looks like you are coming from the future!\n")
                     print("\nAs Cavafy might say:\n"
                           "'For some, the future is a beacon of hope,\n"
-                          "A path unwritten, yet vast in scope.\n"
-                          "Let it come with wisdom and grace,\n"
-                          "And find us ready to embrace its face.'\n")
+                          " A path unwritten, yet vast in scope.\n"
+                          " Let it come with wisdom and grace,\n"
+                          " And find us ready to embrace its face.'\n")
                 return int(dt.timestamp())
             except ValueError:
                 continue
@@ -42,14 +42,20 @@ def save_response_to_file(save_to_file, response, csv_data_key=None):
     """
     if not save_to_file:
         return
+    elif '.' not in save_to_file:
+        print("You have to provide a file type for your filename.")
+        print("Supported formats:")
+        print("  - .csv")
+        print("  - .json")
+        exit(2)
     elif not response:
         print("There are no available data to save to file.")
         exit(1)
-    elif save_to_file.endswith('.json'):
+    elif save_to_file.lower().endswith('.json'):
         with open(save_to_file, 'w', encoding='utf-8') as f:
             json.dump(response, f, indent=4)
         print("Saved to", save_to_file)
-    elif save_to_file.endswith('.csv'):
+    elif save_to_file.lower().endswith('.csv'):
         # Extract data for CSV if a key is provided
         data = response if not csv_data_key else response.get(csv_data_key, [])
         if not data:

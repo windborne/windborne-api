@@ -3,7 +3,8 @@ import requests
 import jwt
 import time
 
-API_BASE_URL = "https://sensor-data.windbornesystems.com/api/v1"
+DATA_API_BASE_URL = "https://sensor-data.windbornesystems.com/api/v1"
+FORECASTS_API_BASE_URL = "https://forecasts.windbornesystems.com/api/v1"
 
 # If not set make_api_request will print an error message
 CLIENT_ID = os.getenv("WB_CLIENT_ID")

@@ -5,13 +5,20 @@ from . import (
     get_super_observations,
     get_flying_missions,
     get_mission_launch_site,
-    get_predicted_path
+    get_predicted_path,
+
+    get_point_forecasts,
+    get_tropical_cyclones
+
 )
 
 def main():
     parser = argparse.ArgumentParser(description='WindBorne API Command Line Interface')
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
 
+    ####################################################################################################################
+    # DATA API FUNCTIONS
+    ####################################################################################################################
     # Poll Observations Command
     poll_parser = subparsers.add_parser('poll-observations', help='Poll observations within a time range')
     poll_parser.add_argument('start_time', help='Starting time (YYYY-MM-DD_HH:MM)')
@@ -60,8 +67,28 @@ def main():
     prediction_parser.add_argument('mission_id', help='Mission ID')
     prediction_parser.add_argument('output', nargs='?', help='Output file')
 
+    ####################################################################################################################
+    # FORECASTS API FUNCTIONS
+    ####################################################################################################################
+    # Points Forecast Command
+    points_parser = subparsers.add_parser('points', help='Get point forecasts')
+    points_parser.add_argument('coordinates', help='Semi-colon separated list of lat,lon (e.g. "37,-121;40.3,-100")')
+    points_parser.add_argument('--min-forecast-hour', help='Minimum forecast hour (ISO format)')
+    points_parser.add_argument('--max-forecast-hour', help='Maximum forecast hour (ISO format)')
+    points_parser.add_argument('--init-time', help='Initialization time (ISO format)')
+    points_parser.add_argument('output', nargs='?', help='Output file (.json or .csv)')
+
+    # Tropical Cyclones Command
+    cyclones_parser = subparsers.add_parser('cyclones', help='Get tropical cyclone forecasts')
+    cyclones_parser.add_argument('args', nargs='*',
+                                 help='[optional: initialization time (YYYYMMDDHH or YYYY-MM-DD_HH:MM)] output_file')
+
+
     args = parser.parse_args()
 
+    ####################################################################################################################
+    # DATA API FUNCTIONS CALLED
+    ####################################################################################################################
     if args.command == 'poll-observations':
         # Error handling is performed within poll_observations
         # and we display the appropriate error messages
@@ -114,11 +141,10 @@ def main():
         )
 
     elif args.command == 'flying-missions':
-        get_flying_missions(cli_mode=True, save_to_file=args.output)
+        get_flying_missions(save_to_file=args.output)
 
     elif args.command == 'launch-site':
         get_mission_launch_site(
-            cli_mode=True,
             mission_id=args.mission_id,
             save_to_file=args.output
         )
@@ -127,6 +153,35 @@ def main():
         get_predicted_path(
             mission_id=args.mission_id,
             save_to_file=args.output
+        )
+    ####################################################################################################################
+    # FORECASTS API FUNCTIONS CALLED
+    ####################################################################################################################
+    elif args.command == 'points':
+        get_point_forecasts(
+            coordinates=args.coordinates,
+            min_forecast_hour=args.min_forecast_hour,
+            max_forecast_hour=args.max_forecast_hour,
+            initialization_time=args.init_time,
+            save_to_file=args.output
+        )
+    elif args.command == 'cyclones':
+        # Parse cyclones arguments
+        if len(args.args) == 0:
+            print("Please provide an output file.")
+            exit(1)
+        elif len(args.args) == 1:
+            initialization_time = None
+            save_to_file = args.args[0]
+        elif len(args.args) == 2:
+            initialization_time = args.args[0]
+            save_to_file = args.args[1]
+        else:
+            print("Error: Too many arguments")
+            print("Usage: windborne cyclones [initialization_time] output_file")
+        get_tropical_cyclones(
+            initialization_time=initialization_time,
+            save_to_file=save_to_file
         )
     else:
         parser.print_help()
