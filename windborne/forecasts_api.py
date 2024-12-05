@@ -22,14 +22,14 @@ def get_point_forecasts(coordinates, min_forecast_hour=None, max_forecast_hour=N
         print("To get points forecasts you must provide coordinates.")
         return
     if min_forecast_hour:
-        min_forecast_hour = to_unix_timestamp(min_forecast_hour)
-        params["min_forecast_hour"] = min_forecast_hour
+        params["min_forecast_hour"] = int(min_forecast_hour)
     if max_forecast_hour:
-        max_forecast_hour = to_unix_timestamp(max_forecast_hour)
-        params["max_forecast_hour"] = max_forecast_hour
+        params["max_forecast_hour"] = int(max_forecast_hour)
     if initialization_time:
-        initialization_time = to_unix_timestamp(initialization_time)
+        initialization_time = parse_initialization_time(initialization_time)
         params["initialization_time"] = initialization_time
+
+    print("We are initiating handshake procedure with our S3 server.\n")
 
     response = make_api_request(f"{FORECASTS_API_BASE_URL}/points", params=params)
 
