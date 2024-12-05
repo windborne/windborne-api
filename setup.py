@@ -7,7 +7,8 @@ setup(
     install_requires=[
         "requests",
         "boto3",
-        "PyJWT"
+        "PyJWT",
+        "numpy"
     ],
     entry_points={
         'console_scripts': [
