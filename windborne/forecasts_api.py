@@ -187,7 +187,7 @@ def get_historical_temperature_2m(initialization_time, forecast_hour, save_to_fi
 
     print("We are initiating handshake procedure with our S3 server.\n")
 
-    response = make_api_request(f"{FORECASTS_HISTORICAL_URL}/2m_temperature", params=params, return_type='npy')
+    response = make_api_request(f"{FORECASTS_HISTORICAL_URL}/temperature_2m", params=params, return_type='npy')
 
     if save_to_file:
         download_and_save_npy(save_to_file, response)
@@ -332,6 +332,7 @@ def get_tropical_cyclones(initialization_time=None, save_to_file=None):
             save_as_kml(save_to_file, response)
         elif save_to_file.lower().endswith('.little_r'):
             save_as_little_r(save_to_file, response)
+
     return response
 
 # Tropical cyclones

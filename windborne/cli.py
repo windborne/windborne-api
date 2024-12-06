@@ -380,6 +380,7 @@ def main():
         if len(args.args) == 0:
             print("Loading tropical cyclones for our latest available initialization time\n")
             if get_tropical_cyclones():
+                print(f"Found {len(get_tropical_cyclones())} cyclone(s)\n")
                 pprint(get_tropical_cyclones())
                 return
             else:
@@ -392,8 +393,10 @@ def main():
                 # Display tcs for selected initialization time
                 if get_tropical_cyclones(initialization_time=args.args[0]):
                     print(f"Loading tropical cyclones for initialization time {args.args[0]}\n")
+                    print(f"Found {len(get_tropical_cyclones(initialization_time=args.args[0]))} cyclone(s)\n")
                     pprint(get_tropical_cyclones(initialization_time=args.args[0]))
         elif len(args.args) == 2:
+            print(f"Saving tropical cyclones for initialization time {args.args[0]}\n")
             get_tropical_cyclones(initialization_time=args.args[0], save_to_file=args.args[1])
         else:
             print("Error: Too many arguments")
