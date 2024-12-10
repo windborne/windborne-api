@@ -158,7 +158,7 @@ path = get_predicted_path('mission123', save_to_file='output.json')
 
 ## Forecast API Commands
 
-### points
+### Points
 **CLI:**
 ```bash
 windborne points "40.7,-74.0" -i 2024101200 output.csv
@@ -177,6 +177,19 @@ forecasts = get_point_forecasts(
     initialization_time="2024101200",
     save_to_file="output.csv"
 )
+```
+
+### Initialization times
+**CLI:**
+```bash
+windborne init_times
+```
+
+**Code:**
+```python
+from windborne import get_initialization_times
+
+initialization_times = get_initialization_times()
 ```
 
 ### Gridded Forecast Commands
