@@ -14,6 +14,7 @@ def get_observations(since, min_time=None, max_time=None, include_ids=None, incl
 
     Args:
         since (str): Filter observations after this timestamp.
+
         min_time (str): Minimum timestamp for observations.
         max_time (str): Maximum timestamp for observations.
         include_ids (bool): Include observation IDs in response.
@@ -24,26 +25,33 @@ def get_observations(since, min_time=None, max_time=None, include_ids=None, incl
         max_latitude (float): Maximum latitude boundary.
         min_longitude (float): Minimum longitude boundary.
         max_longitude (float): Maximum longitude boundary.
+
         save_to_file (str): Optional path to save the response data.
                            If provided, saves the data in CSV format.
 
     Returns:
         dict: The API response containing filtered observations.
     """
+
     url = f"{DATA_API_BASE_URL}/observations.json"
     
     # Convert date strings to Unix timestamps
-    params = {
-        "since": to_unix_timestamp(since),
-        "min_time": to_unix_timestamp(min_time),
-        "max_time": to_unix_timestamp(max_time),
-        "mission_id": mission_id,
-        "min_latitude": min_latitude,
-        "max_latitude": max_latitude,
-        "min_longitude": min_longitude,
-        "max_longitude": max_longitude,
-    }
+    params = {"since": to_unix_timestamp(since)}
 
+    if min_time:
+        params["min_time"] = to_unix_timestamp(min_time)
+    if max_time:
+        params["max_time"] = to_unix_timestamp(min_time)
+    if mission_id:
+        params["mission_id"] = mission_id
+    if min_latitude:
+        params["min_latitude"] = min_latitude
+    if max_latitude:
+        params["max_latitude"] = max_latitude
+    if min_longitude:
+        params["min_longitude"] = min_longitude
+    if max_longitude:
+        params["max_longitude"] = max_longitude
     if include_ids:
         params["include_ids"] = True
     if include_mission_name:
@@ -67,6 +75,7 @@ def get_super_observations(since, min_time=None, max_time=None, include_ids=None
 
     Args:
         since (str): Filter observations after this timestamp.
+
         min_time (str): Minimum timestamp for observations.
         max_time (str): Maximum timestamp for observations.
         include_ids (bool): Include observation IDs in response.
@@ -79,18 +88,19 @@ def get_super_observations(since, min_time=None, max_time=None, include_ids=None
     Returns:
         dict: The API response containing filtered super observations.
     """
+
     url = f"{DATA_API_BASE_URL}/super_observations.json"
     
     params = {
-        "since": to_unix_timestamp(since),
-        "min_time": to_unix_timestamp(min_time),
-        "max_time": to_unix_timestamp(max_time),
-        "include_ids": include_ids,
-        "include_mission_name": include_mission_name,
-        "include_updated_at": include_updated_at,
-        "mission_id": mission_id,
+        "since": to_unix_timestamp(since)
     }
-    
+
+    if min_time:
+        params["min_time"] = to_unix_timestamp(min_time)
+    if max_time:
+        params["max_time"] = to_unix_timestamp(min_time)
+    if mission_id:
+        params["mission_id"] = mission_id
     if include_ids:
         params["include_ids"] = True
     if include_mission_name:
@@ -121,31 +131,31 @@ def poll_observations(start_time, end_time=None, interval=60, save_to_file=None,
         output_format (str): Format to save data in ('csv' or 'little_r').
     """
 
+    start_time = to_unix_timestamp(start_time)
+    end_time = to_unix_timestamp(end_time)
+
     # Set current time
     current_time = datetime.now(timezone.utc)
-
-    # We must have a start_time set
-    if not start_time:
-        print("Please provide a start time in the format 'YYYY-MM-DD_HH:MM'.")
-        return
 
     # Supported formats for saving into a single file:
     #   - .csv (default)
     #   - .little_r
     if output_format and output_format not in ['csv', 'little_r']:
-        print("Invalid output format. Please use 'csv' or 'little_r'.")
+        print("Invalid output format.\n"
+              "For saving in multiple files use 'csv' or 'little_r'.\n"
+              "For saving in a single file use 'filename.csv' or 'filename.json'. ")
         return
 
     # Supported formats for saving into a single file:
     # NOTE: for poll_observation we handle .csv saving within poll_observation and not using save_csv_json
     #   - .csv
     #   - .json
-    if save_to_file and not save_to_file.endswith(('.json', '.csv')):
+    if not save_to_file.endswith(('.json', '.csv')):
         print("Unsupported file format. Please use either .json or .csv.")
         return
 
     # Convert start_time to datetime
-    start_dt = datetime.strptime(start_time, '%Y-%m-%d_%H:%M').replace(tzinfo=timezone.utc)
+    start_dt = datetime.fromtimestamp(int(start_time), tz=timezone.utc)
 
     # Check if someone is coming from the future
     if start_dt > current_time:

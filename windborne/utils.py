@@ -66,6 +66,10 @@ def make_api_request(url, params=None, return_type=None):
                 retries += 1
         else:
             print(f"HTTP error occurred\n\n{http_err}")
+            if params:
+                print("Parameters provided:")
+                for key, value in params.items():
+                    print(f"  {key}: {value}")
         exit(http_err.response.status_code)
     except requests.exceptions.ConnectionError as conn_err:
         print(f"Connection error occurred\n\n{conn_err}")
@@ -75,30 +79,52 @@ def make_api_request(url, params=None, return_type=None):
         print(f"An error occurred\n\n{req_err}")
 
 # Supported date formats
-# YYYY-MM-DD HH:MM:SS and YYYY-MM-DD_HH:MM
+# YYYY-MM-DD HH:MM:SS, YYYY-MM-DD_HH:MM and ISO strings
 def to_unix_timestamp(date_string):
+    """
+    Converts a date string or integer to a UNIX timestamp.
+    Supports various date formats and handles future dates gracefully.
+
+    Args:
+        date_string (str | int | None): The date string to convert or an integer UNIX timestamp.
+
+    Returns:
+        int | None: The UNIX timestamp or None if the input is None.
+    """
     if date_string is None:
         return None
-    if isinstance(date_string, int):
-        return date_string  # If it's already an integer, return as is
-    if isinstance(date_string, str):
-        formats = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d_%H:%M"]
-        current_time = datetime.now()
-        for fmt in formats:
-            try:
-                dt = datetime.strptime(date_string, fmt)
-                if dt > current_time:
-                    print("Looks like you are coming from the future!\n")
-                    print("\nAs Cavafy might say:\n"
-                          "'For some, the future is a beacon of hope,\n"
-                          " A path unwritten, yet vast in scope.\n"
-                          " Let it come with wisdom and grace,\n"
-                          " And find us ready to embrace its face.'\n")
-                return int(dt.timestamp())
-            except ValueError:
-                continue
-        print("Invalid date format. Use 'YYYY-MM-DD HH:MM:SS' or 'YYYY-MM-DD_HH:MM'.")
-        exit(2)
+
+    # Supported date formats
+    formats = [
+        "%Y-%m-%d %H:%M:%S",        # e.g., 2024-12-05 14:48:00
+        "%Y-%m-%d_%H:%M",           # e.g., 2024-12-05_14:48
+        "%Y-%m-%dT%H:%M:%S.%fZ",    # e.g., 2024-12-05T14:48:00.000Z
+    ]
+    current_time = datetime.now()
+
+    for fmt in formats:
+        try:
+            dt = datetime.strptime(date_string, fmt)
+            if dt > current_time:
+                print(
+                    "Looks like you are coming from the future!\n\n"
+                    "As Cavafy might say:\n"
+                    "'For some, the future is a beacon of hope,\n"
+                    " A path unwritten, yet vast in scope.\n"
+                    " Let it come with wisdom and grace,\n"
+                    " And find us ready to embrace its face.'\n"
+                )
+            return int(dt.timestamp())
+        except ValueError:
+            # Try the next format
+            continue
+
+    # If no formats match, raise an error
+    print("Invalid date format. Please use one of the supported formats:\n"
+            "- YYYY-MM-DD HH:MM:SS\n"
+            "- YYYY-MM-DD_HH:MM\n"
+            "- YYYY-MM-DDTHH:MM:SS.fffZ")
+    exit(11)
 
 # Supported date format
 # Compact format YYYYMMDDHH

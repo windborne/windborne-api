@@ -9,6 +9,7 @@ from . import (
     get_predicted_path,
 
     get_point_forecasts,
+    get_initialization_times,
     get_temperature_2m,
     get_dewpoint_2m,
     get_wind_u_10m,
@@ -24,6 +25,7 @@ from . import (
 )
 
 from pprint import pprint
+
 def main():
     parser = argparse.ArgumentParser(description='WindBorne API Command Line Interface')
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
@@ -150,6 +152,9 @@ def main():
     cyclones_parser.add_argument('args', nargs='*',
                                  help='[optional: initialization time (YYYYMMDDHH or YYYY-MM-DD_HH:MM)] output_file')
 
+    # Initialization Times Command
+    initialization_times_parser = subparsers.add_parser('init_times', help='Get available initialization times for pointy')
+
 
     args = parser.parse_args()
 
@@ -236,6 +241,13 @@ def main():
             initialization_time=initialization_time,
             save_to_file=args.output_file
         )
+
+    elif args.command == 'init_times':
+        if get_initialization_times():
+            print("Available initialization times for pointy\n")
+            pprint(get_initialization_times())
+        else:
+            print("We can't currently display available initialization times for pointy\n")
 
     elif args.command == 'grid_temp_2m':
         # Parse grid_temp_2m arguments
@@ -374,7 +386,6 @@ def main():
             print("Too many arguments")
             print("\nUsage: windborne hist_500hpa_wind_v initialization_time forecast_hour output_file")
 
-
     elif args.command == 'cyclones':
         # Parse cyclones arguments
         if len(args.args) == 0:
@@ -384,7 +395,7 @@ def main():
                 pprint(get_tropical_cyclones())
                 return
             else:
-                print("Something went wrong.")
+                print("There are no active tropical cyclones for our latest available initialization time.")
         elif len(args.args) == 1:
             if '.' in args.args[0]:
                 # Save tcs with the latest available initialization time in filename

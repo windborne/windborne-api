@@ -335,6 +335,26 @@ def get_tropical_cyclones(initialization_time=None, save_to_file=None):
 
     return response
 
+def get_initialization_times():
+    """
+    Get tropical cyclone data from the API.
+
+    Args:
+        initialization_time (str): Date in either ISO 8601 format (YYYY-MM-DDTHH:00:00)
+                                 or compact format (YYYYMMDDHH)
+                                 where HH must be 00, 06, 12, or 18
+        save_to_file (str, optional): Path to save the response data
+                                      Supported formats: .json, .csv, .gpx, .geojson, .kml, .little_r
+
+    Returns:
+        dict: API response data or None if there's an error
+    """
+
+    # Response here is a .json
+    response = make_api_request(f"{FORECASTS_API_BASE_URL}/initialization_times.json")
+
+    return response
+
 # Tropical cyclones
 def print_tc_supported_formats():
     """Print supported file formats for saving tcs data."""
