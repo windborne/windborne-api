@@ -5,7 +5,6 @@ from .config import (FORECASTS_API_BASE_URL,
                      TCS_SUPPORTED_FORMATS)
 
 from .utils import (make_api_request,
-                    to_unix_timestamp,
                     parse_initialization_time,
                     download_and_save_npy,
                     save_csv_json,
@@ -262,7 +261,7 @@ def get_historical_500hpa_wind_v(initialization_time, forecast_hour, save_to_fil
 
 # Other
 # TCs
-def get_tropical_cyclones(initialization_time=None, save_to_file=None):
+def get_tropical_cyclones(initialization_time=None, basin=None, save_to_file=None):
     """
     Get tropical cyclone data from the API.
 
@@ -285,6 +284,19 @@ def get_tropical_cyclones(initialization_time=None, save_to_file=None):
         # Make this for our displaying message when no active tcs found
         initialization_time = 'latest'
 
+    if basin:
+        if basin not in ['NA', 'EP', 'WP', 'NI', 'SI', 'AU', 'SP']:
+            print("Basin should be one of the following:")
+            print("NA - North Atlantic")
+            print("EP - Eastern Pacific")
+            print("WP - Western Pacific")
+            print("NI - North Indian")
+            print("SI - South West Indian")
+            print("AU - Australian Region")
+            print("SP - South Pacific")
+            exit(44)
+        params["basin"] = basin
+
     # Response here is a .json
     response = make_api_request(FORECASTS_TCS_URL, params=params)
 
@@ -301,7 +313,8 @@ def get_tropical_cyclones(initialization_time=None, save_to_file=None):
             # This should be prior to any check of specific .filetype format check and post filetype valid check
             # make_api_request covers 403, 404, 502, HTTP, Connections Errors
             # If we pass all of these and we get an empty dictionary ==> there are no active TCs
-            print(f"There are no active tropical cyclones for initialization time: {initialization_time}")
+            print("There are no active tropical cyclones for your request\n")
+            print("We didn't save any file on your machine.")
             # It's pointless to save an empty file
             # save_response_to_file() will throw error on saving {}
         elif response is None:
@@ -337,15 +350,7 @@ def get_tropical_cyclones(initialization_time=None, save_to_file=None):
 
 def get_initialization_times():
     """
-    Get tropical cyclone data from the API.
-
-    Args:
-        initialization_time (str): Date in either ISO 8601 format (YYYY-MM-DDTHH:00:00)
-                                 or compact format (YYYYMMDDHH)
-                                 where HH must be 00, 06, 12, or 18
-        save_to_file (str, optional): Path to save the response data
-                                      Supported formats: .json, .csv, .gpx, .geojson, .kml, .little_r
-
+    Get available initialization times for pointy.
     Returns:
         dict: API response data or None if there's an error
     """
