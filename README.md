@@ -23,7 +23,6 @@ windborne poll-observations 2024-10-12_00:00 little_r
 # Save to single file
 windborne poll-observations 2024-10-12_00:00 output.csv
 windborne poll-observations 2024-10-12_00:00 output.json
-windborne poll-observations 2024-10-12_00:00 output.little_r
 
 # With options
 windborne poll-observations 2024-10-12_00:00 2024-10-13_00:00 output.csv -i 120 -b 12
@@ -42,7 +41,7 @@ poll_observations(
 # Single file
 poll_observations(
     start_time='2024-10-12_00:00',
-    save_to_file='output.csv'  # or .json, .little_r
+    save_to_file='output.csv'  # or .json
 )
 
 # With options
@@ -65,7 +64,6 @@ poll_observations(
 # Basic with formats
 windborne observations 2024-10-12_00:00 output.csv
 windborne observations 2024-10-12_00:00 output.json
-windborne observations 2024-10-12_00:00 output.little_r
 
 # With filters
 windborne observations 2024-10-12_00:00 -mt 2024-10-12_06:00 -xt 2024-10-12_12:00 -m mission123 output.csv
@@ -90,7 +88,7 @@ observations = get_observations(
     include_ids=True,
     include_mission_name=True,
     include_updated_at=True,
-    save_to_file='output.csv'  # or .json, .little_r
+    save_to_file='output.csv'  # or .json
 )
 ```
 
@@ -100,7 +98,6 @@ observations = get_observations(
 # Different formats
 windborne super-observations 2024-10-12_00:00 output.csv
 windborne super-observations 2024-10-12_00:00 output.json
-windborne super-observations 2024-10-12_00:00 output.little_r
 
 # With filters
 windborne super-observations 2024-10-12_00:00 -m mission123 -id -mn -u output.csv
@@ -116,7 +113,7 @@ super_obs = get_super_observations(
     include_ids=True,
     include_mission_name=True,
     include_updated_at=True,
-    save_to_file='output.csv'  # or .json, .little_r
+    save_to_file='output.csv'  # or .json
 )
 ```
 
@@ -275,36 +272,6 @@ cyclones = get_tropical_cyclones(
     save_to_file="output.json"  # or .csv, .gpx, .geojson, .kml, .little_r
 )
 ```
-
-## Data Formats
-
-### Output Fields
-**CSV Format:**
-- timestamp
-- time
-- latitude
-- longitude
-- altitude
-- humidity
-- mission_name
-- pressure
-- specific_humidity
-- speed_u
-- speed_v
-- temperature
-
-**Little-R Format:**
-- Pressure (Pa)
-- Temperature (K)
-- Wind components (u, v)
-- Humidity
-- Location data (lat, lon, alt)
-
-## Error Handling
-- Input validation
-- 60-second retry intervals
-- Clear error messages
-- Graceful null data handling
 
 ## Resources
 For more details on the WindBorne Data and Forecasts API, refer to the official documentation:

@@ -150,7 +150,7 @@ def poll_observations(start_time, end_time=None, interval=60, save_to_file=None,
     # NOTE: for poll_observation we handle .csv saving within poll_observation and not using save_csv_json
     #   - .csv
     #   - .json
-    if not save_to_file.endswith(('.json', '.csv')):
+    if save_to_file and not save_to_file.endswith(('.json', '.csv')):
         print("Unsupported file format. Please use either .json or .csv.")
         return
 
