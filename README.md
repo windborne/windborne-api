@@ -25,7 +25,7 @@ windborne poll-observations 2024-10-12_00:00 output.csv
 windborne poll-observations 2024-10-12_00:00 output.json
 
 # With options
-windborne poll-observations 2024-10-12_00:00 2024-10-13_00:00 output.csv -i 120 -b 12
+windborne poll-observations -i 120 -b 12 2024-10-12_00:00 2024-10-13_00:00 output.csv
 ```
 
 **Code:**
@@ -66,10 +66,10 @@ windborne observations 2024-10-12_00:00 output.csv
 windborne observations 2024-10-12_00:00 output.json
 
 # With filters
-windborne observations 2024-10-12_00:00 -mt 2024-10-12_06:00 -xt 2024-10-12_12:00 -m mission123 output.csv
+windborne observations -mt 2024-10-12_06:00 -xt 2024-10-12_12:00 -m mission123 2024-10-12_00:00  output.csv
 
 # Geographic filters
-windborne observations 2024-10-12_00:00 -ml 45.0 -xl 50.0 -mg -120.0 -xg -110.0 output.csv
+windborne observations -ml 45.0 -xl 50.0 -mg -120.0 -xg 110.0 2024-10-12_00:00  output.csv
 ```
 
 **Code:**
@@ -100,7 +100,7 @@ windborne super-observations 2024-10-12_00:00 output.csv
 windborne super-observations 2024-10-12_00:00 output.json
 
 # With filters
-windborne super-observations 2024-10-12_00:00 -m mission123 -id -mn -u output.csv
+windborne super-observations -m mission123 -id -mn -u 2024-10-12_00:00 output.csv
 ```
 
 **Code:**

@@ -93,38 +93,33 @@ def to_unix_timestamp(date_string):
     """
     if date_string is None:
         return None
+    if isinstance(date_string, int):
+        return date_string  # If it's already an integer, return as is
+    if isinstance(date_string, str):
+        # Supported date formats
+        formats = [
+            "%Y-%m-%d %H:%M:%S",        # e.g., 2024-12-05 14:48:00
+            "%Y-%m-%d_%H:%M",           # e.g., 2024-12-05_14:48
+            "%Y-%m-%dT%H:%M:%S.%fZ",    # e.g., 2024-12-05T14:48:00.000Z
+        ]
+        current_time = datetime.now()
+        for fmt in formats:
+            try:
+                dt = datetime.strptime(date_string, fmt)
+                if dt > current_time:
+                    print(f"How would it be to live in {dt} ?\n")
+                    print("Looks like you are coming from the future!\n")
+                    exit(1111)
+                return int(dt.timestamp())
+            except ValueError:
+                continue
 
-    # Supported date formats
-    formats = [
-        "%Y-%m-%d %H:%M:%S",        # e.g., 2024-12-05 14:48:00
-        "%Y-%m-%d_%H:%M",           # e.g., 2024-12-05_14:48
-        "%Y-%m-%dT%H:%M:%S.%fZ",    # e.g., 2024-12-05T14:48:00.000Z
-    ]
-    current_time = datetime.now()
-
-    for fmt in formats:
-        try:
-            dt = datetime.strptime(date_string, fmt)
-            if dt > current_time:
-                print(
-                    "Looks like you are coming from the future!\n\n"
-                    "As Cavafy might say:\n"
-                    "'For some, the future is a beacon of hope,\n"
-                    " A path unwritten, yet vast in scope.\n"
-                    " Let it come with wisdom and grace,\n"
-                    " And find us ready to embrace its face.'\n"
-                )
-            return int(dt.timestamp())
-        except ValueError:
-            # Try the next format
-            continue
-
-    # If no formats match, raise an error
-    print("Invalid date format. Please use one of the supported formats:\n"
-            "- YYYY-MM-DD HH:MM:SS\n"
-            "- YYYY-MM-DD_HH:MM\n"
-            "- YYYY-MM-DDTHH:MM:SS.fffZ")
-    exit(11)
+        # If no formats match, raise an error
+        print("Invalid date format. Please use one of the supported formats:\n"
+              "- YYYY-MM-DD HH:MM:SS\n"
+              "- YYYY-MM-DD_HH:MM\n"
+              "- YYYY-MM-DDTHH:MM:SS.fffZ")
+        exit(11)
 
 # Supported date format
 # Compact format YYYYMMDDHH
@@ -166,13 +161,9 @@ def parse_initialization_time(initialization_time):
         # Check if someone is coming from the future
         current_time = datetime.now()
         if parsed_date > current_time:
-            print("Looks like you are coming from the future!")
-            print("\nAs Cavafy might say:\n"
-                  "'For some, the future is a beacon of hope,\n"
-                  " A path unwritten, yet vast in scope.\n"
-                  " Let it come with wisdom and grace,\n"
-                  " And find us ready to embrace its face.'\n")
-            exit(4444)
+            print(f"How would it be to live in {parsed_date} ?\n")
+            print("Looks like you are coming from the future!\n")
+            exit(1111)
         return initialization_time
 
     except ValueError:

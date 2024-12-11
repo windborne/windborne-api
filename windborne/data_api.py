@@ -116,26 +116,28 @@ def get_super_observations(since, min_time=None, max_time=None, include_ids=None
     
     return response
 
-def poll_observations(start_time, end_time=None, interval=60, save_to_file=None, bucket_hours=6.0, output_format=None):
+def poll_observations(since, min_time=None, max_time=None, interval=60, save_to_file=None, bucket_hours=6.0, output_format=None):
     """
     Fetches observations between a start time and an optional end time and saves to files in specified format.
     Files are broken up into time buckets, with filenames containing the time at the mid-point of the bucket.
     For example, for 6-hour buckets centered on 00 UTC, the start time should be 21 UTC of the previous day.
 
     Args:
-        start_time (str): The start time in the format 'YYYY-MM-DD_HH:MM'.
-        end_time (str): Optional end time in the format 'YYYY-MM-DD_HH:MM'.
+        since (str): The start time in the format 'YYYY-MM-DD_HH:MM'.
+        max_time (str): Optional end time in the format 'YYYY-MM-DD_HH:MM'.
         interval (int): Interval in seconds between polls if pagination is required (default: 60).
         save_to_file (str): If provided, saves all data to a single file instead of bucketing.
         bucket_hours (int): Size of time buckets in hours. Defaults to 6 hours.
         output_format (str): Format to save data in ('csv' or 'little_r').
     """
 
-    start_time = to_unix_timestamp(start_time)
-    end_time = to_unix_timestamp(end_time)
-
-    # Set current time
-    current_time = datetime.now(timezone.utc)
+    start_time = to_unix_timestamp(since)
+    if min_time:
+        min_time = to_unix_timestamp(min_time)
+    if max_time:
+        end_dt = to_unix_timestamp(max_time)
+    else:
+        end_dt = datetime.now(timezone.utc)
 
     # Supported formats for saving into a single file:
     #   - .csv (default)
@@ -155,27 +157,13 @@ def poll_observations(start_time, end_time=None, interval=60, save_to_file=None,
         return
 
     # Convert start_time to datetime
-    start_dt = datetime.fromtimestamp(int(start_time), tz=timezone.utc)
-
-    # Check if someone is coming from the future
-    if start_dt > current_time:
-        print("Looks like you are coming from the future!\n")
-        print("\nAs Cavafy might say:\n"
-              "'For some, the future is a beacon of hope,\n"
-              " A path unwritten, yet vast in scope.\n"
-              " Let it come with wisdom and grace,\n"
-              " And find us ready to embrace its face.'\n")
-        return
+    start_dt = datetime.fromtimestamp(start_time, tz=timezone.utc)
 
     # Calculate first center time that's after start_time
     hours_since_day_start = start_dt.hour + start_dt.minute / 60
     bucket_number = hours_since_day_start // bucket_hours
     first_center = start_dt.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(hours=(bucket_number + 1) * bucket_hours)
 
-    if end_time:
-        end_dt = datetime.strptime(end_time, '%Y-%m-%d_%H:%M').replace(tzinfo=timezone.utc)
-    else:
-        end_dt = datetime.now(timezone.utc)
 
     # Headers for CSV files
     headers = [
@@ -199,7 +187,8 @@ def poll_observations(start_time, end_time=None, interval=60, save_to_file=None,
             # Fetch observations
             observations_page = get_super_observations(
                 since=current_timestamp,
-                max_time=int(end_dt.timestamp()),
+                min_time=min_time,
+                max_time=end_dt,
                 include_mission_name=True
             )
 
