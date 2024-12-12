@@ -11,6 +11,7 @@ import json
 import csv
 
 import numpy as np
+import xarray as xr
 
 # Authenticate requests using a JWT | no reveal of underlying key
 def make_api_request(url, params=None, return_type=None):
@@ -255,6 +256,37 @@ def download_and_save_npy(save_to_file, response):
 
         # Save the data
         np.save(save_to_file, data)
+        print(f"Data Successfully saved to {save_to_file}")
+        return True
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error downloading the file: {e}")
+        return False
+    except Exception as e:
+        print(f"Error processing the file: {e}")
+        return False
+
+# Download and save a file in .nc upon provided an S3 link
+def download_and_save_nc(save_to_file, response):
+    """
+    Downloads data from a presigned S3 url contained in a response and saves it as a .nc file.
+
+    Args:
+        save_to_file (str): Path where to save the .nc file
+        response (str): Response that contains the S3 url to download the data from
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+
+    # Add .nc extension if not present
+    if not save_to_file.endswith('.nc'):
+        save_to_file = save_to_file + '.nc'
+
+    try:
+        # Save the content directly to file
+        with open(save_to_file, 'wb') as f:
+            f.write(response.content)
         print(f"Data Successfully saved to {save_to_file}")
         return True
 

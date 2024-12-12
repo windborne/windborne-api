@@ -6,7 +6,7 @@ from .config import (FORECASTS_API_BASE_URL,
 
 from .utils import (make_api_request,
                     parse_initialization_time,
-                    download_and_save_npy,
+                    download_and_save_nc,
                     save_csv_json,
                     save_as_geojson,
                     save_as_gpx,
@@ -56,7 +56,7 @@ def get_temperature_2m(time, save_to_file=None):
     response = make_api_request(f"{FORECASTS_GRIDDED_URL}/temperature_2m", params=params, return_type='npy')
 
     if save_to_file:
-        download_and_save_npy(save_to_file, response)
+        download_and_save_nc(save_to_file, response)
 
     return response
 
@@ -74,7 +74,7 @@ def get_dewpoint_2m(time, save_to_file=None):
     response = make_api_request(f"{FORECASTS_GRIDDED_URL}/dewpoint_2m", params=params, return_type='npy')
 
     if save_to_file:
-        download_and_save_npy(save_to_file, response)
+        download_and_save_nc(save_to_file, response)
 
     return response
 
@@ -92,7 +92,7 @@ def get_wind_u_10m(time, save_to_file=None):
     response = make_api_request(f"{FORECASTS_GRIDDED_URL}/wind_u_10m", params=params, return_type='npy')
 
     if save_to_file:
-        download_and_save_npy(save_to_file, response)
+        download_and_save_nc(save_to_file, response)
 
     return response
 
@@ -107,10 +107,10 @@ def get_wind_v_10m(time, save_to_file=None):
         params["time"] = time_parsed
 
     print("We are initiating handshake procedure with our S3 server.\n")
-    response = make_api_request(f"{FORECASTS_GRIDDED_URL}/wind_u_10m", params=params, return_type='npy')
+    response = make_api_request(f"{FORECASTS_GRIDDED_URL}/wind_v_10m", params=params, return_type='npy')
 
     if save_to_file:
-        download_and_save_npy(save_to_file, response)
+        download_and_save_nc(save_to_file, response)
 
     return response
 
@@ -128,7 +128,7 @@ def get_pressure_msl(time, save_to_file=None):
     response = make_api_request(f"{FORECASTS_GRIDDED_URL}/pressure_msl", params=params, return_type='npy')
 
     if save_to_file:
-        download_and_save_npy(save_to_file, response)
+        download_and_save_nc(save_to_file, response)
 
     return response
 
@@ -146,7 +146,7 @@ def get_500hpa_geopotential(time, save_to_file=None):
     response = make_api_request(f"{FORECASTS_GRIDDED_URL}/500/geopotential", params=params, return_type='npy')
 
     if save_to_file:
-        download_and_save_npy(save_to_file, response)
+        download_and_save_nc(save_to_file, response)
 
     return response
 
@@ -164,7 +164,7 @@ def get_850hpa_geopotential(time, save_to_file=None):
     response = make_api_request(f"{FORECASTS_GRIDDED_URL}/850/geopotential", params=params, return_type='npy')
 
     if save_to_file:
-        download_and_save_npy(save_to_file, response)
+        download_and_save_nc(save_to_file, response)
 
     return response
 
@@ -189,7 +189,7 @@ def get_historical_temperature_2m(initialization_time, forecast_hour, save_to_fi
     response = make_api_request(f"{FORECASTS_HISTORICAL_URL}/temperature_2m", params=params, return_type='npy')
 
     if save_to_file:
-        download_and_save_npy(save_to_file, response)
+        download_and_save_nc(save_to_file, response)
 
     return response
 
@@ -211,7 +211,7 @@ def get_historical_500hpa_geopotential(initialization_time, forecast_hour, save_
     response = make_api_request(f"{FORECASTS_HISTORICAL_URL}/500/geopotential", params=params, return_type='npy')
 
     if save_to_file:
-        download_and_save_npy(save_to_file, response)
+        download_and_save_nc(save_to_file, response)
 
     return response
 
@@ -233,7 +233,7 @@ def get_historical_500hpa_wind_u(initialization_time, forecast_hour, save_to_fil
     response = make_api_request(f"{FORECASTS_HISTORICAL_URL}/500/wind_u", params=params, return_type='npy')
 
     if save_to_file:
-        download_and_save_npy(save_to_file, response)
+        download_and_save_nc(save_to_file, response)
 
     return response
 
@@ -255,7 +255,7 @@ def get_historical_500hpa_wind_v(initialization_time, forecast_hour, save_to_fil
     response = make_api_request(f"{FORECASTS_HISTORICAL_URL}/500/wind_v", params=params, return_type='npy')
 
     if save_to_file:
-        download_and_save_npy(save_to_file, response)
+        download_and_save_nc(save_to_file, response)
 
     return response
 
