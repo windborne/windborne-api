@@ -260,16 +260,20 @@ def poll_observations(since, min_time=None, max_time=None, interval=60, save_to_
 
     # Save data
     if save_to_file:
+        filtered_observations = {obs_id: obs for obs_id, obs in all_observations.items()
+                                 if float(obs['timestamp']) >= start_time}
+        # Sort by timestamp
+        sorted_observations = dict(sorted(filtered_observations.items(),
+                                          key=lambda x: float(x[1]['timestamp'])))
+
         if save_to_file.endswith('.json'):
-            # Save as JSON
-            save_csv_json(save_to_file, all_observations)
+            save_csv_json(save_to_file, sorted_observations)
         else:
-            # We don't use save_csv_json as we handled here the headers
             with open(save_to_file, mode='w', newline='') as file:
                 writer = csv.DictWriter(file, fieldnames=headers)
                 writer.writeheader()
-                writer.writerows(all_observations.values())
-        print(f"Saved {len(all_observations)} {'observation' if len(all_observations) == 1 else 'observations'} to {save_to_file}")
+                writer.writerows(sorted_observations.values())
+        print(f"Saved {len(sorted_observations)} {'observation' if len(sorted_observations) == 1 else 'observations'} to {save_to_file}")
     else:
         # Track statistics per mission
         mission_stats = {}  # {mission_name: {'files': 0, 'observations': 0}}
@@ -329,11 +333,11 @@ def poll_observations(since, min_time=None, max_time=None, interval=60, save_to_
                             header_parts = [
                                 f"{latitude:20.5f}",
                                 f"{longitude:20.5f}",
-                                f"{obs_id:<40}",
+                                f"{str(point.get('timestamp')):<40}"
                                 f"{point.get('mission_name', ''):<40}",
                                 f"{'FM-35 TEMP':<40}",
                                 f"{'WindBorne':<40}",
-                                f"{-888888.0:20.5f}",  # elevation
+                                f"{'':<20}",  # elevation
                                 f"{-888888:>10d}",
                                 f"{0:>10d}",
                                 f"{0:>10d}",

@@ -7,6 +7,7 @@ from .config import (FORECASTS_API_BASE_URL,
 from .utils import (make_api_request,
                     parse_initialization_time,
                     download_and_save_nc,
+                    download_and_save_npy,
                     save_csv_json,
                     save_as_geojson,
                     save_as_gpx,
@@ -189,7 +190,7 @@ def get_historical_temperature_2m(initialization_time, forecast_hour, save_to_fi
     response = make_api_request(f"{FORECASTS_HISTORICAL_URL}/temperature_2m", params=params, return_type='npy')
 
     if save_to_file:
-        download_and_save_nc(save_to_file, response)
+        download_and_save_npy(save_to_file, response)
 
     return response
 
@@ -211,7 +212,7 @@ def get_historical_500hpa_geopotential(initialization_time, forecast_hour, save_
     response = make_api_request(f"{FORECASTS_HISTORICAL_URL}/500/geopotential", params=params, return_type='npy')
 
     if save_to_file:
-        download_and_save_nc(save_to_file, response)
+        download_and_save_npy(save_to_file, response)
 
     return response
 
@@ -233,7 +234,7 @@ def get_historical_500hpa_wind_u(initialization_time, forecast_hour, save_to_fil
     response = make_api_request(f"{FORECASTS_HISTORICAL_URL}/500/wind_u", params=params, return_type='npy')
 
     if save_to_file:
-        download_and_save_nc(save_to_file, response)
+        download_and_save_npy(save_to_file, response)
 
     return response
 
@@ -255,7 +256,7 @@ def get_historical_500hpa_wind_v(initialization_time, forecast_hour, save_to_fil
     response = make_api_request(f"{FORECASTS_HISTORICAL_URL}/500/wind_v", params=params, return_type='npy')
 
     if save_to_file:
-        download_and_save_nc(save_to_file, response)
+        download_and_save_npy(save_to_file, response)
 
     return response
 

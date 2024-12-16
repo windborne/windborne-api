@@ -4,14 +4,13 @@ import requests
 import jwt
 import time
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 import boto3
 import io
 import json
 import csv
 
 import numpy as np
-import xarray as xr
 
 # Authenticate requests using a JWT | no reveal of underlying key
 def make_api_request(url, params=None, return_type=None):
@@ -103,10 +102,10 @@ def to_unix_timestamp(date_string):
             "%Y-%m-%d_%H:%M",           # e.g., 2024-12-05_14:48
             "%Y-%m-%dT%H:%M:%S.%fZ",    # e.g., 2024-12-05T14:48:00.000Z
         ]
-        current_time = datetime.now()
+        current_time = datetime.now(timezone.utc)
         for fmt in formats:
             try:
-                dt = datetime.strptime(date_string, fmt)
+                dt = datetime.strptime(date_string, fmt).replace(tzinfo=timezone.utc)
                 if dt > current_time:
                     print(f"How would it be to live in {dt} ?\n")
                     print("Looks like you are coming from the future!\n")
