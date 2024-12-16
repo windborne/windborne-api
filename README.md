@@ -25,7 +25,7 @@ windborne poll-observations 2024-10-12_00:00 output.csv
 windborne poll-observations 2024-10-12_00:00 output.json
 
 # With options
-windborne poll-observations -i 120 -b 12 2024-10-12_00:00 2024-10-13_00:00 output.csv
+windborne poll-observations -i 120 -b 12 -xt 2024-12-11_01:00 2024-12-14_00:00 output.csv
 ```
 
 **Code:**
@@ -158,9 +158,9 @@ path = get_predicted_path('mission123', save_to_file='output.json')
 ### Points
 **CLI:**
 ```bash
-windborne points "40.7,-74.0" -i 2024101200 output.csv
-windborne points "40.7,-74.0; 34.0,-118.2" -i 2024101200 output.csv
-windborne points "40.7,-74.0" -min 0 -max 24 -i 2024101200 output.csv
+windborne points "40.7,-74.0" -i 2024121600 output.csv
+windborne points "40.7,-74.0; 34.0,-118.2" -i 2024121600 output.csv
+windborne points "40.7,-74.0" -min 0 -max 24 -i 2024121600 output.csv
 ```
 
 **Code:**
@@ -171,7 +171,7 @@ forecasts = get_point_forecasts(
     coordinates="40.7,-74.0; 34.0,-118.2",
     min_forecast_hour=0,
     max_forecast_hour=24,
-    initialization_time="2024101200",
+    initialization_time="2024121600",
     save_to_file="output.csv"
 )
 ```
@@ -194,13 +194,13 @@ Time format: YYYYMMDDHH (HH: 00,06,12,18)
 
 **CLI:**
 ```bash
-windborne grid_temp_2m 2024101200 output.npy
-windborne grid_dewpoint_2m 2024101200 output.npy
-windborne grid_wind_u_10m 2024101200 output.npy
-windborne grid_wind_v_10m 2024101200 output.npy
-windborne grid_pressure_msl 2024101200 output.npy
-windborne grid_500hpa_geopotential 2024101200 output.npy
-windborne grid_850hpa_geopotential 2024101200 output.npy
+windborne grid_temp_2m 2024121600 filename
+windborne grid_dewpoint_2m 2024121600 filename
+windborne grid_wind_u_10m 2024121600 filename
+windborne grid_wind_v_10m 2024121600 filename
+windborne grid_pressure_msl 2024121600 filename
+windborne grid_500hpa_geopotential 2024121600 filename
+windborne grid_850hpa_geopotential 2024121600 filename
 ```
 
 **Code:**
@@ -215,9 +215,9 @@ from windborne import (
     get_850hpa_geopotential
 )
 
-temp_data = get_temperature_2m("2024101200", "output.npy")
-wind_data = get_wind_u_10m("2024101200", "output.npy")
-pressure_data = get_pressure_msl("2024101200", "output.npy")
+temp_data = get_temperature_2m("2024121600", "filename")
+wind_data = get_wind_u_10m("2024121600", "filename")
+pressure_data = get_pressure_msl("2024121600", "filename")
 ```
 
 ### Historical Forecast Commands
@@ -225,10 +225,10 @@ Time format: YYYYMMDDHH (HH: 00,06,12,18)
 
 **CLI:**
 ```bash
-windborne hist_temp_2m 2024101200 6 output.npy
-windborne hist_500hpa_geopotential 2024101200 6 output.npy
-windborne hist_500hpa_wind_u 2024101200 6 output.npy
-windborne hist_500hpa_wind_v 2024101200 6 output.npy
+windborne hist_temp_2m 2024121600 6 output.npy
+windborne hist_500hpa_geopotential 2024121600 6 output.npy
+windborne hist_500hpa_wind_u 2024121600 6 output.npy
+windborne hist_500hpa_wind_v 2024121600 6 output.npy
 ```
 
 **Code:**
@@ -240,8 +240,8 @@ from windborne import (
     get_historical_500hpa_wind_v
 )
 
-temp_data = get_historical_temperature_2m("2024101200", 6, "output.npy")
-wind_data = get_historical_500hpa_wind_u("2024101200", 6, "output.npy")
+temp_data = get_historical_temperature_2m("2024121600", 6, "output.npy")
+wind_data = get_historical_500hpa_wind_u("2024121600", 6, "output.npy")
 ```
 
 ### cyclones
@@ -251,12 +251,12 @@ wind_data = get_historical_500hpa_wind_u("2024101200", 6, "output.npy")
 windborne cyclones
 
 # Specific time with different formats
-windborne cyclones 2024101200 output.json
-windborne cyclones 2024101200 output.csv
-windborne cyclones 2024101200 output.gpx
-windborne cyclones 2024101200 output.geojson
-windborne cyclones 2024101200 output.kml
-windborne cyclones 2024101200 output.little_r
+windborne cyclones 2024121600 output.json
+windborne cyclones 2024121600 output.csv
+windborne cyclones 2024121600 output.gpx
+windborne cyclones 2024121600 output.geojson
+windborne cyclones 2024121600 output.kml
+windborne cyclones 2024121600 output.little_r
 ```
 
 **Code:**
@@ -268,7 +268,7 @@ cyclones = get_tropical_cyclones()
 
 # With specific time and format
 cyclones = get_tropical_cyclones(
-    initialization_time="2024101200",
+    initialization_time="2024121600",
     save_to_file="output.json"  # or .csv, .gpx, .geojson, .kml, .little_r
 )
 ```

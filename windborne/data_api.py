@@ -124,7 +124,8 @@ def poll_observations(since, min_time=None, max_time=None, interval=60, save_to_
 
     Args:
         since (str): The start time in the format 'YYYY-MM-DD_HH:MM'.
-        max_time (str): Optional end time in the format 'YYYY-MM-DD_HH:MM'.
+        min_time (str): Optional min time in the format 'YYYY-MM-DD_HH:MM'.
+        max_time (str): Optional max time in the format 'YYYY-MM-DD_HH:MM'.
         interval (int): Interval in seconds between polls if pagination is required (default: 60).
         save_to_file (str): If provided, saves all data to a single file instead of bucketing.
         bucket_hours (int): Size of time buckets in hours. Defaults to 6 hours.
@@ -137,7 +138,7 @@ def poll_observations(since, min_time=None, max_time=None, interval=60, save_to_
     if max_time:
         end_dt = to_unix_timestamp(max_time)
     else:
-        end_dt = datetime.now(timezone.utc)
+        end_dt = int(datetime.now().timestamp())
 
     # Supported formats for saving into a single file:
     #   - .csv (default)
