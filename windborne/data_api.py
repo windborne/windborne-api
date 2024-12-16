@@ -219,7 +219,7 @@ def poll_observations(since, min_time=None, max_time=None, interval=60, save_to_
                 continue
 
             mission_name = obs.get('mission_name', 'Unknown')
-            obs['time'] = obs_time.strftime('%Y-%m-%d %H:%M:%S')
+            obs['time'] = obs_time.replace(tzinfo=timezone.utc).isoformat()
 
             processed_obs = {}
             for header in headers:
@@ -240,7 +240,7 @@ def poll_observations(since, min_time=None, max_time=None, interval=60, save_to_
                     bucket_center = first_center + timedelta(hours=bucket_index * bucket_hours)
                     bucket_end = bucket_center + timedelta(hours=bucket_hours)  # Full window after center
 
-                    if obs_time < bucket_end:  # Include observations up to the end of the bucket
+                    if obs_time <= bucket_end:  # Include observations up to the end of the bucket
                         bucket_key = (bucket_center, mission_name)
                         if bucket_key not in buckets:
                             buckets[bucket_key] = {}
