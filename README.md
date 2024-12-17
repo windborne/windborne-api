@@ -159,7 +159,7 @@ path = get_predicted_path('mission123', save_to_file='output.json')
 **CLI:**
 ```bash
 windborne points "40.7,-74.0" -i 2024121600 output.csv
-windborne points "40.7,-74.0; 34.0,-118.2" -i 2024121600 output.csv
+windborne points "40.7,-74.0;34.0,-118.2" -i 2024121600 output.csv
 windborne points "40.7,-74.0" -min 0 -max 24 -i 2024121600 output.csv
 ```
 
@@ -168,7 +168,7 @@ windborne points "40.7,-74.0" -min 0 -max 24 -i 2024121600 output.csv
 from windborne import get_point_forecasts
 
 forecasts = get_point_forecasts(
-    coordinates="40.7,-74.0; 34.0,-118.2",
+    coordinates="40.7,-74.0;34.0,-118.2",
     min_forecast_hour=0,
     max_forecast_hour=24,
     initialization_time="2024121600",

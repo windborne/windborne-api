@@ -15,12 +15,16 @@ from .utils import (make_api_request,
                     save_as_little_r)
 
 # Point forecasts
-def get_point_forecasts(coordinates, min_forecast_hour=None, max_forecast_hour=None, initialization_time=None, save_to_file=None):
+def get_point_forecasts(coordinates, min_forecast_time=None, max_forecast_time=None, min_forecast_hour=None, max_forecast_hour=None, initialization_time=None, save_to_file=None):
     params = {"coordinates": coordinates}
 
     if not coordinates:
         print("To get points forecasts you must provide coordinates.")
         return
+    if min_forecast_time:
+        params["min_forecast_time"] = parse_initialization_time(min_forecast_time)
+    if max_forecast_time:
+        params["max_forecast_time"] = parse_initialization_time(max_forecast_time)
     if min_forecast_hour:
         params["min_forecast_hour"] = int(min_forecast_hour)
     if max_forecast_hour:
