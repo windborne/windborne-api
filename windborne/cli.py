@@ -218,7 +218,7 @@ def main():
         )
 
     elif args.command == 'flying-missions':
-        get_flying_missions(save_to_file=args.output)
+        get_flying_missions(cli=True, save_to_file=args.output)
 
     elif args.command == 'launch-site':
         get_mission_launch_site(

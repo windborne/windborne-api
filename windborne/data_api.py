@@ -395,7 +395,7 @@ def poll_observations(since, min_time=None, max_time=None, interval=60, save_to_
     print("-----------------------------------------------------")
     print("All observations have been processed and saved.")
 
-def get_flying_missions(save_to_file=None):
+def get_flying_missions(cli=None, save_to_file=None):
     """
     Retrieves a list of currently flying missions.
     In CLI mode, displays missions in a formatted table.
@@ -413,8 +413,8 @@ def get_flying_missions(save_to_file=None):
     flying_missions = flying_missions_response.get("missions", [])
 
     # Display currently flying missions only if we are in cli and we don't save info in file
-    if flying_missions and not save_to_file:
-        print("\nCurrently flying missions:\n")
+    if flying_missions and cli and not save_to_file:
+        print("Currently flying missions:\n")
 
         # Define headers and data
         headers = ["Index", "Mission ID", "Mission Name"]
