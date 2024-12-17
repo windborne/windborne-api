@@ -5,6 +5,7 @@ import jwt
 import time
 import re
 from datetime import datetime, timezone
+import dateutil.parser
 import boto3
 import io
 import json
@@ -30,7 +31,7 @@ def make_api_request(url, params=None, return_type=None):
         if return_type is None:
             # For Data API
             return response.json()
-        elif return_type == 'npy':
+        elif return_type == 'all':
             # For Forecasts API (except tcs) --> return whole response not .json to obtain S3 url
             return response
     except requests.exceptions.HTTPError as http_err:
@@ -125,50 +126,46 @@ def to_unix_timestamp(date_string):
 # Compact format YYYYMMDDHH
 def parse_initialization_time(initialization_time):
     """
-    Parse and validate initialization time using regex.
-
-    Args:
-        initialization_time (str): Date in compact format (YYYYMMDDHH)
-                                 where HH must be 00, 06, 12, or 18
-
-    Returns:
-        str: Validated initialization time in ISO format, or None if invalid
+    Parse and validate initialization time with support for multiple formats.
+    Returns validated initialization time in ISO format, or None if invalid.
     """
     if initialization_time is None:
         return None
 
-    # Regex for compact format (YYYYMMDDHH)
-    # Year --> XYZW
-    # Month --> 0[1-9] or 1[0-2]
-    # Day -->  0[1-9] or 1[0-2]
-    # Hour --> 00 | 06 | 12 | 18
-    compact_pattern = r'^([0-9][0-9][0-9][0-9])(0[1-9]|1[0-2])(0[1-9]|1[1-9]|2[1-9]|3[01])(00|06|12|18)$'
-
-    compact_match = re.match(compact_pattern, initialization_time)
-
-    if not compact_match:
-        print(f"Invalid date format: {initialization_time}\n")
-        print("Please use:")
-        print("  - Compact format: 'YYYYMMDDHH' (e.g., 2024073112)")
-        print("  - Hour must be one of: 00, 06, 12, 18")
-        exit(2)
-
     try:
-        year, month, day, hour = compact_match.groups()
-        parsed_date = datetime(int(year), int(month), int(day), int(hour))
-        initialization_time = parsed_date.strftime('%Y-%m-%dT%H:00:00')
+        # Try parsing compact format first (YYYYMMDDHH)
+        if re.match(r'^\d{10}$', initialization_time):
+            try:
+                parsed_date = datetime.strptime(initialization_time, "%Y%m%d%H")
+            except (ValueError, OverflowError):
+                print(f"Invalid date values in: {initialization_time}")
+                print("Make sure your date values are valid")
+                exit(2)
 
-        # Check if someone is coming from the future
-        current_time = datetime.now()
-        if parsed_date > current_time:
+            if parsed_date.hour not in [0, 6, 12, 18]:
+                print("Hour must be 00, 06, 12, or 18")
+                exit(2)
+        else:
+            try:
+                parsed_date = dateutil.parser.parse(initialization_time)
+            except (ValueError, OverflowError, TypeError):
+                print(f"Invalid date format: {initialization_time}\n")
+                print("Please use one of these formats:")
+                print("  - Compact: 'YYYYMMDDHH' (e.g., 2024073112)")
+                print("  - ISO: 'YYYY-MM-DDTHH' or 'YYYY-MM-DDTHH:00:00'")
+                print("  - Hour must be one of: 00, 06, 12, 18")
+                exit(2)
+
+        if parsed_date > datetime.now():
             print(f"How would it be to live in {parsed_date} ?\n")
             print("Looks like you are coming from the future!\n")
             exit(1111)
-        return initialization_time
 
-    except ValueError:
-        print(f"Invalid date values in: {initialization_time}")
-        print("Make sure your date values are valid")
+        return parsed_date.strftime('%Y-%m-%dT%H:00:00')
+
+    except Exception:
+        print(f"Invalid date format: {initialization_time}")
+        print("Please check your input format and try again")
         exit(2)
 
 # Save API response data to a file in either JSON or CSV format

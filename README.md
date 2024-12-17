@@ -161,7 +161,7 @@ path = get_predicted_path('mission123', save_to_file='output.json')
 windborne points "40.7,-74.0" -i 2024121600 output.csv
 windborne points "40.7,-74.0;34.0,-118.2" -i 2024121600 output.csv
 windborne points "40.7,-74.0" -mh 0 -xh 24 -i 2024121600 output.csv
-windborne points "40.7,-74.0" -mt 2024121606 -xt 2024121609 -i 2024121600 output.csv
+windborne points "40.7,-74.0" -mt 2024121606 -xt 2024121612 -i 2024121600 output.csv
 ```
 
 **Code:**

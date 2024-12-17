@@ -91,8 +91,8 @@ def main():
     # setting all args into a parser arg (add_argument('args', nargs='*', ...)
     points_parser = subparsers.add_parser('points', help='Get the forecast at a given point or set of points')
     points_parser.add_argument('coordinates', help='Coordinate pairs in format "latitudeA,longitudeA; latitudeB,longitudeB"')
-    points_parser.add_argument('-mt','--min-time', type=int, help='Minimum forecast time')
-    points_parser.add_argument('-xt','--max-time', type=int, help='Maximum forecast time')
+    points_parser.add_argument('-mt','--min-time', help='Minimum forecast time')
+    points_parser.add_argument('-xt','--max-time', help='Maximum forecast time')
     points_parser.add_argument('-mh','--min-hour', type=int, help='Minimum forecast hour')
     points_parser.add_argument('-xh','--max-hour', type=int, help='Maximum forecast hour')
     points_parser.add_argument('-i', '--init-time', help='Initialization time')
@@ -235,10 +235,10 @@ def main():
     # FORECASTS API FUNCTIONS CALLED
     ####################################################################################################################
     elif args.command == 'points':
-        min_forecast_time = args.min_forecast_time if args.min_forecast_time else None
-        max_forecast_time = args.max_forecast_time if args.max_forecast_time else None
-        min_forecast_hour = args.min_forecast if args.min_forecast else None
-        max_forecast_hour = args.max_forecast if args.max_forecast else None
+        min_forecast_time = args.min_time if args.min_time else None
+        max_forecast_time = args.max_time if args.max_time else None
+        min_forecast_hour = args.min_hour if args.min_hour else None
+        max_forecast_hour = args.max_hour if args.max_hour else None
         initialization_time = args.init_time if args.init_time else None
 
         get_point_forecasts(
