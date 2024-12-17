@@ -94,7 +94,7 @@ def main():
     points_parser.add_argument('-mt','--min-time', type=int, help='Minimum forecast time')
     points_parser.add_argument('-xt','--max-time', type=int, help='Maximum forecast time')
     points_parser.add_argument('-mh','--min-hour', type=int, help='Minimum forecast hour')
-    points_parser.add_argument('-xt','--max-hour', type=int, help='Maximum forecast hour')
+    points_parser.add_argument('-xh','--max-hour', type=int, help='Maximum forecast hour')
     points_parser.add_argument('-i', '--init-time', help='Initialization time')
     points_parser.add_argument('output_file', help='Output file')
 
