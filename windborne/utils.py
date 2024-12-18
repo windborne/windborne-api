@@ -124,36 +124,36 @@ def to_unix_timestamp(date_string):
 
 # Supported date format
 # Compact format YYYYMMDDHH
-def parse_initialization_time(initialization_time):
+def parse_time(time, init_time_flag=None):
     """
     Parse and validate initialization time with support for multiple formats.
     Returns validated initialization time in ISO format, or None if invalid.
     """
-    if initialization_time is None:
+    if time is None:
         return None
 
     try:
         # Try parsing compact format first (YYYYMMDDHH)
-        if re.match(r'^\d{10}$', initialization_time):
+        if re.match(r'^\d{10}$', time):
             try:
-                parsed_date = datetime.strptime(initialization_time, "%Y%m%d%H")
+                parsed_date = datetime.strptime(time, "%Y%m%d%H")
             except (ValueError, OverflowError):
-                print(f"Invalid date values in: {initialization_time}")
+                print(f"Invalid date values in: {time}")
                 print("Make sure your date values are valid")
                 exit(2)
 
-            if parsed_date.hour not in [0, 6, 12, 18]:
-                print("Hour must be 00, 06, 12, or 18")
+            if init_time_flag and parsed_date.hour not in [0, 6, 12, 18]:
+                print("Initialization time hour must be 00, 06, 12, or 18")
                 exit(2)
         else:
             try:
-                parsed_date = dateutil.parser.parse(initialization_time)
+                parsed_date = dateutil.parser.parse(time)
             except (ValueError, OverflowError, TypeError):
-                print(f"Invalid date format: {initialization_time}\n")
+                print(f"Invalid date format: {time}\n")
                 print("Please use one of these formats:")
                 print("  - Compact: 'YYYYMMDDHH' (e.g., 2024073112)")
                 print("  - ISO: 'YYYY-MM-DDTHH' or 'YYYY-MM-DDTHH:00:00'")
-                print("  - Hour must be one of: 00, 06, 12, 18")
+                print("  - Initialization time hour must be 00, 06, 12, or 18")
                 exit(2)
 
         if parsed_date > datetime.now():
@@ -164,7 +164,7 @@ def parse_initialization_time(initialization_time):
         return parsed_date.strftime('%Y-%m-%dT%H:00:00')
 
     except Exception:
-        print(f"Invalid date format: {initialization_time}")
+        print(f"Invalid date format: {time}")
         print("Please check your input format and try again")
         exit(2)
 

@@ -6,9 +6,10 @@ import os
 from math import floor
 from datetime import datetime, timezone, timedelta
 import csv
+import json
 
 
-def get_observations(since, min_time=None, max_time=None, include_ids=None, include_mission_name=None, include_updated_at=None, mission_id=None, min_latitude=None, max_latitude=None, min_longitude=None, max_longitude=None, save_to_file=None):
+def get_observations(since=None, min_time=None, max_time=None, include_ids=None, include_mission_name=None, include_updated_at=None, mission_id=None, min_latitude=None, max_latitude=None, min_longitude=None, max_longitude=None, save_to_file=None):
     """
     Retrieves observations based on specified filters including geographical bounds.
 
@@ -36,8 +37,9 @@ def get_observations(since, min_time=None, max_time=None, include_ids=None, incl
     url = f"{DATA_API_BASE_URL}/observations.json"
     
     # Convert date strings to Unix timestamps
-    params = {"since": to_unix_timestamp(since)}
-
+    params = {}
+    if since:
+        params["since"] = to_unix_timestamp(since)
     if min_time:
         params["min_time"] = to_unix_timestamp(min_time)
     if max_time:
@@ -69,13 +71,12 @@ def get_observations(since, min_time=None, max_time=None, include_ids=None, incl
     
     return response
 
-def get_super_observations(since, min_time=None, max_time=None, include_ids=None, include_mission_name=None, include_updated_at=None, mission_id=None, save_to_file=None):
+def get_super_observations(since=None, min_time=None, max_time=None, include_ids=None, include_mission_name=None, include_updated_at=None, mission_id=None, save_to_file=None):
     """
     Retrieves super observations based on specified filters.
 
     Args:
         since (str): Filter observations after this timestamp.
-
         min_time (str): Minimum timestamp for observations.
         max_time (str): Maximum timestamp for observations.
         include_ids (bool): Include observation IDs in response.
@@ -91,14 +92,13 @@ def get_super_observations(since, min_time=None, max_time=None, include_ids=None
 
     url = f"{DATA_API_BASE_URL}/super_observations.json"
     
-    params = {
-        "since": to_unix_timestamp(since)
-    }
-
+    params = {}
+    if since:
+        params["since"] = to_unix_timestamp(since)
     if min_time:
         params["min_time"] = to_unix_timestamp(min_time)
     if max_time:
-        params["max_time"] = to_unix_timestamp(min_time)
+        params["max_time"] = to_unix_timestamp(max_time)
     if mission_id:
         params["mission_id"] = mission_id
     if include_ids:
@@ -116,29 +116,27 @@ def get_super_observations(since, min_time=None, max_time=None, include_ids=None
     
     return response
 
-def poll_observations(since, min_time=None, max_time=None, interval=60, save_to_file=None, bucket_hours=6.0, output_format=None):
+def poll_observations(start_time=None, end_time=None, interval=60, save_to_file=None, bucket_hours=6.0, output_format=None):
     """
     Fetches observations between a start time and an optional end time and saves to files in specified format.
     Files are broken up into time buckets, with filenames containing the time at the mid-point of the bucket.
     For example, for 6-hour buckets centered on 00 UTC, the start time should be 21 UTC of the previous day.
 
     Args:
-        since (str): The start time in the format 'YYYY-MM-DD_HH:MM'.
-        min_time (str): Optional min time in the format 'YYYY-MM-DD_HH:MM'.
-        max_time (str): Optional max time in the format 'YYYY-MM-DD_HH:MM'.
+        start_time (str): Optional start time in the format 'YYYY-MM-DD_HH:MM'.
+        end_time (str): Optional end time in the format 'YYYY-MM-DD_HH:MM'.
         interval (int): Interval in seconds between polls if pagination is required (default: 60).
         save_to_file (str): If provided, saves all data to a single file instead of bucketing.
         bucket_hours (int): Size of time buckets in hours. Defaults to 6 hours.
         output_format (str): Format to save data in ('csv' or 'little_r').
     """
 
-    start_time = to_unix_timestamp(since)
-    if min_time:
-        min_time = to_unix_timestamp(min_time)
-    if max_time:
-        end_dt = to_unix_timestamp(max_time)
+    start_time = to_unix_timestamp(start_time)
+
+    if end_time:
+        end_time = to_unix_timestamp(end_time)
     else:
-        end_dt = int(datetime.now().timestamp())
+        end_time = int(datetime.now().timestamp())
 
     # Supported formats for saving into a single file:
     #   - .csv (default)
@@ -178,18 +176,17 @@ def poll_observations(since, min_time=None, max_time=None, interval=60, save_to_
         buckets = {}
 
     # Initialize the polling loop
-    current_timestamp = int(start_dt.timestamp())
+    current_timestamp = start_time
     has_next_page = True
 
-    csv_data_key = 'observations'
 
     while has_next_page:
         try:
             # Fetch observations
             observations_page = get_super_observations(
                 since=current_timestamp,
-                min_time=min_time,
-                max_time=end_dt,
+                min_time=start_time,
+                max_time=end_time,
                 include_mission_name=True
             )
 
@@ -200,64 +197,68 @@ def poll_observations(since, min_time=None, max_time=None, interval=60, save_to_
                 time.sleep(interval)
                 continue
 
-            observations = observations_page.get(csv_data_key, [])
-            print(f"Fetched {len(observations)} {'observation' if len(observations) == 1 else 'observations'}")
+            observations = observations_page.get('observations', [])
+            print(f"Fetched {len(observations)} observation(s)")
+
+            for obs in observations:
+                if 'mission_name' not in obs:
+                    print("Warning: got an observation without a mission name")
+                    continue
+
+                timestamp = obs.get('timestamp')
+                if not timestamp:
+                    continue
+
+                try:
+                    obs_time = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+                except (OSError, ValueError, TypeError, OverflowError):
+                    continue
+
+                mission_name = obs.get('mission_name', 'Unknown')
+                obs['time'] = obs_time.replace(tzinfo=timezone.utc).isoformat()
+
+                processed_obs = {}
+                for header in headers:
+                    value = obs.get(header)
+                    if value is None or value == '' or (isinstance(value, str) and not value.strip()):
+                        processed_obs[header] = 'None'
+                    else:
+                        processed_obs[header] = value
+
+                obs_id = f"{timestamp}_{mission_name}"
+
+                if save_to_file:
+                    all_observations[obs_id] = processed_obs
+                else:
+                    if obs_time >= start_dt:  # Only process observations after start time
+                        hours_diff = (obs_time - first_center).total_seconds() / 3600
+                        bucket_index = floor(hours_diff / bucket_hours)
+                        bucket_center = first_center + timedelta(hours=bucket_index * bucket_hours)
+                        bucket_end = bucket_center + timedelta(hours=bucket_hours)
+
+                        if obs_time <= bucket_end:  # Include observations up to the end of the bucket
+                            bucket_key = (bucket_center, mission_name)
+                            if bucket_key not in buckets:
+                                buckets[bucket_key] = {}
+                            buckets[bucket_key][obs_id] = processed_obs
+
+            # Update pagination
+            next_timestamp = observations_page.get('next_since')
+            has_next_page = observations_page.get('has_next_page', False)
+
+            if not has_next_page or not next_timestamp or next_timestamp <= current_timestamp:
+                print("-----------------------------------------------------\n")
+                print("No more pages available or reached end of time range.")
+                print("\n-----------------------------------------------------")
+                break
+
+            current_timestamp = next_timestamp
 
         except Exception as e:
             print(f"Error occurred: {e}")
-            print("Retrying in 60 seconds...")
+            print(f"Retrying in {interval} seconds...")
             time.sleep(interval)
             continue
-
-        for obs in observations:
-            timestamp = obs.get('timestamp')
-            if not timestamp:
-                continue
-
-            try:
-                obs_time = datetime.fromtimestamp(timestamp, tz=timezone.utc)
-            except (OSError, ValueError, TypeError, OverflowError):
-                continue
-
-            mission_name = obs.get('mission_name', 'Unknown')
-            obs['time'] = obs_time.replace(tzinfo=timezone.utc).isoformat()
-
-            processed_obs = {}
-            for header in headers:
-                value = obs.get(header)
-                if value is None or value == '' or (isinstance(value, str) and not value.strip()):
-                    processed_obs[header] = 'None'
-                else:
-                    processed_obs[header] = value
-
-            obs_id = f"{timestamp}_{mission_name}"
-
-            if save_to_file:
-                all_observations[obs_id] = processed_obs
-            else:
-                if obs_time >= start_dt:  # Only process observations after start time
-                    hours_diff = (obs_time - first_center).total_seconds() / 3600
-                    bucket_index = floor(hours_diff / bucket_hours)  # Changed from round to floor
-                    bucket_center = first_center + timedelta(hours=bucket_index * bucket_hours)
-                    bucket_end = bucket_center + timedelta(hours=bucket_hours)  # Full window after center
-
-                    if obs_time <= bucket_end:  # Include observations up to the end of the bucket
-                        bucket_key = (bucket_center, mission_name)
-                        if bucket_key not in buckets:
-                            buckets[bucket_key] = {}
-                        buckets[bucket_key][obs_id] = processed_obs
-
-        # Update pagination
-        next_timestamp = observations_page.get('next_since')
-        has_next_page = observations_page.get('has_next_page', False)
-
-        if not has_next_page or not next_timestamp or next_timestamp <= current_timestamp:
-            print("-----------------------------------------------------\n")
-            print("No more pages available or reached end of time range.")
-            print("\n-----------------------------------------------------")
-            break
-
-        current_timestamp = next_timestamp
 
     # Save data
     if save_to_file:
@@ -268,7 +269,8 @@ def poll_observations(since, min_time=None, max_time=None, interval=60, save_to_
                                           key=lambda x: float(x[1]['timestamp'])))
 
         if save_to_file.endswith('.json'):
-            save_csv_json(save_to_file, sorted_observations)
+            with open(save_to_file, 'w', encoding='utf-8') as f:
+                json.dump(sorted_observations, f, indent=4)
         else:
             with open(save_to_file, mode='w', newline='') as file:
                 writer = csv.DictWriter(file, fieldnames=headers)
@@ -293,11 +295,13 @@ def poll_observations(since, min_time=None, max_time=None, interval=60, save_to_
 
                     os.makedirs(os.path.dirname(output_file) or '.', exist_ok=True)
 
+                    # Sort observations by timestamp within each bucket
+                    sorted_obs = sorted(observations.values(), key=lambda x: int(x['timestamp']))
+
                     with open(output_file, mode='w', newline='') as file:
                         writer = csv.DictWriter(file, fieldnames=headers)
                         writer.writeheader()
-                        writer.writerows(observations.values())
-                    total_observations_written += len(observations)
+                        writer.writerows(sorted_obs)
                 else:  # little_r format
                     output_file = (f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d:00_%dh.little_r" %
                                    (bucket_center.year, bucket_center.month, bucket_center.day,
@@ -305,82 +309,242 @@ def poll_observations(since, min_time=None, max_time=None, interval=60, save_to_
 
                     os.makedirs(os.path.dirname(output_file) or '.', exist_ok=True)
 
-                    with open(output_file, 'w') as file:
-                        for obs_id, point in observations.items():
-                            # Safe conversion functions for numeric values
-                            def safe_float(value, default=-888888.0):
-                                try:
-                                    if value in (None, '', 'None'):
-                                        return default
-                                    return float(value)
-                                except (ValueError, TypeError):
-                                    return default
+                    sorted_obs = sorted(observations.items(), key=lambda x: int(x[1]['timestamp']))
 
-                            # Process numeric values
-                            latitude = safe_float(point.get('latitude'))
-                            longitude = safe_float(point.get('longitude'))
+                    def format_value(value, fortran_format, align=None):
+                        if fortran_format[0] == 'F':
+                            length, decimal_places = fortran_format[1:].split('.')
+                            if value is None or value == '':
+                                return ' ' * int(length)
+
+                            # turn into a string of length characters, with decimal_places decimal places
+                            return f"{value:>{length}.{decimal_places}f}"[:int(length)]
+
+                        if fortran_format[0] == 'I':
+                            length = int(fortran_format[1:])
+                            if value is None or value == '':
+                                return ' ' * length
+
+                            return f"{value:>{length}d}"[:int(length)]
+
+                        if fortran_format[0] == 'A':
+                            length = int(fortran_format[1:])
+                            if value is None:
+                                return ' ' * length
+
+                            if align == 'right':
+                                return str(value)[:length].rjust(length, ' ')
+
+                            return str(value)[:length].ljust(length, ' ')
+
+                        if fortran_format[0] == 'L':
+                            if value and value in ['T', 't', 'True', 'true', '1', True]:
+                                value = 'T'
+                            else:
+                                value = 'F'
+
+                            length = int(fortran_format[1:])
+
+                            return value.rjust(length, ' ')
+
+                        raise ValueError(f"Unknown format: {fortran_format}")
+
+                    def safe_float(value, default=-888888.0):
+                        """
+                        Convert a value to float. If the value is None, empty, or invalid, return the default.
+                        """
+                        try:
+                            return float(value) if value not in (None, '', 'None') else default
+                        except (ValueError, TypeError):
+                            return default
+
+                    with open(output_file, 'w') as file:
+                        for obs_id, point in sorted_obs:
+                            # Observation time
+                            observation_time = datetime.fromtimestamp(point['timestamp'], tz=timezone.utc)
+
+                            # Convert and validate fields
+                            pressure_hpa = safe_float(point.get('pressure'))
+                            pressure_pa = pressure_hpa * 100.0
+
+                            temperature_c = safe_float(point.get('temperature'))
+                            temperature_k = temperature_c + 273.15
+
                             altitude = safe_float(point.get('altitude'))
-                            pressure = safe_float(point.get('pressure'))
-                            if pressure != -888888.0:
-                                pressure *= 100.0  # Convert hPa to Pa
-                            temperature = safe_float(point.get('temperature'))
-                            if temperature != -888888.0:
-                                temperature += 273.15  # Convert C to K
                             humidity = safe_float(point.get('humidity'))
                             speed_u = safe_float(point.get('speed_u'))
                             speed_v = safe_float(point.get('speed_v'))
 
-                            # Format header
-                            header_parts = [
-                                f"{latitude:20.5f}",
-                                f"{longitude:20.5f}",
-                                f"{str(point.get('timestamp')):<40}"
-                                f"{point.get('mission_name', ''):<40}",
-                                f"{'FM-35 TEMP':<40}",
-                                f"{'WindBorne':<40}",
-                                f"{'':<20}",  # elevation
-                                f"{-888888:>10d}",
-                                f"{0:>10d}",
-                                f"{0:>10d}",
-                                f"{0:>10d}",
-                                f"{0:>10d}",
-                                f"{'T':>10}",
-                                f"{'F':>10}",
-                                f"{'F':>10}",
-                                f"{-888888:>10d}",
-                                f"{-888888:>10d}",
-                                f"{point['time'].replace('-', '').replace(' ', '').replace(':', ''):>20}"
-                            ]
+                            # Header formatting
+                            header = ''.join([
+                                # Latitude: F20.5
+                                format_value(point.get('latitude'), 'F20.5'),
 
-                            # Add fixed values for header
-                            for _ in range(13):
-                                header_parts.extend([f"{-888888.0:13.5f}", f"{0:>7d}"])
+                                # Longitude: F20.5
+                                format_value(point.get('longitude'), 'F20.5'),
 
-                            header = ''.join(header_parts)
+                                # ID: A40
+                                format_value(point.get('id'), 'A40'),
 
-                            # Format data record
-                            data_parts = [
-                                f"{pressure:13.5f}", f"{0:>7d}",
-                                f"{altitude:13.5f}", f"{0:>7d}",
-                                f"{temperature:13.5f}", f"{0:>7d}",
-                                f"{-888888.0:13.5f}", f"{0:>7d}",
-                                f"{-888888.0:13.5f}", f"{0:>7d}",
-                                f"{-888888.0:13.5f}", f"{0:>7d}",
-                                f"{speed_u:13.5f}", f"{0:>7d}",
-                                f"{speed_v:13.5f}", f"{0:>7d}",
-                                f"{humidity:13.5f}", f"{0:>7d}",
-                                f"{-888888.0:13.5f}", f"{0:>7d}"
-                            ]
+                                # Name: A40
+                                format_value(point.get('mission_name'), 'A40'),
 
-                            data_record = ''.join(data_parts)
+                                # Platform (FM‑Code): A40
+                                format_value('FM-35 TEMP', 'A40'),
 
-                            # End record and tail record are fixed
+                                # Source: A40
+                                format_value('WindBorne', 'A40'),
+
+                                # Elevation: F20.5
+                                format_value('', 'F20.5'),
+
+                                # Valid fields: I10
+                                format_value(-888888, 'I10'),
+
+                                # Num. errors: I10
+                                format_value(0, 'I10'),
+
+                                # Num. warnings: I10
+                                format_value(0, 'I10'),
+
+                                # Sequence number: I10
+                                format_value(0, 'I10'),
+
+                                # Num. duplicates: I10
+                                format_value(0, 'I10'),
+
+                                # Is sounding?: L
+                                format_value('T', 'L10'),
+
+                                # Is bogus?: L
+                                format_value('F', 'L10'),
+
+                                # Discard?: L
+                                format_value('F', 'L10'),
+
+                                # Unix time: I10
+                                # format_value(point['timestamp'], 'I10'),
+                                format_value(-888888, 'I10'),
+
+                                # Julian day: I10
+                                format_value(-888888, 'I10'),
+
+                                # Date: A20 YYYYMMDDhhmmss
+                                format_value(observation_time.strftime('%Y%m%d%H%M%S'), 'A20', align='right'),
+
+                                # SLP, QC: F13.5, I7
+                                format_value(-888888.0, 'F13.5') + format_value(0, 'I7'),
+
+                                # Ref Pressure, QC: F13.5, I7
+                                format_value(-888888.0, 'F13.5') + format_value(0, 'I7'),
+
+                                # Ground Temp, QC: F13.5, I7
+                                format_value(-888888.0, 'F13.5') + format_value(0, 'I7'),
+
+                                # SST, QC: F13.5, I7
+                                format_value(-888888.0, 'F13.5') + format_value(0, 'I7'),
+
+                                # SFC Pressure, QC: F13.5, I7
+                                format_value(-888888.0, 'F13.5') + format_value(0, 'I7'),
+
+                                # Precip, QC: F13.5, I7
+                                format_value(-888888.0, 'F13.5') + format_value(0, 'I7'),
+
+                                # Daily Max T, QC: F13.5, I7
+                                format_value(-888888.0, 'F13.5') + format_value(0, 'I7'),
+
+                                # Daily Min T, QC: F13.5, I7
+                                format_value(-888888.0, 'F13.5') + format_value(0, 'I7'),
+
+                                # Night Min T, QC: F13.5, I7
+                                format_value(-888888.0, 'F13.5') + format_value(0, 'I7'),
+
+                                # 3hr Pres Change, QC: F13.5, I7
+                                format_value(-888888.0, 'F13.5') + format_value(0, 'I7'),
+
+                                # 24hr Pres Change, QC: F13.5, I7
+                                format_value(-888888.0, 'F13.5') + format_value(0, 'I7'),
+
+                                # Cloud cover, QC: F13.5, I7
+                                format_value(-888888.0, 'F13.5') + format_value(0, 'I7'),
+
+                                # Ceiling, QC: F13.5, I7
+                                format_value(-888888.0, 'F13.5') + format_value(0, 'I7'),
+
+                                # Precipitable water, QC (see note): F13.5, I7
+                                format_value(-888888.0, 'F13.5') + format_value(0, 'I7'),
+                                ])
+
+                            # Data record formatting
+                            data_record = ''.join([
+                                # Pressure (Pa): F13.5
+                                format_value(pressure_pa, 'F13.5'),
+
+                                # QC: I7
+                                format_value(0, 'I7'),
+
+                                # Height (m): F13.5
+                                format_value(altitude, 'F13.5'),
+
+                                # QC: I7
+                                format_value(0, 'I7'),
+
+                                # Temperature (K): F13.5
+                                format_value(temperature_k, 'F13.5'),
+
+                                # QC: I7
+                                format_value(0, 'I7'),
+
+                                # Dew point (K): F13.5
+                                format_value(-888888.0, 'F13.5'),
+
+                                # QC: I7
+                                format_value(0, 'I7'),
+
+                                # Wind speed (m/s): F13.5
+                                format_value(-888888.0, 'F13.5'),
+
+                                # QC: I7
+                                format_value(0, 'I7'),
+
+                                # Wind direction (deg): F13.5
+                                format_value(-888888.0, 'F13.5'),
+
+                                # QC: I7
+                                format_value(0, 'I7'),
+
+                                # Wind U (m/s): F13.5
+                                format_value(speed_u, 'F13.5'),
+
+                                # QC: I7
+                                format_value(0, 'I7'),
+
+                                # Wind V (m/s): F13.5
+                                format_value(speed_v, 'F13.5'),
+
+                                # QC: I7
+                                format_value(0, 'I7'),
+
+                                # Relative humidity (%): F13.5
+                                format_value(humidity, 'F13.5'),
+
+                                # QC: I7
+                                format_value(0, 'I7'),
+
+                                # Thickness (m): F13.5
+                                format_value(-888888.0, 'F13.5'),
+
+                                # QC: I7
+                                format_value(0, 'I7')
+                            ])
+
+                            # End record and tail record
                             end_record = '-777777.00000      0-777777.00000      0-888888.00000      0-888888.00000      0-888888.00000      0-888888.00000      0-888888.00000      0-888888.00000      0-888888.00000      0-888888.00000      0'
                             tail_record = '     39      0      0'
 
                             # Write the complete record
                             file.write('\n'.join([header, data_record, end_record, tail_record, '']))
-                    total_observations_written += len(observations)
+                total_observations_written += len(observations)
                 # Update statistics
                 if mission_name not in mission_stats:
                     mission_stats[mission_name] = {'files': 0, 'observations': 0}

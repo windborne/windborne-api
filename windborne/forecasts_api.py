@@ -5,7 +5,7 @@ from .config import (FORECASTS_API_BASE_URL,
                      TCS_SUPPORTED_FORMATS)
 
 from .utils import (make_api_request,
-                    parse_initialization_time,
+                    parse_time,
                     download_and_save_nc,
                     save_csv_json,
                     save_as_geojson,
@@ -21,15 +21,15 @@ def get_point_forecasts(coordinates, min_forecast_time=None, max_forecast_time=N
         print("To get points forecasts you must provide coordinates.")
         return
     if min_forecast_time:
-        params["min_forecast_time"] = parse_initialization_time(min_forecast_time)
+        params["min_forecast_time"] = parse_time(min_forecast_time)
     if max_forecast_time:
-        params["max_forecast_time"] = parse_initialization_time(max_forecast_time)
+        params["max_forecast_time"] = parse_time(max_forecast_time)
     if min_forecast_hour:
         params["min_forecast_hour"] = int(min_forecast_hour)
     if max_forecast_hour:
         params["max_forecast_hour"] = int(max_forecast_hour)
     if initialization_time:
-        initialization_time = parse_initialization_time(initialization_time)
+        initialization_time = parse_time(initialization_time,init_time_flag=True)
         params["initialization_time"] = initialization_time
 
     print("We are initiating handshake procedure with our S3 server.\n")
@@ -63,7 +63,7 @@ def get_temperature_2m(time, save_to_file=None):
         print("To get the gridded output of global 2m temperature forecast you need to provide the time for which to get the forecast.")
         return
     else:
-        time_parsed = parse_initialization_time(time)
+        time_parsed = parse_time(time)
         params["time"] = time_parsed
 
     print("We are initiating handshake procedure with our S3 server.\n")
@@ -83,7 +83,7 @@ def get_dewpoint_2m(time, save_to_file=None):
         print("To get the gridded output of global 2m dewpoint forecast you need to provide the time for which to get the forecast.")
         return
     else:
-        time_parsed = parse_initialization_time(time)
+        time_parsed = parse_time(time)
         params["time"] = time_parsed
 
     print("We are initiating handshake procedure with our S3 server.\n")
@@ -101,7 +101,7 @@ def get_wind_u_10m(time, save_to_file=None):
         print("To get the gridded output of global 10m u-component of wind forecasts you need to provide the time for which to get the forecast.")
         return
     else:
-        time_parsed = parse_initialization_time(time)
+        time_parsed = parse_time(time)
         params["time"] = time_parsed
 
     print("We are initiating handshake procedure with our S3 server.\n")
@@ -119,7 +119,7 @@ def get_wind_v_10m(time, save_to_file=None):
         print("To get the gridded output of global 10m v-component of wind forecasts you need to provide the time for which to get the forecast.")
         return
     else:
-        time_parsed = parse_initialization_time(time)
+        time_parsed = parse_time(time)
         params["time"] = time_parsed
 
     print("We are initiating handshake procedure with our S3 server.\n")
@@ -137,7 +137,7 @@ def get_500hpa_wind_u(time, save_to_file=None):
         print("To get the gridded output of global 500hPa wind u-component of wind forecasts you need to provide the time for which to get the forecast.")
         return
     else:
-        time_parsed = parse_initialization_time(time)
+        time_parsed = parse_time(time)
         params["time"] = time_parsed
 
     print("We are initiating handshake procedure with our S3 server.\n")
@@ -155,7 +155,7 @@ def get_500hpa_wind_v(time, save_to_file=None):
         print("To get the gridded output of global 500hPa wind v-component of wind forecasts you need to provide the time for which to get the forecast.")
         return
     else:
-        time_parsed = parse_initialization_time(time)
+        time_parsed = parse_time(time)
         params["time"] = time_parsed
 
     print("We are initiating handshake procedure with our S3 server.\n")
@@ -173,7 +173,7 @@ def get_500hpa_temperature(time, save_to_file=None):
         print("To get the gridded output of global 500hPa temperature forecasts you need to provide the time for which to get the forecast.")
         return
     else:
-        time_parsed = parse_initialization_time(time)
+        time_parsed = parse_time(time)
         params["time"] = time_parsed
 
     print("We are initiating handshake procedure with our S3 server.\n")
@@ -191,7 +191,7 @@ def get_850hpa_temperature(time, save_to_file=None):
         print("To get the gridded output of global 850hPa temperature forecasts you need to provide the time for which to get the forecast.")
         return
     else:
-        time_parsed = parse_initialization_time(time)
+        time_parsed = parse_time(time)
         params["time"] = time_parsed
 
     print("We are initiating handshake procedure with our S3 server.\n")
@@ -209,7 +209,7 @@ def get_pressure_msl(time, save_to_file=None):
         print("To get the gridded output of global mean sea level pressure forecasts you need to provide the time for which to get the forecast.")
         return
     else:
-        time_parsed = parse_initialization_time(time)
+        time_parsed = parse_time(time)
         params["time"] = time_parsed
 
     print("We are initiating handshake procedure with our S3 server.\n")
@@ -227,7 +227,7 @@ def get_500hpa_geopotential(time, save_to_file=None):
         print("To get the gridded output of global 500hPa geopotential forecasts you need to provide the time for which to get the forecast.")
         return
     else:
-        time_parsed = parse_initialization_time(time)
+        time_parsed = parse_time(time)
         params["time"] = time_parsed
 
     print("We are initiating handshake procedure with our S3 server.\n")
@@ -245,7 +245,7 @@ def get_850hpa_geopotential(time, save_to_file=None):
         print("To get the gridded output of global 850hPa geopotential forecasts you need to provide the time for which to get the forecast.")
         return
     else:
-        time_parsed = parse_initialization_time(time)
+        time_parsed = parse_time(time)
         params["time"] = time_parsed
 
     print("We are initiating handshake procedure with our S3 server.\n")
@@ -268,7 +268,7 @@ def get_historical_temperature_2m(initialization_time, forecast_hour, save_to_fi
               "- how many hours after the run time the forecast is valid at.\n")
         return
     else:
-        time_parsed = parse_initialization_time(initialization_time)
+        time_parsed = parse_time(initialization_time, init_time_flag=True)
         params["initialization_time"] = time_parsed
         params["forecast_hour"] = forecast_hour
 
@@ -290,7 +290,7 @@ def get_historical_500hpa_geopotential(initialization_time, forecast_hour, save_
               "- how many hours after the run time the forecast is valid at.\n")
         return
     else:
-        time_parsed = parse_initialization_time(initialization_time)
+        time_parsed = parse_time(initialization_time,init_time_flag=True)
         params["initialization_time"] = time_parsed
         params["forecast_hour"] = forecast_hour
 
@@ -312,7 +312,7 @@ def get_historical_500hpa_wind_u(initialization_time, forecast_hour, save_to_fil
               "- how many hours after the run time the forecast is valid at.\n")
         return
     else:
-        time_parsed = parse_initialization_time(initialization_time)
+        time_parsed = parse_time(initialization_time,init_time_flag=True)
         params["initialization_time"] = time_parsed
         params["forecast_hour"] = forecast_hour
 
@@ -334,7 +334,7 @@ def get_historical_500hpa_wind_v(initialization_time, forecast_hour, save_to_fil
               "- how many hours after the run time the forecast is valid at.\n")
         return
     else:
-        time_parsed = parse_initialization_time(initialization_time)
+        time_parsed = parse_time(initialization_time, init_time_flag=True)
         params["initialization_time"] = time_parsed
         params["forecast_hour"] = forecast_hour
 
@@ -366,10 +366,10 @@ def get_tropical_cyclones(initialization_time=None, basin=None, save_to_file=Non
     params = {}
 
     if initialization_time:
-        initialization_time_parsed = parse_initialization_time(initialization_time)
+        initialization_time_parsed = parse_time(initialization_time, init_time_flag=True)
         params["initialization_time"] = initialization_time_parsed
     else:
-        # Make this for our displaying message when no active tcs found
+        # Madee this for our displaying message when no active tcs found
         initialization_time = 'latest'
 
     if basin:

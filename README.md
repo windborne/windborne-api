@@ -21,11 +21,11 @@ windborne poll-observations 2024-10-12_00:00 json
 windborne poll-observations 2024-10-12_00:00 little_r
 
 # Save to single file
-windborne poll-observations 2024-10-12_00:00 output.csv
-windborne poll-observations 2024-10-12_00:00 output.json
+windborne poll-observations 2024-10-12_06:00 2024-10-12_08:00 output.csv
+windborne poll-observations 2024-10-12_12:00 2024-10-12_14:00 output.json
 
 # Optional args
-windborne poll-observations -i 120 -b 12 -xt 2024-11-11_01:00 2024-12-14_00:00 output.csv
+windborne poll-observations -i 120 -b 12 2024-10-12_12:00 2024-10-12_14:00 output.json
 ```
 
 **Code:**
@@ -55,8 +55,6 @@ poll_observations(
 ```
 
 **Optional Arguments:**
-- `-mt/--min`: Minimum time filter
-- `-xt/--max`: Maximum time filter
 - `-i/--interval`: Polling interval seconds (default: 60)
 - `-b/--bucket-hours`: Hours per bucket (default: 6.0)
 
@@ -126,7 +124,11 @@ super_obs = get_super_observations(
 ### flying-missions
 **CLI:**
 ```bash
-windborne flying-missions output.json
+# To display currently flying missions in your console
+windborne flying-missions
+
+# To save fllying missions in file
+windborne flying-missions output.json # or .csv
 ```
 
 **Code:**
@@ -138,6 +140,7 @@ missions = get_flying_missions(save_to_file='output.json')
 ### launch-site
 **CLI:**
 ```bash
+# Set missionID e.g. mission123
 windborne launch-site mission123 output.json
 ```
 
@@ -150,6 +153,7 @@ site = get_mission_launch_site(mission_id='mission123', save_to_file='output.jso
 ### predict-path
 **CLI:**
 ```bash
+# Set missionID e.g. mission123
 windborne predict-path mission123 output.json
 ```
 
@@ -160,15 +164,23 @@ path = get_predicted_path(mission_id='mission123', save_to_file='output.json')
 ```
 
 ## Forecast API Commands
-
+Supported time formats are YYYYMMDDHH, YYYY-MM-DDTHH, and YYYY-MM-DDTHH:mm:ss.
 ### Points
 **CLI:**
 ```bash
+# Single point
 windborne points "40.7,-74.0" -i 2024121600 output.csv
+
+# Set of points, seperated by semicolon
 windborne points "40.7,-74.0;34.0,-118.2" -i 2024121600 output.csv
 windborne points "40.7,-74.0" -mh 0 -xh 24 -i 2024121600 output.csv
 windborne points "40.7,-74.0" -mt 2024121606 -xt 2024121612 -i 2024121600 output.csv
 ```
+**Optional Arguments:**
+- `-mt/--min-time`: minimum forecast time to calculate point forecasts for
+- `-xt/--max-time`: maximum forecast time to calculate point forecasts for
+- `-mh/--min-hour`: minimum forecast hour to calculate point forecasts for
+- `-xh/--max-hour`: maximum forecast hour to calculate point forecasts for
 
 **Code:**
 ```python
