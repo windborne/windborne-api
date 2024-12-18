@@ -225,7 +225,9 @@ print(initialization_times)
 ```
 
 ### Gridded Forecasts Commands
-Time format: YYYY-MM-DD HH:MM:SS, YYYY-MM-DD_HH:MM and ISO strings (HH: 00,06,12,18)
+Time format: YYYY-MM-DD HH:MM:SS, YYYY-MM-DD_HH:MM and ISO strings.
+
+Output files are in [NetCDF](https://www.unidata.ucar.edu/software/netcdf/) (.nc) format.
 
 **CLI:**
 ```bash
@@ -260,7 +262,11 @@ temp_2m_data = get_temperature_2m(time="2024121600", save_to_file="filename")
 ```
 
 ### Historical Forecast Commands
+Time format: YYYY-MM-DD HH:MM:SS, YYYY-MM-DD_HH:MM and ISO strings (HH: 00,06,12,18)
+
 Initialization time hour must be 00, 06, 12, or 18.
+
+Output files are in [NetCDF](https://www.unidata.ucar.edu/software/netcdf/) (.nc) format.
 
 **CLI:**
 ```bash
