@@ -24,8 +24,8 @@ windborne poll-observations 2024-10-12_00:00 little_r
 windborne poll-observations 2024-10-12_00:00 output.csv
 windborne poll-observations 2024-10-12_00:00 output.json
 
-# With options
-windborne poll-observations -i 120 -b 12 -xt 2024-12-11_01:00 2024-12-14_00:00 output.csv
+# Optional args
+windborne poll-observations -i 120 -b 12 -xt 2024-11-11_01:00 2024-12-14_00:00 output.csv
 ```
 
 **Code:**
@@ -55,17 +55,21 @@ poll_observations(
 ```
 
 **Optional Arguments:**
+- `-mt/--min`: Minimum time filter
+- `-xt/--max`: Maximum time filter
 - `-i/--interval`: Polling interval seconds (default: 60)
 - `-b/--bucket-hours`: Hours per bucket (default: 6.0)
 
 ### observations
+For more information about the meaning of available parameters you can refer to [Observations section](https://windbornesystems.com/docs/api/data#observations) on WindBorne Systems API Reference.
+
 **CLI:**
 ```bash
 # Basic with formats
 windborne observations 2024-10-12_00:00 output.csv
 windborne observations 2024-10-12_00:00 output.json
 
-# With filters
+# With mission id filter
 windborne observations -mt 2024-10-12_06:00 -xt 2024-10-12_12:00 -m mission123 2024-10-12_00:00  output.csv
 
 # Geographic filters
@@ -93,6 +97,8 @@ observations = get_observations(
 ```
 
 ### super-observations
+For more information about the meaning of available parameters you can refer to [Super observations section](https://windbornesystems.com/docs/api/data#super_observations) on WindBorne Systems API Reference.
+
 **CLI:**
 ```bash
 # Different formats
@@ -100,7 +106,7 @@ windborne super-observations 2024-10-12_00:00 output.csv
 windborne super-observations 2024-10-12_00:00 output.json
 
 # With filters
-windborne super-observations -m mission123 -id -mn -u 2024-10-12_00:00 output.csv
+windborne super-observations -id -mn -u 2024-10-12_00:00 output.csv
 ```
 
 **Code:**
@@ -138,7 +144,7 @@ windborne launch-site mission123 output.json
 **Code:**
 ```python
 from windborne import get_mission_launch_site
-site = get_mission_launch_site('mission123', save_to_file='output.json')
+site = get_mission_launch_site(mission_id='mission123', save_to_file='output.json')
 ```
 
 ### predict-path
@@ -150,7 +156,7 @@ windborne predict-path mission123 output.json
 **Code:**
 ```python
 from windborne import get_predicted_path
-path = get_predicted_path('mission123', save_to_file='output.json')
+path = get_predicted_path(mission_id='mission123', save_to_file='output.json')
 ```
 
 ## Forecast API Commands
@@ -168,12 +174,20 @@ windborne points "40.7,-74.0" -mt 2024121606 -xt 2024121612 -i 2024121600 output
 ```python
 from windborne import get_point_forecasts
 
-forecasts = get_point_forecasts(
+# To save response data in point_forecasts var
+point_forecasts = get_point_forecasts(
+    coordinates="40.7,-74.0;34.0,-118.2",
+    min_forecast_hour=0,
+    max_forecast_hour=24,
+    initialization_time="2024121600")
+
+# To save data in file
+get_point_forecasts(
     coordinates="40.7,-74.0;34.0,-118.2",
     min_forecast_hour=0,
     max_forecast_hour=24,
     initialization_time="2024121600",
-    save_to_file="output.csv"
+    save_to_file="output.csv" # .csv or .json
 )
 ```
 
@@ -188,37 +202,42 @@ windborne init_times
 from windborne import get_initialization_times
 
 initialization_times = get_initialization_times()
+print(initialization_times)
 ```
 
-### Gridded Forecast Commands
-Time format: YYYYMMDDHH (HH: 00,06,12,18)
+### Gridded Forecasts Commands
+Time format: YYYY-MM-DD HH:MM:SS, YYYY-MM-DD_HH:MM and ISO strings (HH: 00,06,12,18)
 
 **CLI:**
 ```bash
 windborne grid_temp_2m 2024121600 filename
-windborne grid_dewpoint_2m 2024121600 filename
+
+windborne grid_dewpoint_2m 2024121600 filename ## To be added soon
+
 windborne grid_wind_u_10m 2024121600 filename
 windborne grid_wind_v_10m 2024121600 filename
+
 windborne grid_pressure_msl 2024121600 filename
+
 windborne grid_500hpa_geopotential 2024121600 filename
 windborne grid_850hpa_geopotential 2024121600 filename
+
+windborne grid_500hpa_wind_u 2024121600 filename
+windborne grid_500hpa_wind_v 2024121600 filename
+
+windborne grid_500hpa_temperature 2024121600 filename
+windborne grid_850hpa_temperature 2024121600 filename
 ```
 
 **Code:**
 ```python
-from windborne import (
-    get_temperature_2m,
-    get_dewpoint_2m,
-    get_wind_u_10m,
-    get_wind_v_10m,
-    get_pressure_msl,
-    get_500hpa_geopotential,
-    get_850hpa_geopotential
-)
+from windborne import get_temperature_2m
 
-temp_data = get_temperature_2m("2024121600", "filename")
-wind_data = get_wind_u_10m("2024121600", "filename")
-pressure_data = get_pressure_msl("2024121600", "filename")
+# To save response to temp_2m_data var
+temp_2m_data = get_temperature_2m(time="2024121600")
+
+# To save data in a file
+temp_2m_data = get_temperature_2m(time="2024121600", save_to_file="filename")
 ```
 
 ### Historical Forecast Commands
@@ -234,15 +253,13 @@ windborne hist_500hpa_wind_v 2024121600 6 output.npy
 
 **Code:**
 ```python
-from windborne import (
-    get_historical_temperature_2m,
-    get_historical_500hpa_geopotential,
-    get_historical_500hpa_wind_u,
-    get_historical_500hpa_wind_v
-)
+from windborne import get_historical_temperature_2m
 
-temp_data = get_historical_temperature_2m("2024121600", 6, "output.npy")
-wind_data = get_historical_500hpa_wind_u("2024121600", 6, "output.npy")
+# To save response to temp_2m_data var
+hist_temp_2m_data = get_historical_temperature_2m(initialization_time="2024121600")
+
+# To save data in a file
+get_historical_temperature_2m(initialization_time="2024121600", save_to_file="filename")
 ```
 
 ### cyclones
@@ -275,7 +292,7 @@ cyclones = get_tropical_cyclones(
 ```
 
 ## Resources
-For more details on the WindBorne Data and Forecasts API, refer to the official documentation:
+For more details on the WindBorne Data and Forecasts API, refer to the WindBorne's documentation:
 
 - [Data API](https://windbornesystems.com/docs/api/data)
 - [Forecasts API](https://windbornesystems.com/docs/api/forecasts)
