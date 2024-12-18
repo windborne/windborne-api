@@ -1,5 +1,5 @@
 from .config import DATA_API_BASE_URL, LAUNCH_SITES
-from .utils import make_api_request, to_unix_timestamp, save_csv_json
+from .utils import make_api_request, to_unix_timestamp, save_csv_json, format_little_r
 
 import time
 import os
@@ -116,6 +116,11 @@ def get_super_observations(since=None, min_time=None, max_time=None, include_ids
     
     return response
 
+# Supported output formats
+#
+# Single file: .csv and .little_r
+# Multiple files: .json, .csv and .little_r
+
 def poll_observations(start_time=None, end_time=None, interval=60, save_to_file=None, bucket_hours=6.0, output_format=None):
     """
     Fetches observations between a start time and an optional end time and saves to files in specified format.
@@ -142,17 +147,20 @@ def poll_observations(start_time=None, end_time=None, interval=60, save_to_file=
     #   - .csv (default)
     #   - .little_r
     if output_format and output_format not in ['csv', 'little_r']:
-        print("Invalid output format.\n"
-              "For saving in multiple files use 'csv' or 'little_r'.\n"
-              "For saving in a single file use 'filename.csv' or 'filename.json'. ")
+        print("Please use one of the following formats:")
+        print("  - csv")
+        print("  - little_r")
         return
 
     # Supported formats for saving into a single file:
     # NOTE: for poll_observation we handle .csv saving within poll_observation and not using save_csv_json
     #   - .csv
     #   - .json
-    if save_to_file and not save_to_file.endswith(('.json', '.csv')):
-        print("Unsupported file format. Please use either .json or .csv.")
+    if save_to_file and not save_to_file.endswith(('.json', '.csv', 'little_r')):
+        print("Please use one of the following formats:")
+        print("  - .json")
+        print("  - .csv")
+        print("  - .little_r")
         return
 
     # Convert start_time to datetime
@@ -260,7 +268,7 @@ def poll_observations(start_time=None, end_time=None, interval=60, save_to_file=
             time.sleep(interval)
             continue
 
-    # Save data
+    # Save data to a single file
     if save_to_file:
         filtered_observations = {obs_id: obs for obs_id, obs in all_observations.items()
                                  if float(obs['timestamp']) >= start_time}
@@ -271,13 +279,22 @@ def poll_observations(start_time=None, end_time=None, interval=60, save_to_file=
         if save_to_file.endswith('.json'):
             with open(save_to_file, 'w', encoding='utf-8') as f:
                 json.dump(sorted_observations, f, indent=4)
-        else:
+
+        elif save_to_file.endswith('.csv'):
             with open(save_to_file, mode='w', newline='') as file:
                 writer = csv.DictWriter(file, fieldnames=headers)
                 writer.writeheader()
                 writer.writerows(sorted_observations.values())
+
+        elif save_to_file.endswith('.little_r'):
+            little_r_records = format_little_r(list(sorted_observations.items()))
+            with open(save_to_file, 'w') as file:
+                file.write('\n'.join(little_r_records))
+
         print(f"Saved {len(sorted_observations)} {'observation' if len(sorted_observations) == 1 else 'observations'} to {save_to_file}")
-    else:
+
+    # Save data to multiple file
+    elif output_format:
         # Track statistics per mission
         mission_stats = {}  # {mission_name: {'files': 0, 'observations': 0}}
         total_observations_written = 0
@@ -302,7 +319,8 @@ def poll_observations(start_time=None, end_time=None, interval=60, save_to_file=
                         writer = csv.DictWriter(file, fieldnames=headers)
                         writer.writeheader()
                         writer.writerows(sorted_obs)
-                else:  # little_r format
+
+                elif output_format == 'little_r':
                     output_file = (f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d:00_%dh.little_r" %
                                    (bucket_center.year, bucket_center.month, bucket_center.day,
                                     bucket_hour, bucket_hours))
@@ -311,240 +329,11 @@ def poll_observations(start_time=None, end_time=None, interval=60, save_to_file=
 
                     sorted_obs = sorted(observations.items(), key=lambda x: int(x[1]['timestamp']))
 
-                    def format_value(value, fortran_format, align=None):
-                        if fortran_format[0] == 'F':
-                            length, decimal_places = fortran_format[1:].split('.')
-                            if value is None or value == '':
-                                return ' ' * int(length)
-
-                            # turn into a string of length characters, with decimal_places decimal places
-                            return f"{value:>{length}.{decimal_places}f}"[:int(length)]
-
-                        if fortran_format[0] == 'I':
-                            length = int(fortran_format[1:])
-                            if value is None or value == '':
-                                return ' ' * length
-
-                            return f"{value:>{length}d}"[:int(length)]
-
-                        if fortran_format[0] == 'A':
-                            length = int(fortran_format[1:])
-                            if value is None:
-                                return ' ' * length
-
-                            if align == 'right':
-                                return str(value)[:length].rjust(length, ' ')
-
-                            return str(value)[:length].ljust(length, ' ')
-
-                        if fortran_format[0] == 'L':
-                            if value and value in ['T', 't', 'True', 'true', '1', True]:
-                                value = 'T'
-                            else:
-                                value = 'F'
-
-                            length = int(fortran_format[1:])
-
-                            return value.rjust(length, ' ')
-
-                        raise ValueError(f"Unknown format: {fortran_format}")
-
-                    def safe_float(value, default=-888888.0):
-                        """
-                        Convert a value to float. If the value is None, empty, or invalid, return the default.
-                        """
-                        try:
-                            return float(value) if value not in (None, '', 'None') else default
-                        except (ValueError, TypeError):
-                            return default
-
+                    little_r_records = format_little_r(sorted_obs)
                     with open(output_file, 'w') as file:
-                        for obs_id, point in sorted_obs:
-                            # Observation time
-                            observation_time = datetime.fromtimestamp(point['timestamp'], tz=timezone.utc)
-
-                            # Convert and validate fields
-                            pressure_hpa = safe_float(point.get('pressure'))
-                            pressure_pa = pressure_hpa * 100.0
-
-                            temperature_c = safe_float(point.get('temperature'))
-                            temperature_k = temperature_c + 273.15
-
-                            altitude = safe_float(point.get('altitude'))
-                            humidity = safe_float(point.get('humidity'))
-                            speed_u = safe_float(point.get('speed_u'))
-                            speed_v = safe_float(point.get('speed_v'))
-
-                            # Header formatting
-                            header = ''.join([
-                                # Latitude: F20.5
-                                format_value(point.get('latitude'), 'F20.5'),
-
-                                # Longitude: F20.5
-                                format_value(point.get('longitude'), 'F20.5'),
-
-                                # ID: A40
-                                format_value(point.get('id'), 'A40'),
-
-                                # Name: A40
-                                format_value(point.get('mission_name'), 'A40'),
-
-                                # Platform (FM‑Code): A40
-                                format_value('FM-35 TEMP', 'A40'),
-
-                                # Source: A40
-                                format_value('WindBorne', 'A40'),
-
-                                # Elevation: F20.5
-                                format_value('', 'F20.5'),
-
-                                # Valid fields: I10
-                                format_value(-888888, 'I10'),
-
-                                # Num. errors: I10
-                                format_value(0, 'I10'),
-
-                                # Num. warnings: I10
-                                format_value(0, 'I10'),
-
-                                # Sequence number: I10
-                                format_value(0, 'I10'),
-
-                                # Num. duplicates: I10
-                                format_value(0, 'I10'),
-
-                                # Is sounding?: L
-                                format_value('T', 'L10'),
-
-                                # Is bogus?: L
-                                format_value('F', 'L10'),
-
-                                # Discard?: L
-                                format_value('F', 'L10'),
-
-                                # Unix time: I10
-                                # format_value(point['timestamp'], 'I10'),
-                                format_value(-888888, 'I10'),
-
-                                # Julian day: I10
-                                format_value(-888888, 'I10'),
-
-                                # Date: A20 YYYYMMDDhhmmss
-                                format_value(observation_time.strftime('%Y%m%d%H%M%S'), 'A20', align='right'),
-
-                                # SLP, QC: F13.5, I7
-                                format_value(-888888.0, 'F13.5') + format_value(0, 'I7'),
-
-                                # Ref Pressure, QC: F13.5, I7
-                                format_value(-888888.0, 'F13.5') + format_value(0, 'I7'),
-
-                                # Ground Temp, QC: F13.5, I7
-                                format_value(-888888.0, 'F13.5') + format_value(0, 'I7'),
-
-                                # SST, QC: F13.5, I7
-                                format_value(-888888.0, 'F13.5') + format_value(0, 'I7'),
-
-                                # SFC Pressure, QC: F13.5, I7
-                                format_value(-888888.0, 'F13.5') + format_value(0, 'I7'),
-
-                                # Precip, QC: F13.5, I7
-                                format_value(-888888.0, 'F13.5') + format_value(0, 'I7'),
-
-                                # Daily Max T, QC: F13.5, I7
-                                format_value(-888888.0, 'F13.5') + format_value(0, 'I7'),
-
-                                # Daily Min T, QC: F13.5, I7
-                                format_value(-888888.0, 'F13.5') + format_value(0, 'I7'),
-
-                                # Night Min T, QC: F13.5, I7
-                                format_value(-888888.0, 'F13.5') + format_value(0, 'I7'),
-
-                                # 3hr Pres Change, QC: F13.5, I7
-                                format_value(-888888.0, 'F13.5') + format_value(0, 'I7'),
-
-                                # 24hr Pres Change, QC: F13.5, I7
-                                format_value(-888888.0, 'F13.5') + format_value(0, 'I7'),
-
-                                # Cloud cover, QC: F13.5, I7
-                                format_value(-888888.0, 'F13.5') + format_value(0, 'I7'),
-
-                                # Ceiling, QC: F13.5, I7
-                                format_value(-888888.0, 'F13.5') + format_value(0, 'I7'),
-
-                                # Precipitable water, QC (see note): F13.5, I7
-                                format_value(-888888.0, 'F13.5') + format_value(0, 'I7'),
-                                ])
-
-                            # Data record formatting
-                            data_record = ''.join([
-                                # Pressure (Pa): F13.5
-                                format_value(pressure_pa, 'F13.5'),
-
-                                # QC: I7
-                                format_value(0, 'I7'),
-
-                                # Height (m): F13.5
-                                format_value(altitude, 'F13.5'),
-
-                                # QC: I7
-                                format_value(0, 'I7'),
-
-                                # Temperature (K): F13.5
-                                format_value(temperature_k, 'F13.5'),
-
-                                # QC: I7
-                                format_value(0, 'I7'),
-
-                                # Dew point (K): F13.5
-                                format_value(-888888.0, 'F13.5'),
-
-                                # QC: I7
-                                format_value(0, 'I7'),
-
-                                # Wind speed (m/s): F13.5
-                                format_value(-888888.0, 'F13.5'),
-
-                                # QC: I7
-                                format_value(0, 'I7'),
-
-                                # Wind direction (deg): F13.5
-                                format_value(-888888.0, 'F13.5'),
-
-                                # QC: I7
-                                format_value(0, 'I7'),
-
-                                # Wind U (m/s): F13.5
-                                format_value(speed_u, 'F13.5'),
-
-                                # QC: I7
-                                format_value(0, 'I7'),
-
-                                # Wind V (m/s): F13.5
-                                format_value(speed_v, 'F13.5'),
-
-                                # QC: I7
-                                format_value(0, 'I7'),
-
-                                # Relative humidity (%): F13.5
-                                format_value(humidity, 'F13.5'),
-
-                                # QC: I7
-                                format_value(0, 'I7'),
-
-                                # Thickness (m): F13.5
-                                format_value(-888888.0, 'F13.5'),
-
-                                # QC: I7
-                                format_value(0, 'I7')
-                            ])
-
-                            # End record and tail record
-                            end_record = '-777777.00000      0-777777.00000      0-888888.00000      0-888888.00000      0-888888.00000      0-888888.00000      0-888888.00000      0-888888.00000      0-888888.00000      0-888888.00000      0'
-                            tail_record = '     39      0      0'
-
-                            # Write the complete record
-                            file.write('\n'.join([header, data_record, end_record, tail_record, '']))
+                        file.write('\n'.join(little_r_records))
                 total_observations_written += len(observations)
+
                 # Update statistics
                 if mission_name not in mission_stats:
                     mission_stats[mission_name] = {'files': 0, 'observations': 0}
@@ -553,9 +342,11 @@ def poll_observations(start_time=None, end_time=None, interval=60, save_to_file=
         # Print total observations written
         print(f"Total {'observation' if total_observations_written == 1 else 'observations'} written: {total_observations_written}")
         print("-----------------------------------------------------")
+
         # Print summary for each mission
         for mission_name, stats in mission_stats.items():
             print(f"Mission {mission_name}: Saved {stats['observations']} {'observation' if stats['observations'] == 1 else 'observations'} across {stats['files']} {'file' if stats['files'] == 1 else 'files'}")
+
     print("-----------------------------------------------------")
     print("All observations have been processed and saved.")
 
