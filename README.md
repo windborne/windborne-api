@@ -173,7 +173,11 @@ windborne points "40.7,-74.0" -i 2024121600 output.csv
 
 # Set of points, seperated by semicolon
 windborne points "40.7,-74.0;34.0,-118.2" -i 2024121600 output.csv
+
+# Set initialization time and min, max forecast hours
 windborne points "40.7,-74.0" -mh 0 -xh 24 -i 2024121600 output.csv
+
+# Set initialization time and min, max forecast time
 windborne points "40.7,-74.0" -mt 2024121606 -xt 2024121612 -i 2024121600 output.csv
 ```
 **Optional Arguments:**
@@ -253,14 +257,17 @@ temp_2m_data = get_temperature_2m(time="2024121600", save_to_file="filename")
 ```
 
 ### Historical Forecast Commands
-Time format: YYYYMMDDHH (HH: 00,06,12,18)
+Initialization time hour must be 00, 06, 12, or 18.
 
 **CLI:**
 ```bash
-windborne hist_temp_2m 2024121600 6 output.npy
-windborne hist_500hpa_geopotential 2024121600 6 output.npy
-windborne hist_500hpa_wind_u 2024121600 6 output.npy
-windborne hist_500hpa_wind_v 2024121600 6 output.npy
+windborne hist_temp_2m 2024121600 6 filename
+
+windborne hist_500hpa_geopotential 2024121600 6 filename
+
+windborne hist_500hpa_wind_u 2024121600 6 filename
+
+windborne hist_500hpa_wind_v 2024121600 6 filename
 ```
 
 **Code:**
