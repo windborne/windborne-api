@@ -16,19 +16,19 @@ export WB_API_KEY='your_api_key'
 **CLI:**
 ```bash
 # Save to multiple csv files
-windborne poll-observations 2024-10-12_00:00 csv
+windborne poll-observations 2024-12-18_00:00 csv
 
 # Save to multiple little_r files
-windborne poll-observations 2024-10-12_00:00 little_r
+windborne poll-observations 2024-12-18_00:00 little_r
 
 # Save to single file
-windborne poll-observations 2024-10-12_06:00 2024-10-12_08:00 output.csv
-windborne poll-observations 2024-10-12_12:00 2024-10-12_14:00 output.json
-windborne poll-observations 2024-10-12_12:00 2024-10-12_14:00 output.little_r
+windborne poll-observations 2024-12-18_12:00 2024-12-18_14:00 output.csv
+windborne poll-observations 2024-12-18_12:00 2024-12-18_14:00 output.json
+windborne poll-observations 2024-12-18_12:00 2024-12-18_14:00 output.little_r
 
 
 # Optional args
-windborne poll-observations -i 120 -b 12 2024-10-12_12:00 2024-10-12_14:00 output.json
+windborne poll-observations -i 120 -b 12 2024-12-18_12:00 2024-12-18_14:00 output.json
 ```
 
 **Code:**
@@ -37,19 +37,19 @@ from windborne import poll_observations
 
 # Multiple files
 poll_observations(
-    start_time='2024-10-12_00:00',
+    start_time='2024-12-18_00:00',
     output_format='csv'  # or 'json', 'little_r'
 )
 
 # Single file
 poll_observations(
-    start_time='2024-10-12_00:00',
+    start_time='2024-12-18_00:00',
     save_to_file='output.csv'  # or .json
 )
 
 # With options
 poll_observations(
-    start_time='2024-10-12_00:00',
+    start_time='2024-12-18_00:00',
     end_time='2024-10-13_00:00',
     interval=120,
     bucket_hours=12,
@@ -67,14 +67,14 @@ For more information about the meaning of available parameters you can refer to 
 **CLI:**
 ```bash
 # Basic with formats
-windborne observations 2024-10-12_00:00 output.csv
-windborne observations 2024-10-12_00:00 output.json
+windborne observations 2024-12-18_00:00 output.csv
+windborne observations 2024-12-18_00:00 output.json
 
 # With mission id filter
-windborne observations -mt 2024-10-12_06:00 -xt 2024-10-12_12:00 -m mission123 2024-10-12_00:00  output.csv
+windborne observations -mt 2024-12-18_06:00 -xt 2024-12-18_12:00 -m mission123 2024-12-18_00:00  output.csv
 
 # Geographic filters
-windborne observations -ml 45.0 -xl 50.0 -mg -120.0 -xg 110.0 2024-10-12_00:00  output.csv
+windborne observations -ml 45.0 -xl 50.0 -mg -120.0 -xg 110.0 2024-12-18_00:00  output.csv
 ```
 
 **Code:**
@@ -82,9 +82,9 @@ windborne observations -ml 45.0 -xl 50.0 -mg -120.0 -xg 110.0 2024-10-12_00:00  
 from windborne import get_observations
 
 observations = get_observations(
-    since='2024-10-12_00:00',
-    min_time='2024-10-12_06:00',
-    max_time='2024-10-12_12:00',
+    since='2024-12-18_00:00',
+    min_time='2024-12-18_06:00',
+    max_time='2024-12-18_12:00',
     mission_id='mission123',
     min_latitude=45.0,
     max_latitude=50.0,
@@ -103,11 +103,11 @@ For more information about the meaning of available parameters you can refer to 
 **CLI:**
 ```bash
 # Different formats
-windborne super-observations 2024-10-12_00:00 output.csv
-windborne super-observations 2024-10-12_00:00 output.json
+windborne super-observations 2024-12-18_00:00 output.csv
+windborne super-observations 2024-12-18_00:00 output.json
 
 # With filters
-windborne super-observations -id -mn -u 2024-10-12_00:00 output.csv
+windborne super-observations -id -mn -u 2024-12-18_00:00 output.csv
 ```
 
 **Code:**
@@ -115,7 +115,7 @@ windborne super-observations -id -mn -u 2024-10-12_00:00 output.csv
 from windborne import get_super_observations
 
 super_obs = get_super_observations(
-    since='2024-10-12_00:00',
+    since='2024-12-18_00:00',
     mission_id='mission123',
     include_ids=True,
     include_mission_name=True,

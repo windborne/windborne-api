@@ -50,7 +50,7 @@ def make_api_request(url, params=None, return_type=None):
             print(f"Error: {http_err.response.status_code}")
             print("-------------------------------------------------------")
             if params:
-                print("Parameters provided:")
+                print("\nParameters provided:")
                 for key, value in params.items():
                     print(f"  {key}: {value}")
             else:
@@ -68,7 +68,7 @@ def make_api_request(url, params=None, return_type=None):
         else:
             print(f"HTTP error occurred\n\n{http_err}")
             if params:
-                print("Parameters provided:")
+                print("\nParameters provided:")
                 for key, value in params.items():
                     print(f"  {key}: {value}")
         exit(http_err.response.status_code)
