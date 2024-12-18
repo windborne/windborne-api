@@ -293,7 +293,7 @@ def format_little_r(observations):
 
     for obs_id, point in observations:
         # Observation time
-        observation_time = datetime.fromtimestamp(float(point['timestamp']), tz=timezone.utc)
+        observation_time = datetime.fromtimestamp(point['timestamp'], tz=timezone.utc)
 
         # Convert and validate fields
         pressure_hpa = safe_float(point.get('pressure'))
