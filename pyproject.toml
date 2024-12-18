@@ -15,8 +15,7 @@ dependencies = [
     "requests",
     "boto3>=1.10.0",
     "PyJWT",
-    "numpy",
-    "xarray"
+    "numpy"
 ]
 classifiers = [
     "Programming Language :: Python :: 3",

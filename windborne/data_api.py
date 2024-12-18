@@ -174,7 +174,7 @@ def poll_observations(start_time=None, end_time=None, interval=60, save_to_file=
 
     # Headers for CSV files
     headers = [
-        "timestamp", "time", "latitude", "longitude", "altitude", "humidity",
+        "timestamp", "id", "time", "latitude", "longitude", "altitude", "humidity",
         "mission_name", "pressure", "specific_humidity", "speed_u", "speed_v", "temperature"
     ]
 
@@ -195,6 +195,7 @@ def poll_observations(start_time=None, end_time=None, interval=60, save_to_file=
                 since=current_timestamp,
                 min_time=start_time,
                 max_time=end_time,
+                include_ids=True,
                 include_mission_name=True
             )
 
