@@ -11,7 +11,7 @@ export WB_API_KEY='your_api_key'
 ```
 
 ## Data API Commands
-
+For further information you can refer to [Data API](https://windbornesystems.com/docs/api/data) section of WindBorne Systems API Reference Docs.
 ### poll-observations
 **CLI:**
 ```bash
@@ -167,6 +167,8 @@ path = get_predicted_path(mission_id='mission123', save_to_file='output.json')
 ```
 
 ## Forecast API Commands
+For further information you can refer to [Forecasts API](https://windbornesystems.com/docs/api/forecasts) section of WindBorne Systems API Reference Docs.
+
 Supported time formats are YYYYMMDDHH, YYYY-MM-DDTHH, and YYYY-MM-DDTHH:mm:ss.
 ### Points
 **CLI:**
@@ -319,11 +321,5 @@ cyclones = get_tropical_cyclones(
 )
 ```
 
-## Resources
-For more details on the WindBorne Data and Forecasts API, refer to the WindBorne's documentation:
-
-- [Data API](https://windbornesystems.com/docs/api/data)
-- [Forecasts API](https://windbornesystems.com/docs/api/forecasts)
-
-
+## Further information and help request
 If you encounter issues or have questions, please ask your WindBorne Systems contact.
