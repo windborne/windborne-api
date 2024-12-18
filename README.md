@@ -15,14 +15,17 @@ export WB_API_KEY='your_api_key'
 ### poll-observations
 **CLI:**
 ```bash
-# Save to multiple files
+# Save to multiple csv files
 windborne poll-observations 2024-10-12_00:00 csv
-windborne poll-observations 2024-10-12_00:00 json 
+
+# Save to multiple little_r files
 windborne poll-observations 2024-10-12_00:00 little_r
 
 # Save to single file
 windborne poll-observations 2024-10-12_06:00 2024-10-12_08:00 output.csv
 windborne poll-observations 2024-10-12_12:00 2024-10-12_14:00 output.json
+windborne poll-observations 2024-10-12_12:00 2024-10-12_14:00 output.little_r
+
 
 # Optional args
 windborne poll-observations -i 120 -b 12 2024-10-12_12:00 2024-10-12_14:00 output.json
