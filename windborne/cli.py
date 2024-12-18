@@ -12,15 +12,16 @@ from . import (
     get_initialization_times,
     get_temperature_2m,
     get_dewpoint_2m,
-    get_wind_u_10m,
-    get_wind_v_10m,
+    get_wind_u_10m, get_wind_v_10m,
+    get_500hpa_wind_u, get_500hpa_wind_v,
+    get_500hpa_temperature, get_850hpa_temperature,
     get_pressure_msl,
-    get_500hpa_geopotential,
-    get_850hpa_geopotential,
+    get_500hpa_geopotential, get_850hpa_geopotential,
+
+    get_historical_temperature_2m,
     get_historical_500hpa_geopotential,
-    get_historical_500hpa_wind_u,
-    get_historical_500hpa_wind_v,
-    get_tropical_cyclones, get_historical_temperature_2m
+    get_historical_500hpa_wind_u, get_historical_500hpa_wind_v,
+    get_tropical_cyclones
 
 )
 
@@ -116,6 +117,22 @@ def main():
     gridded_wind_v_10m_parser = subparsers.add_parser('grid_wind_v_10m', help='Get gridded output of global 10m v-component of wind forecasts')
     gridded_wind_v_10m_parser.add_argument('args', nargs='*', help='time output_file')
 
+    # Gridded 500hPa wind-u Command
+    gridded_500hpa_wind_u_parser = subparsers.add_parser('grid_500hpa_wind_u', help='Get gridded output of global 500hPa wind v-component of wind forecasts')
+    gridded_500hpa_wind_u_parser.add_argument('args', nargs='*', help='time output_file')
+
+    # Gridded 500hPa wind-v Command
+    gridded_500hpa_wind_v_parser = subparsers.add_parser('grid_500hpa_wind_v', help='Get gridded output of global 500hPa wind u-component of wind forecasts')
+    gridded_500hpa_wind_v_parser.add_argument('args', nargs='*', help='time output_file')
+
+    # Gridded 500hPa temperature Command
+    gridded_500hpa_temperature_parser = subparsers.add_parser('grid_500hpa_temperature', help='Get gridded output of global 500hPa temperature forecasts')
+    gridded_500hpa_temperature_parser.add_argument('args', nargs='*', help='time output_file')
+
+    # Gridded 850hPa temperature Command
+    gridded_850hpa_temperature_parser = subparsers.add_parser('grid_850hpa_temperature', help='Get gridded output of global 850hPa temperature forecasts')
+    gridded_850hpa_temperature_parser.add_argument('args', nargs='*', help='time output_file')
+
     # Gridded mean sea level pressure Command
     gridded_pressure_msl_parser = subparsers.add_parser('grid_pressure_msl', help='Get gridded output of global mean sea level pressure forecasts')
     gridded_pressure_msl_parser.add_argument('args', nargs='*', help='time output_file')
@@ -154,7 +171,7 @@ def main():
     cyclones_parser = subparsers.add_parser('cyclones', help='Get tropical cyclone forecasts')
     cyclones_parser.add_argument('-b', '--basin',  help='Optional: filter tropical cyclones on basin[ NA, EP, WP, NI, SI, AU, SP]')
     cyclones_parser.add_argument('args', nargs='*',
-                                 help='[optional: initialization time (YYYYMMDDHH or YYYY-MM-DD_HH:MM)] output_file')
+                                 help='[optional: initialization time (YYYYMMDDHH, YYYY-MM-DDTHH, and YYYY-MM-DDTHH:mm:ss)] output_file')
 
     # Initialization Times Command
     initialization_times_parser = subparsers.add_parser('init_times', help='Get available initialization times for pointy')
@@ -301,6 +318,52 @@ def main():
         else:
             print("Too many arguments")
             print("\nUsage: windborne grid_wind_v_10m time output_file")
+
+    elif args.command == 'grid_500hpa_wind_u':
+        # Parse grid_500hpa_wind_u arguments
+        if len(args.args) in [0,1]:
+            print(f"To get the gridded output of global 500hPa u-component of wind forecasts you need to provide the time for which to get the forecast and an output file.")
+            print("\nUsage: windborne grid_500hpa_wind_u time output_file")
+        elif len(args.args) == 2:
+            get_500hpa_wind_u(time=args.args[0], save_to_file=args.args[1])
+        else:
+            print("Too many arguments")
+            print("\nUsage: windborne grid_500hpa_wind_u time output_file")
+
+    elif args.command == 'grid_500hpa_wind_v':
+        # Parse grid_500hpa_wind_v arguments
+        if len(args.args) in [0,1]:
+            print(f"To get the gridded output of global 500hPa v-component of wind forecasts you need to provide the time for which to get the forecast and an output file.")
+            print("\nUsage: windborne grid_500hpa_wind_v time output_file")
+        elif len(args.args) == 2:
+            get_500hpa_wind_v(time=args.args[0], save_to_file=args.args[1])
+        else:
+            print("Too many arguments")
+            print("\nUsage: windborne grid_500hpa_wind_v time output_file")
+
+    elif args.command == 'grid_500hpa_temperature':
+        # Parse grid_500hpa_temperature arguments
+        if len(args.args) in [0,1]:
+            print(f"To get the gridded output of global 500hPa temperature forecasts you need to provide the time for which to get the forecast and an output file.")
+            print("\nUsage: windborne grid_500hpa_temperature time output_file")
+            return
+        elif len(args.args) == 2:
+            get_500hpa_temperature(time=args.args[0], save_to_file=args.args[1])
+        else:
+            print("Too many arguments")
+            print("\nUsage: windborne grid_500hpa_temperature time output_file")
+
+    elif args.command == 'grid_850hpa_temperature':
+        # Parse grid_850hpa_temperature arguments
+        if len(args.args) in [0,1]:
+            print(f"To get the gridded output of global 850hPa temperature forecasts you need to provide the time for which to get the forecast and an output file.")
+            print("\nUsage: windborne grid_850hpa_temperature time output_file")
+            return
+        elif len(args.args) == 2:
+            get_850hpa_temperature(time=args.args[0], save_to_file=args.args[1])
+        else:
+            print("Too many arguments")
+            print("\nUsage: windborne grid_850hpa_temperature time output_file")
 
     elif args.command == 'grid_pressure_msl':
         # Parse grid_pressure_msl arguments

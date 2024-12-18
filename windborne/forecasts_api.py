@@ -45,6 +45,17 @@ def get_point_forecasts(coordinates, min_forecast_time=None, max_forecast_time=N
 # Gridded forecasts
 # We return the whole response, not just the url
 
+# 500hPa geopotential
+# 850hPa geopotential
+# 500hPa wind u
+# 500hPa wind v
+# 500hPa temperature
+# 850hPa temperature
+# wind_u_10m
+# wind_v_10m
+# pressure_msl
+# temperature_2m
+
 def get_temperature_2m(time, save_to_file=None):
     params = {}
 
@@ -64,6 +75,7 @@ def get_temperature_2m(time, save_to_file=None):
 
     return response
 
+# not implemented yet
 def get_dewpoint_2m(time, save_to_file=None):
     params = {}
 
@@ -112,6 +124,78 @@ def get_wind_v_10m(time, save_to_file=None):
 
     print("We are initiating handshake procedure with our S3 server.\n")
     response = make_api_request(f"{FORECASTS_GRIDDED_URL}/wind_v_10m", params=params, return_type='all')
+
+    if save_to_file:
+        download_and_save_nc(save_to_file, response)
+
+    return response
+
+def get_500hpa_wind_u(time, save_to_file=None):
+    params = {}
+
+    if not time:
+        print("To get the gridded output of global 500hPa wind u-component of wind forecasts you need to provide the time for which to get the forecast.")
+        return
+    else:
+        time_parsed = parse_initialization_time(time)
+        params["time"] = time_parsed
+
+    print("We are initiating handshake procedure with our S3 server.\n")
+    response = make_api_request(f"{FORECASTS_GRIDDED_URL}/500/wind_u", params=params, return_type='all')
+
+    if save_to_file:
+        download_and_save_nc(save_to_file, response)
+
+    return response
+
+def get_500hpa_wind_v(time, save_to_file=None):
+    params = {}
+
+    if not time:
+        print("To get the gridded output of global 500hPa wind v-component of wind forecasts you need to provide the time for which to get the forecast.")
+        return
+    else:
+        time_parsed = parse_initialization_time(time)
+        params["time"] = time_parsed
+
+    print("We are initiating handshake procedure with our S3 server.\n")
+    response = make_api_request(f"{FORECASTS_GRIDDED_URL}/500/wind_v", params=params, return_type='all')
+
+    if save_to_file:
+        download_and_save_nc(save_to_file, response)
+
+    return response
+
+def get_500hpa_temperature(time, save_to_file=None):
+    params = {}
+
+    if not time:
+        print("To get the gridded output of global 500hPa temperature forecasts you need to provide the time for which to get the forecast.")
+        return
+    else:
+        time_parsed = parse_initialization_time(time)
+        params["time"] = time_parsed
+
+    print("We are initiating handshake procedure with our S3 server.\n")
+    response = make_api_request(f"{FORECASTS_GRIDDED_URL}/500/temperature", params=params, return_type='all')
+
+    if save_to_file:
+        download_and_save_nc(save_to_file, response)
+
+    return response
+
+def get_850hpa_temperature(time, save_to_file=None):
+    params = {}
+
+    if not time:
+        print("To get the gridded output of global 850hPa temperature forecasts you need to provide the time for which to get the forecast.")
+        return
+    else:
+        time_parsed = parse_initialization_time(time)
+        params["time"] = time_parsed
+
+    print("We are initiating handshake procedure with our S3 server.\n")
+    response = make_api_request(f"{FORECASTS_GRIDDED_URL}/850/temperature", params=params, return_type='all')
 
     if save_to_file:
         download_and_save_nc(save_to_file, response)
