@@ -49,8 +49,8 @@ poll_observations(
 
 # With options
 poll_observations(
-    start_time='2024-12-18_00:00',
-    end_time='2024-10-13_00:00',
+    start_time='2023-10-13_00:00',
+    end_time='2024-10-14_00:00',
     interval=120,
     bucket_hours=12,
     save_to_file='output.csv'
