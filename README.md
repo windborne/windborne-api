@@ -38,7 +38,7 @@ from windborne import poll_observations
 # Multiple files
 poll_observations(
     start_time='2024-12-18_00:00',
-    output_format='csv'  # or 'json', 'little_r'
+    output_format='csv'  # or 'little_r'
 )
 
 # Single file
