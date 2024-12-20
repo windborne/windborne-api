@@ -121,14 +121,14 @@ def get_super_observations(since=None, min_time=None, max_time=None, include_ids
 # Single file: .csv and .little_r
 # Multiple files: .json, .csv and .little_r
 
-def poll_observations(start_time=None, end_time=None, interval=60, save_to_file=None, bucket_hours=6.0, output_format=None):
+def poll_observations(start_time, end_time=None, interval=60, save_to_file=None, bucket_hours=6.0, output_format=None):
     """
     Fetches observations between a start time and an optional end time and saves to files in specified format.
     Files are broken up into time buckets, with filenames containing the time at the mid-point of the bucket.
     For example, for 6-hour buckets centered on 00 UTC, the start time should be 21 UTC of the previous day.
 
     Args:
-        start_time (str): Optional start time in the format 'YYYY-MM-DD_HH:MM'.
+        start_time (str): Start time in the format 'YYYY-MM-DD_HH:MM'.
         end_time (str): Optional end time in the format 'YYYY-MM-DD_HH:MM'.
         interval (int): Interval in seconds between polls if pagination is required (default: 60).
         save_to_file (str): If provided, saves all data to a single file instead of bucketing.

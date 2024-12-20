@@ -289,7 +289,7 @@ from windborne import get_historical_temperature_2m
 hist_temp_2m_data = get_historical_temperature_2m(initialization_time="2024121600")
 
 # To save data in a file
-get_historical_temperature_2m(initialization_time="2024121600", save_to_file="filename")
+get_historical_temperature_2m(initialization_time="2024121600", forecast_hour=4, save_to_file="filename")
 ```
 
 ### cyclones

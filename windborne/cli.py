@@ -40,7 +40,7 @@ def main():
     poll_parser.add_argument('end_time', help='End time (YYYY-MM-DD_HH:MM)', nargs='?', default=None)
     poll_parser.add_argument('-i', '--interval', type=int, default=60, help='Polling interval in seconds')
     poll_parser.add_argument('-b', '--bucket-hours', type=float, default=6.0, help='Hours per bucket')
-    poll_parser.add_argument('output', help='Save output to a single file (filename.csv or filename.json) or to multiple files (csv or little_r)')
+    poll_parser.add_argument('output', help='Save output to a single file (filename.csv, filename.json or filename.little_r) or to multiple files (csv or little_r)')
 
 # Get Observations Command
     obs_parser = subparsers.add_parser('observations', help='Get observations with filters')
