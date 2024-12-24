@@ -173,7 +173,7 @@ def main():
                                  help='[optional: initialization time (YYYYMMDDHH, YYYY-MM-DDTHH, and YYYY-MM-DDTHH:mm:ss)] output_file')
 
     # Initialization Times Command
-    initialization_times_parser = subparsers.add_parser('init_times', help='Get available initialization times for pointy')
+    initialization_times_parser = subparsers.add_parser('init_times', help='Get available initialization times for point forecasts')
 
 
     args = parser.parse_args()
@@ -268,10 +268,10 @@ def main():
 
     elif args.command == 'init_times':
         if get_initialization_times():
-            print("Available initialization times for pointy\n")
+            print("Available initialization times for point forecasts:\n")
             pprint(get_initialization_times())
         else:
-            print("We can't currently display available initialization times for pointy\n")
+            print("We can't currently display available initialization times for point forecasts:\n")
 
     elif args.command == 'grid_temp_2m':
         # Parse grid_temp_2m arguments
