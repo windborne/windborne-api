@@ -36,17 +36,17 @@ def main():
     ####################################################################################################################
     # Poll Observations Command
     poll_parser = subparsers.add_parser('poll-observations', help='Poll observations within a time range')
-    poll_parser.add_argument('start_time', help='Starting time (YYYY-MM-DD_HH:MM)')
-    poll_parser.add_argument('end_time', help='End time (YYYY-MM-DD_HH:MM)', nargs='?', default=None)
+    poll_parser.add_argument('start_time', help='Starting time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
+    poll_parser.add_argument('end_time', help='End time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)', nargs='?', default=None)
     poll_parser.add_argument('-i', '--interval', type=int, default=60, help='Polling interval in seconds')
     poll_parser.add_argument('-b', '--bucket-hours', type=float, default=6.0, help='Hours per bucket')
     poll_parser.add_argument('output', help='Save output to a single file (filename.csv, filename.json or filename.little_r) or to multiple files (csv or little_r)')
 
 # Get Observations Command
     obs_parser = subparsers.add_parser('observations', help='Get observations with filters')
-    obs_parser.add_argument('since', help='Get observations since this time (YYYY-MM-DD_HH:MM)')
-    obs_parser.add_argument('-mt', '--min-time', help='Minimum time filter (YYYY-MM-DD_HH:MM)')
-    obs_parser.add_argument('-xt', '--max-time', help='Maximum time filter (YYYY-MM-DD_HH:MM)')
+    obs_parser.add_argument('since', help='Get observations since this time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
+    obs_parser.add_argument('-mt', '--min-time', help='Minimum time filter (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
+    obs_parser.add_argument('-xt', '--max-time', help='Maximum time filter (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
     obs_parser.add_argument('-m', '--mission-id', help='Filter by mission ID')
     obs_parser.add_argument('-ml', '--min-latitude', type=float, help='Minimum latitude filter')
     obs_parser.add_argument('-xl', '--max-latitude', type=float, help='Maximum latitude filter')
@@ -59,9 +59,9 @@ def main():
 
     # Get Super Observations Command
     super_obs_parser = subparsers.add_parser('super-observations', help='Get super observations with filters')
-    super_obs_parser.add_argument('since', help='Get super observations since this time (YYYY-MM-DD_HH:MM)')
-    super_obs_parser.add_argument('-mt', '--min-time', help='Minimum time filter (YYYY-MM-DD_HH:MM)')
-    super_obs_parser.add_argument('-xt', '--max-time', help='Maximum time filter (YYYY-MM-DD_HH:MM)')
+    super_obs_parser.add_argument('since', help='Get super observations since this time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
+    super_obs_parser.add_argument('-mt', '--min-time', help='Minimum time filter (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
+    super_obs_parser.add_argument('-xt', '--max-time', help='Maximum time filter (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
     super_obs_parser.add_argument('-m', '--mission-id', help='Filter by mission ID')
     super_obs_parser.add_argument('-id', '--include-ids', action='store_true', help='Include observation IDs')
     super_obs_parser.add_argument('-mn', '--include-mission-name', action='store_true', help='Include mission names')
@@ -170,7 +170,7 @@ def main():
     cyclones_parser = subparsers.add_parser('cyclones', help='Get tropical cyclone forecasts')
     cyclones_parser.add_argument('-b', '--basin',  help='Optional: filter tropical cyclones on basin[ NA, EP, WP, NI, SI, AU, SP]')
     cyclones_parser.add_argument('args', nargs='*',
-                                 help='[optional: initialization time (YYYYMMDDHH, YYYY-MM-DDTHH, and YYYY-MM-DDTHH:mm:ss)] output_file')
+                                 help='[optional: initialization time (YYYYMMDDHH, YYYY-MM-DDTHH, or YYYY-MM-DDTHH:mm:ss)] output_file')
 
     # Initialization Times Command
     initialization_times_parser = subparsers.add_parser('init_times', help='Get available initialization times for point forecasts')
