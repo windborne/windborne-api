@@ -265,9 +265,7 @@ def poll_observations(start_time, end_time=None, interval=60, save_to_file=None,
 
         except Exception as e:
             print(f"Error occurred: {e}")
-            print(f"Retrying in {interval} seconds...")
-            time.sleep(interval)
-            continue
+            exit(1001)
 
     # Save data to a single file
     if save_to_file:
