@@ -4,6 +4,7 @@ import requests
 import jwt
 import time
 import re
+import uuid
 from datetime import datetime, timezone
 import dateutil.parser
 import boto3
@@ -13,8 +14,64 @@ import csv
 
 import numpy as np
 
+# Check if input is uuid v4
+def is_valid_uuid_v4(client_id):
+    try:
+        return str(uuid.UUID(client_id, version=4)) == client_id
+    except ValueError:
+        return False
+
+# Check if client id input format
+def is_valid_client_id_format(client_id):
+    return re.fullmatch(r"[a-z0-9_]+", client_id) is not None
+
 # Authenticate requests using a JWT | no reveal of underlying key
 def make_api_request(url, params=None, return_type=None):
+    # Check if credentials are set
+    if not CLIENT_ID and not API_KEY:
+        print("To access Windborne API, you need to set your Client ID and API key.")
+        print("--------------------------------------")
+        print("Upon set, you can verify this by running\necho $WB_CLIENT_ID and echo $WB_API_KEY in your terminal.\n")
+        print("To get an API key, email data@windbornesystems.com.")
+        exit(80)
+    elif not CLIENT_ID:
+        print("To access Windborne API, you need to set your Client ID.")
+        print("--------------------------------------")
+        print("Upon set, you can verify this by running\necho $WB_CLIENT_ID in your terminal.\n")
+        print("To get an API key, email data@windbornesystems.com.")
+        exit(90)
+    elif not API_KEY:
+        print("To access Windborne API, you need to set your API key.")
+        print("--------------------------------------")
+        print("Upon set, you can verify this by running\necho $WB_API_KEY in your terminal.\n")
+        print("To get an API key, email data@windbornesystems.com.")
+        exit(91)
+
+    # Validate WB_CLIENT_ID format
+    if not (is_valid_uuid_v4(CLIENT_ID) or is_valid_client_id_format(CLIENT_ID)):
+        print("Your Client ID is misformatted.")
+        print("--------------------------------------")
+        print("It should either be a valid UUID v4 or consist of only lowercase letters, digits, and underscores ([a-z0-9_]).")
+        print(f"Current Client ID: {CLIENT_ID}")
+        exit(92)
+
+    # Validate WB_API_KEY format
+    # "wb_" + 32 characters
+    if API_KEY.startswith("wb_") and len(API_KEY) != 35:
+        print("Your API key is misformatted.")
+        print("--------------------------------------")
+        print("API keys starting with 'wb_' must be 35 characters long (including the 'wb_' prefix).")
+        print("Upon changed, you can verify this by running\necho $WB_API_KEY in your terminal.\n")
+        print(f"Current API key: {API_KEY}")
+        exit(93)
+    elif len(API_KEY) != 32:  # For early tokens
+        print("Your API key is misformatted.")
+        print("--------------------------------------")
+        print("API keys created in 2023 or earlier must be exactly 32 characters long.")
+        print("Upon changed, you can verify this by running\necho $WB_API_KEY in your terminal.\n")
+        print(f"Current API key: {API_KEY}")
+        exit(94)
+
     signed_token = jwt.encode({
         'client_id': CLIENT_ID,
         'iat': int(time.time()),
