@@ -2,5 +2,9 @@
 dist/
 build/
 
+# Python cache files
+__pycache__/
+*.pyc
+
 # Ignore Windborne package metadata
 windborne.egg-info/
