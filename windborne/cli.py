@@ -1,7 +1,7 @@
 import argparse
 
 from . import (
-    poll_observations,
+    poll_super_observations,
     get_observations,
     get_super_observations,
     get_flying_missions,
@@ -35,7 +35,7 @@ def main():
     # DATA API FUNCTIONS
     ####################################################################################################################
     # Poll Observations Command
-    poll_parser = subparsers.add_parser('poll-observations', help='Poll observations within a time range')
+    poll_parser = subparsers.add_parser('poll-super-observations', help='Poll super observations within a time range')
     poll_parser.add_argument('start_time', help='Starting time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
     poll_parser.add_argument('end_time', help='End time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)', nargs='?', default=None)
     poll_parser.add_argument('-i', '--interval', type=int, default=60, help='Polling interval in seconds')
@@ -181,8 +181,8 @@ def main():
     ####################################################################################################################
     # DATA API FUNCTIONS CALLED
     ####################################################################################################################
-    if args.command == 'poll-observations':
-        # Error handling is performed within poll_observations
+    if args.command == 'poll-super-observations':
+        # Error handling is performed within poll_super_observations
         # and we display the appropriate error messages
         # No need to implement them here
 
@@ -195,7 +195,7 @@ def main():
             save_to_file = None
             output_format = args.output
 
-        poll_observations(
+        poll_super_observations(
             start_time=args.start_time,
             end_time=args.end_time,
             interval=args.interval,

@@ -8,7 +8,6 @@ from datetime import datetime, timezone, timedelta
 import csv
 import json
 
-
 def get_observations(since=None, min_time=None, max_time=None, include_ids=None, include_mission_name=None, include_updated_at=None, mission_id=None, min_latitude=None, max_latitude=None, min_longitude=None, max_longitude=None, save_to_file=None):
     """
     Retrieves observations based on specified filters including geographical bounds.
@@ -116,12 +115,116 @@ def get_super_observations(since=None, min_time=None, max_time=None, include_ids
     
     return response
 
-# Supported output formats
-#
-# Single file: .csv and .little_r
-# Multiple files: .json, .csv and .little_r
+def convert_to_netcdf(data, curtime, bucket_hours, output_filename=None):
+    # This module outputs data in netcdf format for the WMO ISARRA program.  The output format is netcdf
+    #   and the style (variable names, file names, etc.) are described here:
+    #  https://github.com/synoptic/wmo-uasdc/tree/main/raw_uas_to_netCDF
 
-def poll_observations(start_time, end_time=None, interval=60, save_to_file=None, bucket_hours=6.0, output_format=None):
+    # Import necessary libraries
+    import xarray as xr
+    import pandas as pd
+    import numpy as np
+
+    # Mapping of WindBorne names to ISARRA names
+    rename_dict = {
+        'latitude': 'lat',
+        'longitude': 'lon',
+        'altitude': 'altitude',
+        'temperature': 'air_temperature',
+        'wind_direction': 'wind_direction',
+        'wind_speed': 'wind_speed',
+        'pressure': 'air_pressure',
+        'humidity_mixing_ratio': 'humidity_mixing_ratio',
+        'index': 'obs',
+    }
+
+    # Convert dictionary to list for DataFrame
+    data_list = []
+    for obs_id, obs_data in data.items():
+        # Convert 'None' strings to None type
+        clean_data = {k: None if v == 'None' else v for k, v in obs_data.items()}
+        data_list.append(clean_data)
+
+    # Put the data in a panda datafram in order to easily push to xarray then netcdf output
+    df = pd.DataFrame(data_list)
+
+    # Convert numeric columns to float
+    numeric_columns = ['latitude', 'longitude', 'altitude', 'pressure', 'temperature',
+                       'speed_u', 'speed_v', 'specific_humidity', 'timestamp']
+    for col in numeric_columns:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+
+    ds = xr.Dataset.from_dataframe(df)
+
+    # Build the filename and save some variables for use later
+    mt = datetime.fromtimestamp(curtime, tz=timezone.utc)
+    outdatestring = mt.strftime('%Y%m%d%H%M%S')
+    mission_name = df['mission_name'].iloc[0]
+    if output_filename:
+        output_file = output_filename
+    else:
+        outdatestring = mt.strftime('%Y%m%d%H%M%S')
+        output_file = 'USADC_300_0{}_{}Z.nc'.format(mission_name[2:6], outdatestring)
+
+    # Derived quantities calculated here:
+
+    # convert from specific humidity to humidity_mixing_ratio
+    mg_to_kg = 1000000.
+    if not all(x is None for x in ds['specific_humidity'].data):
+        ds['humidity_mixing_ratio'] = (ds['specific_humidity'] / mg_to_kg) / (1 - (ds['specific_humidity'] / mg_to_kg))
+    else:
+        ds['humidity_mixing_ratio'] = ds['specific_humidity']
+
+    # Wind speed and direction from components
+    ds['wind_speed'] = np.sqrt(ds['speed_u']*ds['speed_u'] + ds['speed_v']*ds['speed_v'])
+    ds['wind_direction'] = np.mod(180 + (180 / np.pi) * np.arctan2(ds['speed_u'], ds['speed_v']), 360)
+
+    ds['time'] = ds['timestamp'].astype(float)
+    ds = ds.assign_coords(time=("time", ds['time'].data))
+
+    # Now that calculations are done, remove variables not needed in the netcdf output
+    variables_to_drop = ['humidity', 'speed_u', 'speed_v', 'speed_x', 'speed_y', 'specific_humidity',
+                         'timestamp', 'mission_name']
+    existing_vars = [var for var in variables_to_drop if var in ds]
+    ds = ds.drop_vars(existing_vars)
+
+    # Rename the variables
+    ds = ds.rename(rename_dict)
+
+    # Adding attributes to variables in the xarray dataset
+    ds['time'].attrs = {'units': 'seconds since 1970-01-01T00:00:00', 'long_name': 'Time', '_FillValue': float('nan'),
+                        'processing_level': ''}
+    ds['lat'].attrs = {'units': 'degrees_north', 'long_name': 'Latitude', '_FillValue': float('nan'),
+                       'processing_level': ''}
+    ds['lon'].attrs = {'units': 'degrees_east', 'long_name': 'Longitude', '_FillValue': float('nan'),
+                       'processing_level': ''}
+    ds['altitude'].attrs = {'units': 'meters_above_sea_level', 'long_name': 'Altitude', '_FillValue': float('nan'),
+                            'processing_level': ''}
+    ds['air_temperature'].attrs = {'units': 'Kelvin', 'long_name': 'Air Temperature', '_FillValue': float('nan'),
+                                   'processing_level': ''}
+    ds['wind_speed'].attrs = {'units': 'm/s', 'long_name': 'Wind Speed', '_FillValue': float('nan'),
+                              'processing_level': ''}
+    ds['wind_direction'].attrs = {'units': 'degrees', 'long_name': 'Wind Direction', '_FillValue': float('nan'),
+                                  'processing_level': ''}
+    ds['humidity_mixing_ratio'].attrs = {'units': 'kg/kg', 'long_name': 'Humidity Mixing Ratio',
+                                         '_FillValue': float('nan'), 'processing_level': ''}
+    ds['air_pressure'].attrs = {'units': 'Pa', 'long_name': 'Atmospheric Pressure', '_FillValue': float('nan'),
+                                'processing_level': ''}
+
+    # Add Global Attributes synonymous across all UASDC providers
+    ds.attrs['Conventions'] = "CF-1.8, WMO-CF-1.0"
+    ds.attrs['wmo__cf_profile'] = "FM 303-2024"
+    ds.attrs['featureType'] = "trajectory"
+
+    # Add Global Attributes unique to Provider
+    ds.attrs['platform_name'] = "WindBorne Global Sounding Balloon"
+    ds.attrs['flight_id'] = mission_name
+    ds.attrs['site_terrain_elevation_height'] = 'not applicable'
+    ds.attrs['processing_level'] = "b1"
+    ds.to_netcdf(output_file)
+
+def poll_super_observations(start_time, end_time=None, interval=60, save_to_file=None, bucket_hours=6.0, output_format=None):
     """
     Fetches observations between a start time and an optional end time and saves to files in specified format.
     Files are broken up into time buckets, with filenames containing the time at the mid-point of the bucket.
@@ -147,23 +250,27 @@ def poll_observations(start_time, end_time=None, interval=60, save_to_file=None,
     #   - csv (default)
     #   - little_r
     #   - json
-    if output_format and output_format not in ['json', 'csv', 'little_r']:
+    #   - netcdf
+    if output_format and output_format not in ['json', 'csv', 'little_r', 'netcdf']:
         print("Please use one of the following formats:")
-        print("  - .json")
-        print("  - .csv")
-        print("  - .little_r")
+        print("  - json")
+        print("  - csv")
+        print("  - little_r")
+        print("  - netcdf")
         return
 
     # Supported formats for saving into a single file:
-    # NOTE: for poll_observation we handle .csv saving within poll_observation and not using save_csv_json
+    # NOTE: for poll_super_observations we handle .csv saving within poll_super_observations and not using save_csv_json
     #   - .csv
     #   - .json
     #   - .little_r
-    if save_to_file and not save_to_file.endswith(('.json', '.csv', '.little_r')):
+    #   - .nc
+    if save_to_file and not save_to_file.endswith(('.json', '.csv', '.little_r', '.nc')):
         print("Please use one of the following formats:")
         print("  - .json")
         print("  - .csv")
         print("  - .little_r")
+        print("  - .nc")
         return
 
     # Convert start_time to datetime
@@ -278,7 +385,11 @@ def poll_observations(start_time, end_time=None, interval=60, save_to_file=None,
         sorted_observations = dict(sorted(filtered_observations.items(),
                                           key=lambda x: float(x[1]['timestamp'])))
 
-        if save_to_file.endswith('.json'):
+        if save_to_file.endswith('.nc'):
+            first_obs_timestamp = float(next(iter(sorted_observations.values()))['timestamp'])
+            convert_to_netcdf(sorted_observations, first_obs_timestamp, bucket_hours=None, output_filename=save_to_file)
+
+        elif save_to_file.endswith('.json'):
             with open(save_to_file, 'w', encoding='utf-8') as f:
                 json.dump(sorted_observations, f, indent=4)
 
@@ -306,6 +417,9 @@ def poll_observations(start_time, end_time=None, interval=60, save_to_file=None,
             if observations:
                 # Format hour to be the actual bucket center
                 bucket_hour = int((bucket_center.hour + bucket_hours/2) % 24)
+
+                if output_format == 'netcdf':
+                    convert_to_netcdf(observations, bucket_center.timestamp(), bucket_hours)
 
                 if output_format == 'csv':
                     output_file = (f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d_%dh.csv" %
