@@ -336,7 +336,7 @@ def poll_observations(start_time, end_time=None, interval=60, save_to_file=None,
                         json.dump(sorted_obs, file, indent=4)
 
                 elif output_format == 'little_r':
-                    output_file = (f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d:00_%dh.little_r" %
+                    output_file = (f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d-00_%dh.little_r" %
                                    (bucket_center.year, bucket_center.month, bucket_center.day,
                                     bucket_hour, bucket_hours))
 
