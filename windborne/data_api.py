@@ -143,20 +143,23 @@ def poll_observations(start_time, end_time=None, interval=60, save_to_file=None,
     else:
         end_time = int(datetime.now().timestamp())
 
-    # Supported formats for saving into a single file:
-    #   - .csv (default)
-    #   - .little_r
-    if output_format and output_format not in ['csv', 'little_r']:
+    # Supported formats for saving into separate files:
+    #   - csv (default)
+    #   - little_r
+    #   - json
+    if output_format and output_format not in ['json', 'csv', 'little_r']:
         print("Please use one of the following formats:")
-        print("  - csv")
-        print("  - little_r")
+        print("  - .json")
+        print("  - .csv")
+        print("  - .little_r")
         return
 
     # Supported formats for saving into a single file:
     # NOTE: for poll_observation we handle .csv saving within poll_observation and not using save_csv_json
     #   - .csv
     #   - .json
-    if save_to_file and not save_to_file.endswith(('.json', '.csv', 'little_r')):
+    #   - .little_r
+    if save_to_file and not save_to_file.endswith(('.json', '.csv', '.little_r')):
         print("Please use one of the following formats:")
         print("  - .json")
         print("  - .csv")
@@ -318,6 +321,19 @@ def poll_observations(start_time, end_time=None, interval=60, save_to_file=None,
                         writer = csv.DictWriter(file, fieldnames=headers)
                         writer.writeheader()
                         writer.writerows(sorted_obs)
+
+                elif output_format == 'json':
+                    output_file = (f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d_%dh.json" %
+                                   (bucket_center.year, bucket_center.month, bucket_center.day,
+                                    bucket_hour, bucket_hours))
+
+                    os.makedirs(os.path.dirname(output_file) or '.', exist_ok=True)
+
+                    # Sort observations by timestamp within each bucket
+                    sorted_obs = dict(sorted(observations.items(), key=lambda x: int(x[1]['timestamp'])))
+
+                    with open(output_file, 'w', encoding='utf-8') as file:
+                        json.dump(sorted_obs, file, indent=4)
 
                 elif output_format == 'little_r':
                     output_file = (f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d:00_%dh.little_r" %
