@@ -31,19 +31,31 @@ def make_api_request(url, params=None, return_type=None):
     if not CLIENT_ID and not API_KEY:
         print("To access Windborne API, you need to set your Client ID and API key.")
         print("--------------------------------------")
-        print("Upon set, you can verify this by running\necho $WB_CLIENT_ID and echo $WB_API_KEY in your terminal.\n")
+        print("You may refer to https://windbornesystems.com/docs/api/cli#introduction\n"
+              "for instructions on how to set your credentials as environment variables for CLI and Code usage\n\n"
+              "and to https://windbornesystems.com/docs/api/pip_data#introduction\n"
+              "for instruction on how to set your credentials for code usage.")
+        print("--------------------------------------")
         print("To get an API key, email data@windbornesystems.com.")
         exit(80)
     elif not CLIENT_ID:
         print("To access Windborne API, you need to set your Client ID.")
         print("--------------------------------------")
-        print("Upon set, you can verify this by running\necho $WB_CLIENT_ID in your terminal.\n")
+        print("You may refer to https://windbornesystems.com/docs/api/cli#introduction\n"
+              "for instructions on how to set your credentials as environment variables for CLI and Code usage\n\n"
+              "and to https://windbornesystems.com/docs/api/pip_data#introduction\n"
+              "for instruction on how to set your credentials for code usage.")
+        print("--------------------------------------")
         print("To get an API key, email data@windbornesystems.com.")
         exit(90)
     elif not API_KEY:
         print("To access Windborne API, you need to set your API key.")
         print("--------------------------------------")
-        print("Upon set, you can verify this by running\necho $WB_API_KEY in your terminal.\n")
+        print("You may refer to https://windbornesystems.com/docs/api/cli#introduction\n"
+              "for instructions on how to set your credentials as environment variables for CLI and Code usage\n\n"
+              "and to https://windbornesystems.com/docs/api/pip_data#introduction\n"
+              "for instruction on how to set your credentials for code usage.")
+        print("--------------------------------------")
         print("To get an API key, email data@windbornesystems.com.")
         exit(91)
 
