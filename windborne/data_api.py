@@ -1,5 +1,5 @@
 from .config import DATA_API_BASE_URL, LAUNCH_SITES
-from .utils import make_api_request, to_unix_timestamp, save_csv_json, format_little_r
+from .utils import make_api_request, to_unix_timestamp, save_csv_json, format_little_r, convert_to_netcdf
 
 import time
 import os
@@ -8,7 +8,7 @@ from datetime import datetime, timezone, timedelta
 import csv
 import json
 
-def get_observations(since=None, min_time=None, max_time=None, include_ids=None, include_mission_name=None, include_updated_at=None, mission_id=None, min_latitude=None, max_latitude=None, min_longitude=None, max_longitude=None, save_to_file=None):
+def get_observations(since=None, min_time=None, max_time=None, include_ids=None, include_mission_name=True, include_updated_at=None, mission_id=None, min_latitude=None, max_latitude=None, min_longitude=None, max_longitude=None, save_to_file=None):
     """
     Retrieves observations based on specified filters including geographical bounds.
 
@@ -115,115 +115,7 @@ def get_super_observations(since=None, min_time=None, max_time=None, include_ids
     
     return response
 
-def convert_to_netcdf(data, curtime, output_filename=None):
-    # This module outputs data in netcdf format for the WMO ISARRA program.  The output format is netcdf
-    #   and the style (variable names, file names, etc.) are described here:
-    #  https://github.com/synoptic/wmo-uasdc/tree/main/raw_uas_to_netCDF
-
-    # Import necessary libraries
-    import xarray as xr
-    import pandas as pd
-    import numpy as np
-
-    # Mapping of WindBorne names to ISARRA names
-    rename_dict = {
-        'latitude': 'lat',
-        'longitude': 'lon',
-        'altitude': 'altitude',
-        'temperature': 'air_temperature',
-        'wind_direction': 'wind_direction',
-        'wind_speed': 'wind_speed',
-        'pressure': 'air_pressure',
-        'humidity_mixing_ratio': 'humidity_mixing_ratio',
-        'index': 'obs',
-    }
-
-    # Convert dictionary to list for DataFrame
-    data_list = []
-    for obs_id, obs_data in data.items():
-        # Convert 'None' strings to None type
-        clean_data = {k: None if v == 'None' else v for k, v in obs_data.items()}
-        data_list.append(clean_data)
-
-    # Put the data in a panda dataframe in order to easily push to xarray then netcdf output
-    df = pd.DataFrame(data_list)
-
-    # Convert numeric columns to float
-    numeric_columns = ['latitude', 'longitude', 'altitude', 'pressure', 'temperature',
-                       'speed_u', 'speed_v', 'specific_humidity', 'timestamp']
-    for col in numeric_columns:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-
-    ds = xr.Dataset.from_dataframe(df)
-
-    # Build the filename and save some variables for use later
-    mt = datetime.fromtimestamp(curtime, tz=timezone.utc)
-    mission_name = df['mission_name'].iloc[0]
-    if output_filename:
-        output_file = output_filename
-    else:
-        outdatestring = mt.strftime('%Y%m%d%H%M%S')
-        output_file = 'USADC_300_0{}_{}Z.nc'.format(mission_name[2:6], outdatestring)
-
-    # Derived quantities calculated here:
-
-    # convert from specific humidity to humidity_mixing_ratio
-    mg_to_kg = 1000000.
-    if not all(x is None for x in ds['specific_humidity'].data):
-        ds['humidity_mixing_ratio'] = (ds['specific_humidity'] / mg_to_kg) / (1 - (ds['specific_humidity'] / mg_to_kg))
-    else:
-        ds['humidity_mixing_ratio'] = ds['specific_humidity']
-
-    # Wind speed and direction from components
-    ds['wind_speed'] = np.sqrt(ds['speed_u']*ds['speed_u'] + ds['speed_v']*ds['speed_v'])
-    ds['wind_direction'] = np.mod(180 + (180 / np.pi) * np.arctan2(ds['speed_u'], ds['speed_v']), 360)
-
-    ds['time'] = ds['timestamp'].astype(float)
-    ds = ds.assign_coords(time=("time", ds['time'].data))
-
-    # Now that calculations are done, remove variables not needed in the netcdf output
-    variables_to_drop = ['humidity', 'speed_u', 'speed_v', 'speed_x', 'speed_y', 'specific_humidity',
-                         'timestamp', 'mission_name']
-    existing_vars = [var for var in variables_to_drop if var in ds]
-    ds = ds.drop_vars(existing_vars)
-
-    # Rename the variables
-    ds = ds.rename(rename_dict)
-
-    # Adding attributes to variables in the xarray dataset
-    ds['time'].attrs = {'units': 'seconds since 1970-01-01T00:00:00', 'long_name': 'Time', '_FillValue': float('nan'),
-                        'processing_level': ''}
-    ds['lat'].attrs = {'units': 'degrees_north', 'long_name': 'Latitude', '_FillValue': float('nan'),
-                       'processing_level': ''}
-    ds['lon'].attrs = {'units': 'degrees_east', 'long_name': 'Longitude', '_FillValue': float('nan'),
-                       'processing_level': ''}
-    ds['altitude'].attrs = {'units': 'meters_above_sea_level', 'long_name': 'Altitude', '_FillValue': float('nan'),
-                            'processing_level': ''}
-    ds['air_temperature'].attrs = {'units': 'Kelvin', 'long_name': 'Air Temperature', '_FillValue': float('nan'),
-                                   'processing_level': ''}
-    ds['wind_speed'].attrs = {'units': 'm/s', 'long_name': 'Wind Speed', '_FillValue': float('nan'),
-                              'processing_level': ''}
-    ds['wind_direction'].attrs = {'units': 'degrees', 'long_name': 'Wind Direction', '_FillValue': float('nan'),
-                                  'processing_level': ''}
-    ds['humidity_mixing_ratio'].attrs = {'units': 'kg/kg', 'long_name': 'Humidity Mixing Ratio',
-                                         '_FillValue': float('nan'), 'processing_level': ''}
-    ds['air_pressure'].attrs = {'units': 'Pa', 'long_name': 'Atmospheric Pressure', '_FillValue': float('nan'),
-                                'processing_level': ''}
-
-    # Add Global Attributes synonymous across all UASDC providers
-    ds.attrs['Conventions'] = "CF-1.8, WMO-CF-1.0"
-    ds.attrs['wmo__cf_profile'] = "FM 303-2024"
-    ds.attrs['featureType'] = "trajectory"
-
-    # Add Global Attributes unique to Provider
-    ds.attrs['platform_name'] = "WindBorne Global Sounding Balloon"
-    ds.attrs['flight_id'] = mission_name
-    ds.attrs['site_terrain_elevation_height'] = 'not applicable'
-    ds.attrs['processing_level'] = "b1"
-    ds.to_netcdf(output_file)
-
-def poll_super_observations(start_time, end_time=None, interval=60, save_to_file=None, bucket_hours=6.0, output_format=None, callback=None):
+def poll_observations(start_time, end_time=None, include_ids=None, include_updated_at=None, mission_id=None, min_latitude=None, max_latitude=None, min_longitude=None, max_longitude=None, interval=60, save_to_file=None, bucket_hours=6.0, output_format=None, callback=None):
     """
     Fetches observations between a start time and an optional end time and saves to files in specified format.
     Files are broken up into time buckets, with filenames containing the time at the mid-point of the bucket.
@@ -234,12 +126,21 @@ def poll_super_observations(start_time, end_time=None, interval=60, save_to_file
                           representing the starting time of fetching data.
         end_time (str): Optional. A date string, supporting formats YYYY-MM-DD HH:MM:SS, YYYY-MM-DD_HH:MM and ISO strings,
                         representing the end time of fetching data. If not provided, current time is used as end time.
+
+        include_ids (bool): Include observation IDs in response.
+        include_updated_at (bool): Include update timestamps in response.
+        mission_id (str): Filter observations by mission ID.
+        min_latitude (float): Minimum latitude boundary.
+        max_latitude (float): Maximum latitude boundary.
+        min_longitude (float): Minimum longitude boundary.
+        max_longitude (float): Maximum longitude boundary.
+
         interval (int): Optional. Interval in seconds between polls when a empty page is received (default: 60)
         save_to_file (str): Saves all data to a single file instead of bucketing.
                             Supported formats are '.csv', '.json', '.little_r' and '.nc'
         bucket_hours (int): Optional. Size of time buckets in hours. Defaults to 6 hours.
         output_format (str): Optional. Format to save data in separate files. Supported formats are 'json, 'csv', 'little_r' and 'netcdf'.
-        callback (callable): Optional callback function that receives (observations, metadata) before saving.
+        callback (callable): Optional callback function that receives (super observations, metadata) before saving.
                              This allows custom processing or saving in custom formats.
     """
 
@@ -264,7 +165,7 @@ def poll_super_observations(start_time, end_time=None, interval=60, save_to_file
         return
 
     # Supported formats for saving into a single file:
-    # NOTE: for poll_super_observations we handle .csv saving within poll_super_observations and not using save_csv_json
+    # NOTE: for poll_observations we handle .csv saving within poll_observations and not using save_csv_json
     #   - .csv
     #   - .json
     #   - .little_r
@@ -305,11 +206,15 @@ def poll_super_observations(start_time, end_time=None, interval=60, save_to_file
     while has_next_page:
         try:
             # Fetch observations
-            observations_page = get_super_observations(
+            observations_page = get_observations(
                 since=current_timestamp,
-                min_time=start_time,
-                max_time=end_time,
-                include_ids=True,
+                min_latitude=min_latitude,
+                max_latitude=max_latitude,
+                min_longitude=min_longitude,
+                max_longitude=max_longitude,
+                include_updated_at=include_updated_at,
+                mission_id=mission_id,
+                include_ids=include_ids,
                 include_mission_name=True
             )
 
@@ -325,7 +230,7 @@ def poll_super_observations(start_time, end_time=None, interval=60, save_to_file
 
             # Invoke the callback with fetched observations
             if callback:
-                print("Callback")
+                print("/nCallback/n")
                 callback(observations)
 
             for obs in observations:
@@ -397,7 +302,6 @@ def poll_super_observations(start_time, end_time=None, interval=60, save_to_file
         if save_to_file.endswith('.nc'):
             first_obs_timestamp = float(next(iter(sorted_observations.values()))['timestamp'])
             convert_to_netcdf(sorted_observations, first_obs_timestamp, output_filename=save_to_file)
-
         elif save_to_file.endswith('.json'):
             with open(save_to_file, 'w', encoding='utf-8') as f:
                 json.dump(sorted_observations, f, indent=4)
@@ -487,6 +391,271 @@ def poll_super_observations(start_time, end_time=None, interval=60, save_to_file
 
     print("-----------------------------------------------------")
     print("All observations have been processed and saved.")
+
+def poll_super_observations(start_time, end_time=None, interval=60, save_to_file=None, bucket_hours=6.0, output_format=None, callback=None):
+    """
+    Fetches super observations between a start time and an optional end time and saves to files in specified format.
+    Files are broken up into time buckets, with filenames containing the time at the mid-point of the bucket.
+    For example, for 6-hour buckets centered on 00 UTC, the start time should be 21 UTC of the previous day.
+
+    Args:
+        start_time (str): A date string, supporting formats YYYY-MM-DD HH:MM:SS, YYYY-MM-DD_HH:MM and ISO strings,
+                          representing the starting time of fetching data.
+        end_time (str): Optional. A date string, supporting formats YYYY-MM-DD HH:MM:SS, YYYY-MM-DD_HH:MM and ISO strings,
+                        representing the end time of fetching data. If not provided, current time is used as end time.
+        interval (int): Optional. Interval in seconds between polls when a empty page is received (default: 60)
+        save_to_file (str): Saves all data to a single file instead of bucketing.
+                            Supported formats are '.csv', '.json', '.little_r' and '.nc'
+        bucket_hours (int): Optional. Size of time buckets in hours. Defaults to 6 hours.
+        output_format (str): Optional. Format to save data in separate files. Supported formats are 'json, 'csv', 'little_r' and 'netcdf'.
+        callback (callable): Optional callback function that receives (super observations, metadata) before saving.
+                             This allows custom processing or saving in custom formats.
+    """
+
+    start_time = to_unix_timestamp(start_time)
+
+    if end_time:
+        end_time = to_unix_timestamp(end_time)
+    else:
+        end_time = int(datetime.now().timestamp())
+
+    # Supported formats for saving into separate files:
+    #   - csv (default)
+    #   - little_r
+    #   - json
+    #   - netcdf
+    if output_format and output_format not in ['json', 'csv', 'little_r', 'netcdf']:
+        print("Please use one of the following formats:")
+        print("  - json")
+        print("  - csv")
+        print("  - little_r")
+        print("  - netcdf")
+        return
+
+    # Supported formats for saving into a single file:
+    # NOTE: for poll_super_observations we handle .csv saving within poll_super_observations and not using save_csv_json
+    #   - .csv
+    #   - .json
+    #   - .little_r
+    #   - .nc
+    if save_to_file and not save_to_file.endswith(('.json', '.csv', '.little_r', '.nc')):
+        print("Please use one of the following formats:")
+        print("  - .json")
+        print("  - .csv")
+        print("  - .little_r")
+        print("  - .nc")
+        return
+
+    # Convert start_time to datetime
+    start_dt = datetime.fromtimestamp(start_time, tz=timezone.utc)
+
+    # Calculate first center time that's after start_time
+    hours_since_day_start = start_dt.hour + start_dt.minute / 60
+    bucket_number = hours_since_day_start // bucket_hours
+    first_center = start_dt.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(hours=(bucket_number + 1) * bucket_hours)
+
+
+    # Headers for CSV files
+    headers = [
+        "timestamp", "id", "time", "latitude", "longitude", "altitude", "humidity",
+        "mission_name", "pressure", "specific_humidity", "speed_u", "speed_v", "temperature"
+    ]
+
+    if save_to_file:
+        all_observations = {}
+    else:
+        buckets = {}
+
+    # Initialize the polling loop
+    current_timestamp = start_time
+    has_next_page = True
+
+
+    while has_next_page:
+        try:
+            # Fetch observations
+            observations_page = get_super_observations(
+                since=current_timestamp,
+                min_time=start_time,
+                max_time=end_time,
+                include_ids=True,
+                include_mission_name=True
+            )
+
+            if observations_page is None:
+                print("\n----------------------------------------------------------------------")
+                print(f"Received null response from API. Retrying in {interval} seconds ...")
+                print("----------------------------------------------------------------------")
+                time.sleep(interval)
+                continue
+
+            observations = observations_page.get('observations', [])
+            print(f"Fetched {len(observations)} super observation(s)")
+
+            # Invoke the callback with fetched observations
+            if callback:
+                print("/nCallback/n")
+                callback(observations)
+
+            for obs in observations:
+                if 'mission_name' not in obs:
+                    print("Warning: got an super observation without a mission name")
+                    continue
+
+                timestamp = obs.get('timestamp')
+                if not timestamp:
+                    continue
+
+                try:
+                    obs_time = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+                except (OSError, ValueError, TypeError, OverflowError):
+                    continue
+
+                mission_name = obs.get('mission_name', 'Unknown')
+                obs['time'] = obs_time.replace(tzinfo=timezone.utc).isoformat()
+
+                processed_obs = {}
+                for header in headers:
+                    value = obs.get(header)
+                    if value is None or value == '' or (isinstance(value, str) and not value.strip()):
+                        processed_obs[header] = 'None'
+                    else:
+                        processed_obs[header] = value
+
+                obs_id = f"{timestamp}_{mission_name}"
+
+                if save_to_file:
+                    all_observations[obs_id] = processed_obs
+                else:
+                    if obs_time >= start_dt:  # Only process observations after start time
+                        hours_diff = (obs_time - first_center).total_seconds() / 3600
+                        bucket_index = floor(hours_diff / bucket_hours)
+                        bucket_center = first_center + timedelta(hours=bucket_index * bucket_hours)
+                        bucket_end = bucket_center + timedelta(hours=bucket_hours)
+
+                        if obs_time <= bucket_end:  # Include observations up to the end of the bucket
+                            bucket_key = (bucket_center, mission_name)
+                            if bucket_key not in buckets:
+                                buckets[bucket_key] = {}
+                            buckets[bucket_key][obs_id] = processed_obs
+
+            # Update pagination
+            next_timestamp = observations_page.get('next_since')
+            has_next_page = observations_page.get('has_next_page', False)
+
+            if not has_next_page or not next_timestamp or next_timestamp <= current_timestamp:
+                print("-----------------------------------------------------\n")
+                print("No more pages available or reached end of time range.")
+                print("\n-----------------------------------------------------")
+                break
+
+            current_timestamp = next_timestamp
+
+        except Exception as e:
+            print(f"Error occurred: {e}")
+            exit(1001)
+
+    # Save data to a single file
+    if save_to_file:
+        filtered_observations = {obs_id: obs for obs_id, obs in all_observations.items()
+                                 if float(obs['timestamp']) >= start_time}
+        # Sort by timestamp
+        sorted_observations = dict(sorted(filtered_observations.items(),
+                                          key=lambda x: float(x[1]['timestamp'])))
+
+        if save_to_file.endswith('.nc'):
+            first_obs_timestamp = float(next(iter(sorted_observations.values()))['timestamp'])
+            convert_to_netcdf(sorted_observations, first_obs_timestamp, output_filename=save_to_file)
+
+        elif save_to_file.endswith('.json'):
+            with open(save_to_file, 'w', encoding='utf-8') as f:
+                json.dump(sorted_observations, f, indent=4)
+
+        elif save_to_file.endswith('.csv'):
+            with open(save_to_file, mode='w', newline='') as file:
+                writer = csv.DictWriter(file, fieldnames=headers)
+                writer.writeheader()
+                writer.writerows(sorted_observations.values())
+
+        elif save_to_file.endswith('.little_r'):
+            little_r_records = format_little_r(list(sorted_observations.items()))
+            with open(save_to_file, 'w') as file:
+                file.write('\n'.join(little_r_records))
+
+        print(f"Saved {len(sorted_observations)} super {'observation' if len(sorted_observations) == 1 else 'observations'} to {save_to_file}")
+
+    # Save data to multiple file
+    elif output_format:
+        # Track statistics per mission
+        mission_stats = {}  # {mission_name: {'files': 0, 'observations': 0}}
+        total_observations_written = 0
+
+        # Save bucketed data
+        for (bucket_center, mission_name), observations in buckets.items():
+            if observations:
+                # Format hour to be the actual bucket center
+                bucket_hour = int((bucket_center.hour + bucket_hours/2) % 24)
+
+                if output_format == 'netcdf':
+                    convert_to_netcdf(observations, bucket_center.timestamp())
+
+                if output_format == 'csv':
+                    output_file = (f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d_%dh.csv" %
+                                   (bucket_center.year, bucket_center.month, bucket_center.day,
+                                    bucket_hour, bucket_hours))
+
+                    os.makedirs(os.path.dirname(output_file) or '.', exist_ok=True)
+
+                    # Sort observations by timestamp within each bucket
+                    sorted_obs = sorted(observations.values(), key=lambda x: int(x['timestamp']))
+
+                    with open(output_file, mode='w', newline='') as file:
+                        writer = csv.DictWriter(file, fieldnames=headers)
+                        writer.writeheader()
+                        writer.writerows(sorted_obs)
+
+                elif output_format == 'json':
+                    output_file = (f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d_%dh.json" %
+                                   (bucket_center.year, bucket_center.month, bucket_center.day,
+                                    bucket_hour, bucket_hours))
+
+                    os.makedirs(os.path.dirname(output_file) or '.', exist_ok=True)
+
+                    # Sort observations by timestamp within each bucket
+                    sorted_obs = dict(sorted(observations.items(), key=lambda x: int(x[1]['timestamp'])))
+
+                    with open(output_file, 'w', encoding='utf-8') as file:
+                        json.dump(sorted_obs, file, indent=4)
+
+                elif output_format == 'little_r':
+                    output_file = (f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d-00_%dh.little_r" %
+                                   (bucket_center.year, bucket_center.month, bucket_center.day,
+                                    bucket_hour, bucket_hours))
+
+                    os.makedirs(os.path.dirname(output_file) or '.', exist_ok=True)
+
+                    sorted_obs = sorted(observations.items(), key=lambda x: int(x[1]['timestamp']))
+
+                    little_r_records = format_little_r(sorted_obs)
+                    with open(output_file, 'w') as file:
+                        file.write('\n'.join(little_r_records))
+                total_observations_written += len(observations)
+
+                # Update statistics
+                if mission_name not in mission_stats:
+                    mission_stats[mission_name] = {'files': 0, 'observations': 0}
+                mission_stats[mission_name]['files'] += 1
+                mission_stats[mission_name]['observations'] += len(observations)
+        # Print total super observations written
+        print(f"Total super {'observation' if total_observations_written == 1 else 'observations'} written: {total_observations_written}")
+        print("-----------------------------------------------------")
+
+        # Print summary for each mission
+        for mission_name, stats in mission_stats.items():
+            print(f"Mission {mission_name}: Saved {stats['observations']} super {'observation' if stats['observations'] == 1 else 'observations'} across {stats['files']} {'file' if stats['files'] == 1 else 'files'}")
+
+    print("-----------------------------------------------------")
+    print("All super observations have been processed and saved.")
 
 def get_flying_missions(cli=None, save_to_file=None):
     """

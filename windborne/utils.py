@@ -289,6 +289,115 @@ def save_csv_json(save_to_file, response, csv_data_key=None):
         print("Unsupported file format. Please use either .json or .csv.")
         exit(4)
 
+def convert_to_netcdf(data, curtime, output_filename=None):
+    # This module outputs data in netcdf format for the WMO ISARRA program.  The output format is netcdf
+    #   and the style (variable names, file names, etc.) are described here:
+    #  https://github.com/synoptic/wmo-uasdc/tree/main/raw_uas_to_netCDF
+
+    # Import necessary libraries
+    import xarray as xr
+    import pandas as pd
+    import numpy as np
+
+    # Mapping of WindBorne names to ISARRA names
+    rename_dict = {
+        'latitude': 'lat',
+        'longitude': 'lon',
+        'altitude': 'altitude',
+        'temperature': 'air_temperature',
+        'wind_direction': 'wind_direction',
+        'wind_speed': 'wind_speed',
+        'pressure': 'air_pressure',
+        'humidity_mixing_ratio': 'humidity_mixing_ratio',
+        'index': 'obs',
+    }
+
+    # Convert dictionary to list for DataFrame
+    data_list = []
+    for obs_id, obs_data in data.items():
+        # Convert 'None' strings to None type
+        clean_data = {k: None if v == 'None' else v for k, v in obs_data.items()}
+        data_list.append(clean_data)
+
+    # Put the data in a panda dataframe in order to easily push to xarray then netcdf output
+    df = pd.DataFrame(data_list)
+
+    # Convert numeric columns to float
+    numeric_columns = ['latitude', 'longitude', 'altitude', 'pressure', 'temperature',
+                       'speed_u', 'speed_v', 'specific_humidity', 'timestamp']
+    for col in numeric_columns:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+
+    ds = xr.Dataset.from_dataframe(df)
+
+    # Build the filename and save some variables for use later
+    mt = datetime.fromtimestamp(curtime, tz=timezone.utc)
+    # Handle dropsondes
+    mission_name = str(df['mission_name'].iloc[0]) if (not df.empty and not pd.isna(df['mission_name'].iloc[0])) else ' '
+
+    if output_filename:
+        output_file = output_filename
+    else:
+        output_file = f"WindBorne_{mission_name}_{mt.year:04d}-{mt.month:02d}-{mt.day:02d}_{mt.hour:02d}.nc"
+
+    # Derived quantities calculated here:
+
+    # convert from specific humidity to humidity_mixing_ratio
+    mg_to_kg = 1000000.
+    if not all(x is None for x in ds['specific_humidity'].data):
+        ds['humidity_mixing_ratio'] = (ds['specific_humidity'] / mg_to_kg) / (1 - (ds['specific_humidity'] / mg_to_kg))
+    else:
+        ds['humidity_mixing_ratio'] = ds['specific_humidity']
+
+    # Wind speed and direction from components
+    ds['wind_speed'] = np.sqrt(ds['speed_u']*ds['speed_u'] + ds['speed_v']*ds['speed_v'])
+    ds['wind_direction'] = np.mod(180 + (180 / np.pi) * np.arctan2(ds['speed_u'], ds['speed_v']), 360)
+
+    ds['time'] = ds['timestamp'].astype(float)
+    ds = ds.assign_coords(time=("time", ds['time'].data))
+
+    # Now that calculations are done, remove variables not needed in the netcdf output
+    variables_to_drop = ['humidity', 'speed_u', 'speed_v', 'speed_x', 'speed_y', 'specific_humidity',
+                         'timestamp', 'mission_name']
+    existing_vars = [var for var in variables_to_drop if var in ds]
+    ds = ds.drop_vars(existing_vars)
+
+    # Rename the variables
+    ds = ds.rename(rename_dict)
+
+    # Adding attributes to variables in the xarray dataset
+    ds['time'].attrs = {'units': 'seconds since 1970-01-01T00:00:00', 'long_name': 'Time', '_FillValue': float('nan'),
+                        'processing_level': ''}
+    ds['lat'].attrs = {'units': 'degrees_north', 'long_name': 'Latitude', '_FillValue': float('nan'),
+                       'processing_level': ''}
+    ds['lon'].attrs = {'units': 'degrees_east', 'long_name': 'Longitude', '_FillValue': float('nan'),
+                       'processing_level': ''}
+    ds['altitude'].attrs = {'units': 'meters_above_sea_level', 'long_name': 'Altitude', '_FillValue': float('nan'),
+                            'processing_level': ''}
+    ds['air_temperature'].attrs = {'units': 'Kelvin', 'long_name': 'Air Temperature', '_FillValue': float('nan'),
+                                   'processing_level': ''}
+    ds['wind_speed'].attrs = {'units': 'm/s', 'long_name': 'Wind Speed', '_FillValue': float('nan'),
+                              'processing_level': ''}
+    ds['wind_direction'].attrs = {'units': 'degrees', 'long_name': 'Wind Direction', '_FillValue': float('nan'),
+                                  'processing_level': ''}
+    ds['humidity_mixing_ratio'].attrs = {'units': 'kg/kg', 'long_name': 'Humidity Mixing Ratio',
+                                         '_FillValue': float('nan'), 'processing_level': ''}
+    ds['air_pressure'].attrs = {'units': 'Pa', 'long_name': 'Atmospheric Pressure', '_FillValue': float('nan'),
+                                'processing_level': ''}
+
+    # Add Global Attributes synonymous across all UASDC providers
+    ds.attrs['Conventions'] = "CF-1.8, WMO-CF-1.0"
+    ds.attrs['wmo__cf_profile'] = "FM 303-2024"
+    ds.attrs['featureType'] = "trajectory"
+
+    # Add Global Attributes unique to Provider
+    ds.attrs['platform_name'] = "WindBorne Global Sounding Balloon"
+    ds.attrs['flight_id'] = mission_name
+    ds.attrs['site_terrain_elevation_height'] = 'not applicable'
+    ds.attrs['processing_level'] = "b1"
+    ds.to_netcdf(output_file)
+
 def format_value(value, fortran_format, align=None):
     if fortran_format[0] == 'F':
         length, decimal_places = fortran_format[1:].split('.')

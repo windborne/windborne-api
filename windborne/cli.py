@@ -2,6 +2,7 @@ import argparse
 
 from . import (
     poll_super_observations,
+    poll_observations,
     get_observations,
     get_super_observations,
     get_flying_missions,
@@ -34,15 +35,31 @@ def main():
     ####################################################################################################################
     # DATA API FUNCTIONS
     ####################################################################################################################
+    # Poll Super Observations Command
+    poll_super_parser = subparsers.add_parser('poll-super-observations', help='Poll super observations within a time range')
+    poll_super_parser.add_argument('start_time', help='Starting time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
+    poll_super_parser.add_argument('end_time', help='End time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)', nargs='?', default=None)
+    poll_super_parser.add_argument('-i', '--interval', type=int, default=60, help='Polling interval in seconds')
+    poll_super_parser.add_argument('-b', '--bucket-hours', type=float, default=6.0, help='Hours per bucket')
+    poll_super_parser.add_argument('output', help='Save output to a single file (filename.csv, filename.json or filename.little_r) or to multiple files (csv or little_r)')
+
     # Poll Observations Command
-    poll_parser = subparsers.add_parser('poll-super-observations', help='Poll super observations within a time range')
+    poll_parser = subparsers.add_parser('poll-observations', help='Poll observations within a time range')
     poll_parser.add_argument('start_time', help='Starting time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
     poll_parser.add_argument('end_time', help='End time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)', nargs='?', default=None)
+    poll_parser.add_argument('-m', '--mission-id', help='Filter observations by mission ID')
+    poll_parser.add_argument('-ml', '--min-latitude', type=float, help='Minimum latitude filter')
+    poll_parser.add_argument('-xl', '--max-latitude', type=float, help='Maximum latitude filter')
+    poll_parser.add_argument('-mg', '--min-longitude', type=float, help='Minimum longitude filter')
+    poll_parser.add_argument('-xg', '--max-longitude', type=float, help='Maximum longitude filter')
+    poll_parser.add_argument('-id', '--include-ids', action='store_true', help='Include observation IDs')
+    poll_parser.add_argument('-u', '--include-updated-at', action='store_true', help='Include update timestamps')
     poll_parser.add_argument('-i', '--interval', type=int, default=60, help='Polling interval in seconds')
     poll_parser.add_argument('-b', '--bucket-hours', type=float, default=6.0, help='Hours per bucket')
     poll_parser.add_argument('output', help='Save output to a single file (filename.csv, filename.json or filename.little_r) or to multiple files (csv or little_r)')
 
-# Get Observations Command
+
+    # Get Observations Command
     obs_parser = subparsers.add_parser('observations', help='Get observations with filters')
     obs_parser.add_argument('since', help='Get observations since this time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
     obs_parser.add_argument('-mt', '--min-time', help='Minimum time filter (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
@@ -198,6 +215,36 @@ def main():
         poll_super_observations(
             start_time=args.start_time,
             end_time=args.end_time,
+            interval=args.interval,
+            save_to_file=save_to_file,
+            bucket_hours=args.bucket_hours,
+            output_format=output_format
+        )
+
+    elif args.command == 'poll-observations':
+        # Error handling is performed within poll_observations
+        # and we display the appropriate error messages
+        # No need to implement them here
+
+        # In case user wants to save all poll observation data in a single file | filename.format
+        if '.' in args.output:
+            save_to_file = args.output
+            output_format = None
+        # In case user wants separate file for each data from missions (buckets)
+        else:
+            save_to_file = None
+            output_format = args.output
+
+        poll_observations(
+            start_time=args.start_time,
+            end_time=args.end_time,
+            include_ids=args.include_ids,
+            include_updated_at=args.include_updated_at,
+            mission_id=args.mission_id,
+            min_latitude=args.min_latitude,
+            max_latitude=args.max_latitude,
+            min_longitude=args.min_longitude,
+            max_longitude=args.max_longitude,
             interval=args.interval,
             save_to_file=save_to_file,
             bucket_hours=args.bucket_hours,
