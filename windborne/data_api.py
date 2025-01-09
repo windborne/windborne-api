@@ -115,7 +115,7 @@ def get_super_observations(since=None, min_time=None, max_time=None, include_ids
     
     return response
 
-def convert_to_netcdf(data, curtime, bucket_hours, output_filename=None):
+def convert_to_netcdf(data, curtime, output_filename=None):
     # This module outputs data in netcdf format for the WMO ISARRA program.  The output format is netcdf
     #   and the style (variable names, file names, etc.) are described here:
     #  https://github.com/synoptic/wmo-uasdc/tree/main/raw_uas_to_netCDF
@@ -145,7 +145,7 @@ def convert_to_netcdf(data, curtime, bucket_hours, output_filename=None):
         clean_data = {k: None if v == 'None' else v for k, v in obs_data.items()}
         data_list.append(clean_data)
 
-    # Put the data in a panda datafram in order to easily push to xarray then netcdf output
+    # Put the data in a panda dataframe in order to easily push to xarray then netcdf output
     df = pd.DataFrame(data_list)
 
     # Convert numeric columns to float
@@ -159,7 +159,6 @@ def convert_to_netcdf(data, curtime, bucket_hours, output_filename=None):
 
     # Build the filename and save some variables for use later
     mt = datetime.fromtimestamp(curtime, tz=timezone.utc)
-    outdatestring = mt.strftime('%Y%m%d%H%M%S')
     mission_name = df['mission_name'].iloc[0]
     if output_filename:
         output_file = output_filename
@@ -224,19 +223,24 @@ def convert_to_netcdf(data, curtime, bucket_hours, output_filename=None):
     ds.attrs['processing_level'] = "b1"
     ds.to_netcdf(output_file)
 
-def poll_super_observations(start_time, end_time=None, interval=60, save_to_file=None, bucket_hours=6.0, output_format=None):
+def poll_super_observations(start_time, end_time=None, interval=60, save_to_file=None, bucket_hours=6.0, output_format=None, callback=None):
     """
     Fetches observations between a start time and an optional end time and saves to files in specified format.
     Files are broken up into time buckets, with filenames containing the time at the mid-point of the bucket.
     For example, for 6-hour buckets centered on 00 UTC, the start time should be 21 UTC of the previous day.
 
     Args:
-        start_time (str): Start time in the format 'YYYY-MM-DD_HH:MM'.
-        end_time (str): Optional end time in the format 'YYYY-MM-DD_HH:MM'.
-        interval (int): Interval in seconds between polls if pagination is required (default: 60).
-        save_to_file (str): If provided, saves all data to a single file instead of bucketing.
-        bucket_hours (int): Size of time buckets in hours. Defaults to 6 hours.
-        output_format (str): Format to save data in ('csv' or 'little_r').
+        start_time (str): A date string, supporting formats YYYY-MM-DD HH:MM:SS, YYYY-MM-DD_HH:MM and ISO strings,
+                          representing the starting time of fetching data.
+        end_time (str): Optional. A date string, supporting formats YYYY-MM-DD HH:MM:SS, YYYY-MM-DD_HH:MM and ISO strings,
+                        representing the end time of fetching data. If not provided, current time is used as end time.
+        interval (int): Optional. Interval in seconds between polls when a empty page is received (default: 60)
+        save_to_file (str): Saves all data to a single file instead of bucketing.
+                            Supported formats are '.csv', '.json', '.little_r' and '.nc'
+        bucket_hours (int): Optional. Size of time buckets in hours. Defaults to 6 hours.
+        output_format (str): Optional. Format to save data in separate files. Supported formats are 'json, 'csv', 'little_r' and 'netcdf'.
+        callback (callable): Optional callback function that receives (observations, metadata) before saving.
+                             This allows custom processing or saving in custom formats.
     """
 
     start_time = to_unix_timestamp(start_time)
@@ -319,6 +323,11 @@ def poll_super_observations(start_time, end_time=None, interval=60, save_to_file
             observations = observations_page.get('observations', [])
             print(f"Fetched {len(observations)} observation(s)")
 
+            # Invoke the callback with fetched observations
+            if callback:
+                print("Callback")
+                callback(observations)
+
             for obs in observations:
                 if 'mission_name' not in obs:
                     print("Warning: got an observation without a mission name")
@@ -387,7 +396,7 @@ def poll_super_observations(start_time, end_time=None, interval=60, save_to_file
 
         if save_to_file.endswith('.nc'):
             first_obs_timestamp = float(next(iter(sorted_observations.values()))['timestamp'])
-            convert_to_netcdf(sorted_observations, first_obs_timestamp, bucket_hours=None, output_filename=save_to_file)
+            convert_to_netcdf(sorted_observations, first_obs_timestamp, output_filename=save_to_file)
 
         elif save_to_file.endswith('.json'):
             with open(save_to_file, 'w', encoding='utf-8') as f:
@@ -419,7 +428,7 @@ def poll_super_observations(start_time, end_time=None, interval=60, save_to_file
                 bucket_hour = int((bucket_center.hour + bucket_hours/2) % 24)
 
                 if output_format == 'netcdf':
-                    convert_to_netcdf(observations, bucket_center.timestamp(), bucket_hours)
+                    convert_to_netcdf(observations, bucket_center.timestamp())
 
                 if output_format == 'csv':
                     output_file = (f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d_%dh.csv" %
