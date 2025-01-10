@@ -29,7 +29,7 @@ def is_valid_client_id_format(client_id):
 def make_api_request(url, params=None, return_type=None):
     # Check if credentials are set
     if not CLIENT_ID and not API_KEY:
-        print("To access WindBorne API, you need to set your Client ID and API key by setting environment variables.")
+        print("To access the WindBorne API, you need to set your Client ID and API key by setting the environment variables WB_CLIENT_ID and WB_API_KEY.")
         print("--------------------------------------")
         print("You may refer to https://windbornesystems.com/docs/api/cli#introduction\n"
               "for instructions on how to set your credentials as environment variables for CLI and Code usage\n\n"
@@ -39,7 +39,7 @@ def make_api_request(url, params=None, return_type=None):
         print("To get an API key, email data@windbornesystems.com.")
         exit(80)
     elif not CLIENT_ID:
-        print("To access WindBorne API, you need to set your Client ID by setting environment variables.")
+        print("To access the WindBorne API, you need to set your Client ID by setting the environment variable WB_CLIENT_ID.")
         print("--------------------------------------")
         print("You may refer to https://windbornesystems.com/docs/api/cli#introduction\n"
               "for instructions on how to set your credentials as environment variables for CLI and Code usage\n\n"
@@ -49,7 +49,7 @@ def make_api_request(url, params=None, return_type=None):
         print("To get an API key, email data@windbornesystems.com.")
         exit(90)
     elif not API_KEY:
-        print("To access WindBorne API, you need to set your API key by setting environment variables.")
+        print("To access the WindBorne API, you need to set your CAPI key by setting the environment variable WB_API_KEY.")
         print("--------------------------------------")
         print("You may refer to https://windbornesystems.com/docs/api/cli#introduction\n"
               "for instructions on how to set your credentials as environment variables for CLI and Code usage\n\n"
