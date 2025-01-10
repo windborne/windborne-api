@@ -29,7 +29,7 @@ def is_valid_client_id_format(client_id):
 def make_api_request(url, params=None, return_type=None):
     # Check if credentials are set
     if not CLIENT_ID and not API_KEY:
-        print("To access Windborne API, you need to set your Client ID and API key.")
+        print("To access WindBorne API, you need to set your Client ID and API key by setting environment variables.")
         print("--------------------------------------")
         print("You may refer to https://windbornesystems.com/docs/api/cli#introduction\n"
               "for instructions on how to set your credentials as environment variables for CLI and Code usage\n\n"
@@ -39,7 +39,7 @@ def make_api_request(url, params=None, return_type=None):
         print("To get an API key, email data@windbornesystems.com.")
         exit(80)
     elif not CLIENT_ID:
-        print("To access Windborne API, you need to set your Client ID.")
+        print("To access WindBorne API, you need to set your Client ID by setting environment variables.")
         print("--------------------------------------")
         print("You may refer to https://windbornesystems.com/docs/api/cli#introduction\n"
               "for instructions on how to set your credentials as environment variables for CLI and Code usage\n\n"
@@ -49,7 +49,7 @@ def make_api_request(url, params=None, return_type=None):
         print("To get an API key, email data@windbornesystems.com.")
         exit(90)
     elif not API_KEY:
-        print("To access Windborne API, you need to set your API key.")
+        print("To access WindBorne API, you need to set your API key by setting environment variables.")
         print("--------------------------------------")
         print("You may refer to https://windbornesystems.com/docs/api/cli#introduction\n"
               "for instructions on how to set your credentials as environment variables for CLI and Code usage\n\n"
@@ -64,23 +64,39 @@ def make_api_request(url, params=None, return_type=None):
         print("Your Client ID is misformatted.")
         print("--------------------------------------")
         print("It should either be a valid UUID v4 or consist of only lowercase letters, digits, and underscores ([a-z0-9_]).")
+        print("--------------------------------------")
+        print("You may refer to https://windbornesystems.com/docs/api/cli#introduction\n"
+              "for instructions on how to set your credentials as environment variables for CLI and Code usage\n\n"
+              "and to https://windbornesystems.com/docs/api/pip_data#introduction\n"
+              "for instruction on how to set your credentials for code usage.")
+        print("--------------------------------------")
         print(f"Current Client ID: {CLIENT_ID}")
         exit(92)
 
-    # Validate WB_API_KEY format
-    # "wb_" + 32 characters
-    if API_KEY.startswith("wb_") and len(API_KEY) != 35:
-        print("Your API key is misformatted.")
-        print("--------------------------------------")
-        print("API keys starting with 'wb_' must be 35 characters long (including the 'wb_' prefix).")
-        print("Upon changed, you can verify this by running\necho $WB_API_KEY in your terminal.\n")
-        print(f"Current API key: {API_KEY}")
-        exit(93)
+    # Validate WB_API_KEY for both newer and older formats
+    if API_KEY.startswith("wb_"):
+        if len(API_KEY) != 35:
+            print("Your API key is misformatted.")
+            print("--------------------------------------")
+            print("API keys starting with 'wb_' must be 35 characters long (including the 'wb_' prefix).")
+            print("--------------------------------------")
+            print("You may refer to https://windbornesystems.com/docs/api/cli#introduction\n"
+                  "for instructions on how to set your credentials as environment variables for CLI and Code usage\n\n"
+                  "and to https://windbornesystems.com/docs/api/pip_data#introduction\n"
+                  "for instruction on how to set your credentials for code usage.")
+            print("--------------------------------------")
+            print(f"Current API key: {API_KEY}")
+            exit(93)
     elif len(API_KEY) != 32:  # For early tokens
         print("Your API key is misformatted.")
         print("--------------------------------------")
         print("API keys created in 2023 or earlier must be exactly 32 characters long.")
-        print("Upon changed, you can verify this by running\necho $WB_API_KEY in your terminal.\n")
+        print("--------------------------------------")
+        print("You may refer to https://windbornesystems.com/docs/api/cli#introduction\n"
+              "for instructions on how to set your credentials as environment variables for CLI and Code usage\n\n"
+              "and to https://windbornesystems.com/docs/api/pip_data#introduction\n"
+              "for instruction on how to set your credentials for code usage.")
+        print("--------------------------------------")
         print(f"Current API key: {API_KEY}")
         exit(94)
 
