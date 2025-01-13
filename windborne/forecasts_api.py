@@ -15,6 +15,9 @@ from .utils import (make_api_request,
 
 # Point forecasts
 def get_point_forecasts(coordinates, min_forecast_time=None, max_forecast_time=None, min_forecast_hour=None, max_forecast_hour=None, initialization_time=None, save_to_file=None):
+    # Sanitize coordinates by removing whitespace
+    coordinates = coordinates.replace(" ", "")
+
     params = {"coordinates": coordinates}
 
     if not coordinates:
