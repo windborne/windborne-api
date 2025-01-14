@@ -494,7 +494,9 @@ def poll_super_observations(start_time, end_time=None, interval=60, save_to_file
 
             # Invoke the callback with fetched observations
             if callback:
-                print("/nCallback/n")
+                print("--------")
+                print("Callback")
+                print("--------")
                 callback(observations)
 
             for obs in observations:
