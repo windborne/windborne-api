@@ -72,7 +72,7 @@ def main():
     obs_parser.add_argument('-id', '--include-ids', action='store_true', help='Include observation IDs')
     obs_parser.add_argument('-mn', '--include-mission-name', action='store_true', help='Include mission names')
     obs_parser.add_argument('-u', '--include-updated-at', action='store_true', help='Include update timestamps')
-    obs_parser.add_argument('output', nargs='?', help='Output file')
+    obs_parser.add_argument('output', help='Output file')
 
     # Get Super Observations Command
     super_obs_parser = subparsers.add_parser('super-observations', help='Get super observations with filters')
@@ -83,7 +83,7 @@ def main():
     super_obs_parser.add_argument('-id', '--include-ids', action='store_true', help='Include observation IDs')
     super_obs_parser.add_argument('-mn', '--include-mission-name', action='store_true', help='Include mission names')
     super_obs_parser.add_argument('-u', '--include-updated-at', action='store_true', help='Include update timestamps')
-    super_obs_parser.add_argument('output', nargs='?', help='Output file')
+    super_obs_parser.add_argument('output', help='Output file')
 
     # Get Flying Missions Command
     flying_parser = subparsers.add_parser('flying-missions', help='Get currently flying missions')
