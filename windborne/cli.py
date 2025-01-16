@@ -41,6 +41,7 @@ def main():
     super_obs_parser.add_argument('end_time', help='End time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)', nargs='?', default=None)
     super_obs_parser.add_argument('-i', '--interval', type=int, default=60, help='Polling interval in seconds')
     super_obs_parser.add_argument('-b', '--bucket-hours', type=float, default=6.0, help='Hours per bucket')
+    super_obs_parser.add_argument('-d', '--output-dir', help='Directory path where the separate files should be saved. If not provided, files will be saved in current directory.')
     super_obs_parser.add_argument('output', help='Save output to a single file (filename.csv, filename.json or filename.little_r) or to multiple files (csv or little_r)')
 
     # Observations Command
@@ -56,6 +57,7 @@ def main():
     obs_parser.add_argument('-u', '--include-updated-at', action='store_true', help='Include update timestamps')
     obs_parser.add_argument('-i', '--interval', type=int, default=60, help='Polling interval in seconds')
     obs_parser.add_argument('-b', '--bucket-hours', type=float, default=6.0, help='Hours per bucket')
+    obs_parser.add_argument('-d', '--output-dir', help='Directory path where the separate files should be saved. If not provided, files will be saved in current directory.')
     obs_parser.add_argument('output', help='Save output to a single file (filename.csv, filename.json or filename.little_r) or to multiple files (csv or little_r)')
 
 
@@ -207,10 +209,12 @@ def main():
         if '.' in args.output:
             save_to_file = args.output
             output_format = None
+            output_dir = None
         # In case user wants separate file for each data from missions (buckets)
         else:
             save_to_file = None
             output_format = args.output
+            output_dir = args.output_dir
 
         super_observations(
             start_time=args.start_time,
@@ -218,6 +222,7 @@ def main():
             interval=args.interval,
             save_to_file=save_to_file,
             bucket_hours=args.bucket_hours,
+            output_dir=output_dir,
             output_format=output_format
         )
 
@@ -230,10 +235,12 @@ def main():
         if '.' in args.output:
             save_to_file = args.output
             output_format = None
+            output_dir = None
         # In case user wants separate file for each data from missions (buckets)
         else:
             save_to_file = None
             output_format = args.output
+            output_dir = args.output_dir
 
         observations(
             start_time=args.start_time,
@@ -248,6 +255,7 @@ def main():
             interval=args.interval,
             save_to_file=save_to_file,
             bucket_hours=args.bucket_hours,
+            output_dir=output_dir,
             output_format=output_format
         )
 

@@ -115,7 +115,7 @@ def get_super_observations_page(since=None, min_time=None, max_time=None, includ
     
     return response
 
-def observations(start_time, end_time=None, include_ids=None, include_updated_at=None, mission_id=None, min_latitude=None, max_latitude=None, min_longitude=None, max_longitude=None, interval=60, save_to_file=None, bucket_hours=6.0, output_format=None, callback=None):
+def observations(start_time, end_time=None, include_ids=None, include_updated_at=None, mission_id=None, min_latitude=None, max_latitude=None, min_longitude=None, max_longitude=None, interval=60, save_to_file=None, bucket_hours=6.0, output_format=None, output_dir=None, callback=None):
     """
     Fetches observations between a start time and an optional end time and saves to files in specified format.
     Files are broken up into time buckets, with filenames containing the time at the mid-point of the bucket.
@@ -140,6 +140,7 @@ def observations(start_time, end_time=None, include_ids=None, include_updated_at
                             Supported formats are '.csv', '.json', '.little_r' and '.nc'
         bucket_hours (int): Optional. Size of time buckets in hours. Defaults to 6 hours.
         output_format (str): Optional. Format to save data in separate files. Supported formats are 'json, 'csv', 'little_r' and 'netcdf'.
+        output_dir (str): Optional. Directory path where the separate files should be saved. If not provided, files will be saved in current directory.
         callback (callable): Optional callback function that receives (super observations, metadata) before saving.
                              This allows custom processing or saving in custom formats.
     """
@@ -334,6 +335,12 @@ def observations(start_time, end_time=None, include_ids=None, include_updated_at
 
     # Save data to multiple file
     elif output_format:
+        # Create output directory if specified
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
+            print(f"Files will be saved to {output_dir}")
+        else:
+            print(f"Files will be saved to {os.getcwd()}")
         print(f"Processing {fetced_so_far} {'observation' if fetced_so_far == 1 else 'observations'} and save them over multiple files.")
         print("This may take a while...")
         print("-----------------------------------------------------\n")
@@ -345,48 +352,38 @@ def observations(start_time, end_time=None, include_ids=None, include_updated_at
         for (bucket_center, mission_name), observations in buckets.items():
             if observations:
                 # Format hour to be the actual bucket center
-                bucket_hour = int((bucket_center.hour + bucket_hours/2) % 24)
+                bucket_hour = int((bucket_center.hour + bucket_hours / 2) % 24)
+
+                # Generate file name based on output format
+                file_name_format = {
+                    'csv': f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d_%dh.csv",
+                    'json': f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d_%dh.json",
+                    'little_r': f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d-00_%dh.little_r"
+                }
+                file_name = file_name_format[output_format] % (
+                    bucket_center.year, bucket_center.month, bucket_center.day,
+                    bucket_hour, bucket_hours)
+
+                output_file = os.path.join(output_dir or '.', file_name)
+
+                # Sort observations by timestamp within each bucket
+                sorted_obs = sorted(observations.values(), key=lambda x: int(x['timestamp']))
 
                 if output_format == 'netcdf':
-                    convert_to_netcdf(observations, bucket_center.timestamp())
+                    convert_to_netcdf(sorted_obs, bucket_center.timestamp())
 
-                if output_format == 'csv':
-                    output_file = (f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d_%dh.csv" %
-                                   (bucket_center.year, bucket_center.month, bucket_center.day,
-                                    bucket_hour, bucket_hours))
-
-                    os.makedirs(os.path.dirname(output_file) or '.', exist_ok=True)
-
-                    # Sort observations by timestamp within each bucket
-                    sorted_obs = sorted(observations.values(), key=lambda x: int(x['timestamp']))
-
+                elif output_format == 'csv':
                     with open(output_file, mode='w', newline='') as file:
                         writer = csv.DictWriter(file, fieldnames=headers)
                         writer.writeheader()
                         writer.writerows(sorted_obs)
 
                 elif output_format == 'json':
-                    output_file = (f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d_%dh.json" %
-                                   (bucket_center.year, bucket_center.month, bucket_center.day,
-                                    bucket_hour, bucket_hours))
-
-                    os.makedirs(os.path.dirname(output_file) or '.', exist_ok=True)
-
-                    # Sort observations by timestamp within each bucket
-                    sorted_obs = dict(sorted(observations.items(), key=lambda x: int(x[1]['timestamp'])))
-
+                    sorted_obs_dict = {k: v for k, v in sorted(observations.items(), key=lambda x: int(x[1]['timestamp']))}
                     with open(output_file, 'w', encoding='utf-8') as file:
-                        json.dump(sorted_obs, file, indent=4)
+                        json.dump(sorted_obs_dict, file, indent=4)
 
                 elif output_format == 'little_r':
-                    output_file = (f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d-00_%dh.little_r" %
-                                   (bucket_center.year, bucket_center.month, bucket_center.day,
-                                    bucket_hour, bucket_hours))
-
-                    os.makedirs(os.path.dirname(output_file) or '.', exist_ok=True)
-
-                    sorted_obs = sorted(observations.items(), key=lambda x: int(x[1]['timestamp']))
-
                     little_r_records = format_little_r(sorted_obs)
                     with open(output_file, 'w') as file:
                         file.write('\n'.join(little_r_records))
@@ -408,7 +405,7 @@ def observations(start_time, end_time=None, include_ids=None, include_updated_at
     print("-----------------------------------------------------")
     print("All observations have been processed and saved.")
 
-def super_observations(start_time, end_time=None, interval=60, save_to_file=None, bucket_hours=6.0, output_format=None, callback=None):
+def super_observations(start_time, end_time=None, interval=60, save_to_file=None, bucket_hours=6.0, output_format=None, output_dir=None, callback=None):
     """
     Fetches super observations between a start time and an optional end time and saves to files in specified format.
     Files are broken up into time buckets, with filenames containing the time at the mid-point of the bucket.
@@ -424,6 +421,7 @@ def super_observations(start_time, end_time=None, interval=60, save_to_file=None
                             Supported formats are '.csv', '.json', '.little_r' and '.nc'
         bucket_hours (int): Optional. Size of time buckets in hours. Defaults to 6 hours.
         output_format (str): Optional. Format to save data in separate files. Supported formats are 'json, 'csv', 'little_r' and 'netcdf'.
+        output_dir (str): Optional. Directory path where the separate files should be saved. If not provided, files will be saved in current directory.
         callback (callable): Optional callback function that receives (super observations, metadata) before saving.
                              This allows custom processing or saving in custom formats.
     """
@@ -617,6 +615,13 @@ def super_observations(start_time, end_time=None, interval=60, save_to_file=None
 
     # Save data to multiple file
     elif output_format:
+        # Create output directory if specified
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
+            print(f"Files will be saved to {output_dir}")
+        else:
+            print(f"Files will be saved to {os.getcwd()}")
+
         print(f"Processing {fetced_so_far} super {'observation' if fetced_so_far == 1 else 'observations'} and save them over multiple files.")
         print("This may take a while...")
         print("-----------------------------------------------------\n")
@@ -630,46 +635,36 @@ def super_observations(start_time, end_time=None, interval=60, save_to_file=None
                 # Format hour to be the actual bucket center
                 bucket_hour = int((bucket_center.hour + bucket_hours/2) % 24)
 
+                # Generate file name based on output format
+                file_name_format = {
+                    'csv': f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d_%dh.csv",
+                    'json': f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d_%dh.json",
+                    'little_r': f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d-00_%dh.little_r"
+                }
+                file_name = file_name_format[output_format] % (
+                    bucket_center.year, bucket_center.month, bucket_center.day,
+                    bucket_hour, bucket_hours)
+
+                output_file = os.path.join(output_dir or '.', file_name)
+
+                # Sort observations by timestamp within each bucket
+                sorted_obs = sorted(observations.values(), key=lambda x: int(x['timestamp']))
+
                 if output_format == 'netcdf':
-                    convert_to_netcdf(observations, bucket_center.timestamp())
+                    convert_to_netcdf(sorted_obs, bucket_center.timestamp())
 
-                if output_format == 'csv':
-                    output_file = (f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d_%dh.csv" %
-                                   (bucket_center.year, bucket_center.month, bucket_center.day,
-                                    bucket_hour, bucket_hours))
-
-                    os.makedirs(os.path.dirname(output_file) or '.', exist_ok=True)
-
-                    # Sort observations by timestamp within each bucket
-                    sorted_obs = sorted(observations.values(), key=lambda x: int(x['timestamp']))
-
+                elif output_format == 'csv':
                     with open(output_file, mode='w', newline='') as file:
                         writer = csv.DictWriter(file, fieldnames=headers)
                         writer.writeheader()
                         writer.writerows(sorted_obs)
 
                 elif output_format == 'json':
-                    output_file = (f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d_%dh.json" %
-                                   (bucket_center.year, bucket_center.month, bucket_center.day,
-                                    bucket_hour, bucket_hours))
-
-                    os.makedirs(os.path.dirname(output_file) or '.', exist_ok=True)
-
-                    # Sort observations by timestamp within each bucket
-                    sorted_obs = dict(sorted(observations.items(), key=lambda x: int(x[1]['timestamp'])))
-
+                    sorted_obs_dict = {k: v for k, v in sorted(observations.items(), key=lambda x: int(x[1]['timestamp']))}
                     with open(output_file, 'w', encoding='utf-8') as file:
-                        json.dump(sorted_obs, file, indent=4)
+                        json.dump(sorted_obs_dict, file, indent=4)
 
                 elif output_format == 'little_r':
-                    output_file = (f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d-00_%dh.little_r" %
-                                   (bucket_center.year, bucket_center.month, bucket_center.day,
-                                    bucket_hour, bucket_hours))
-
-                    os.makedirs(os.path.dirname(output_file) or '.', exist_ok=True)
-
-                    sorted_obs = sorted(observations.items(), key=lambda x: int(x[1]['timestamp']))
-
                     little_r_records = format_little_r(sorted_obs)
                     with open(output_file, 'w') as file:
                         file.write('\n'.join(little_r_records))
