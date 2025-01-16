@@ -390,6 +390,9 @@ def convert_to_netcdf(data, curtime, output_filename=None):
 
     # Now that calculations are done, remove variables not needed in the netcdf output
     variables_to_drop = ['humidity', 'speed_x', 'speed_y', 'timestamp']
+    if 'id' in ds and pd.isna(ds['id']).all():
+        variables_to_drop.append('id')
+
     existing_vars = [var for var in variables_to_drop if var in ds]
     ds = ds.drop_vars(existing_vars)
 
