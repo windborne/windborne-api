@@ -286,7 +286,7 @@ def observations(start_time, end_time=None, include_ids=None, include_updated_at
 
             if not has_next_page or not next_timestamp or next_timestamp <= current_timestamp:
                 print("-----------------------------------------------------\n")
-                print("No more pages available or reached end of time range.")
+                print("Fetching complete.")
                 print("\n-----------------------------------------------------")
                 break
 
@@ -564,7 +564,7 @@ def super_observations(start_time, end_time=None, interval=60, save_to_file=None
 
             if not has_next_page or not next_timestamp or next_timestamp <= current_timestamp:
                 print("-----------------------------------------------------\n")
-                print("No more pages available or reached end of time range.")
+                print("Fetching complete.")
                 print("\n-----------------------------------------------------")
                 break
 
