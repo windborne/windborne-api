@@ -294,7 +294,7 @@ def main():
                 mission_id=args.mission_id
             ))
         else:
-            get_super_observations(
+            get_super_observations_page(
                 since=args.since,
                 min_time=args.min_time,
                 max_time=args.max_time,
