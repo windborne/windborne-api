@@ -277,7 +277,7 @@ def save_csv_json(save_to_file, response, csv_data_key=None):
             json.dump(response, f, indent=4)
         print("Saved to", save_to_file)
     elif save_to_file.lower().endswith('.csv'):
-    # Extract data for CSV if a key is provided
+        # Extract data for CSV if a key is provided
         data = response if not csv_data_key else response.get(csv_data_key, [])
         if not data:
             print("No data available to save to CSV.")
@@ -364,8 +364,11 @@ def convert_to_netcdf(data, curtime, output_filename=None):
     # Handle dropsondes
     mission_name = str(df['mission_name'].iloc[0]) if (not df.empty and not pd.isna(df['mission_name'].iloc[0])) else ' '
 
+    is_multi_mission = False
+
     if output_filename:
         output_file = output_filename
+        is_multi_mission = True  # we should calculate this directly, rather than relying on the filename
     else:
         output_file = f"WindBorne_{mission_name}_{mt.year:04d}-{mt.month:02d}-{mt.day:02d}_{mt.hour:02d}.nc"
 
@@ -386,8 +389,7 @@ def convert_to_netcdf(data, curtime, output_filename=None):
     ds = ds.assign_coords(time=("time", ds['time'].data))
 
     # Now that calculations are done, remove variables not needed in the netcdf output
-    variables_to_drop = ['humidity', 'speed_u', 'speed_v', 'speed_x', 'speed_y', 'specific_humidity',
-                         'timestamp', 'mission_name']
+    variables_to_drop = ['humidity', 'speed_x', 'speed_y', 'timestamp', 'mission_name']
     existing_vars = [var for var in variables_to_drop if var in ds]
     ds = ds.drop_vars(existing_vars)
 
@@ -395,33 +397,91 @@ def convert_to_netcdf(data, curtime, output_filename=None):
     ds = ds.rename(rename_dict)
 
     # Adding attributes to variables in the xarray dataset
-    ds['time'].attrs = {'units': 'seconds since 1970-01-01T00:00:00', 'long_name': 'Time', '_FillValue': float('nan'),
-                        'processing_level': ''}
-    ds['lat'].attrs = {'units': 'degrees_north', 'long_name': 'Latitude', '_FillValue': float('nan'),
-                       'processing_level': ''}
-    ds['lon'].attrs = {'units': 'degrees_east', 'long_name': 'Longitude', '_FillValue': float('nan'),
-                       'processing_level': ''}
-    ds['altitude'].attrs = {'units': 'meters_above_sea_level', 'long_name': 'Altitude', '_FillValue': float('nan'),
-                            'processing_level': ''}
-    ds['air_temperature'].attrs = {'units': 'Kelvin', 'long_name': 'Air Temperature', '_FillValue': float('nan'),
-                                   'processing_level': ''}
-    ds['wind_speed'].attrs = {'units': 'm/s', 'long_name': 'Wind Speed', '_FillValue': float('nan'),
-                              'processing_level': ''}
-    ds['wind_direction'].attrs = {'units': 'degrees', 'long_name': 'Wind Direction', '_FillValue': float('nan'),
-                                  'processing_level': ''}
-    ds['humidity_mixing_ratio'].attrs = {'units': 'kg/kg', 'long_name': 'Humidity Mixing Ratio',
-                                         '_FillValue': float('nan'), 'processing_level': ''}
-    ds['air_pressure'].attrs = {'units': 'Pa', 'long_name': 'Atmospheric Pressure', '_FillValue': float('nan'),
-                                'processing_level': ''}
+    ds['time'].attrs = {
+        'units': 'seconds since 1970-01-01T00:00:00',
+        'long_name': 'Time', '_FillValue': float('nan'),
+        'processing_level': ''
+    }
+
+    ds['lat'].attrs = {
+        'units': 'degrees_north',
+        'long_name': 'Latitude',
+        '_FillValue': float('nan'),
+        'processing_level': ''
+    }
+    ds['lon'].attrs = {
+        'units': 'degrees_east',
+        'long_name': 'Longitude',
+        '_FillValue': float('nan'),
+        'processing_level': ''
+    }
+    ds['altitude'].attrs = {
+        'units': 'meters_above_sea_level',
+        'long_name': 'Altitude',
+        '_FillValue': float('nan'),
+        'processing_level': ''
+    }
+    ds['air_temperature'].attrs = {
+        'units': 'Kelvin',
+        'long_name': 'Air Temperature',
+        '_FillValue': float('nan'),
+        'processing_level': ''
+    }
+    ds['wind_speed'].attrs = {
+        'units': 'm/s',
+        'long_name': 'Wind Speed',
+        '_FillValue': float('nan'),
+        'processing_level': ''
+    }
+    ds['wind_direction'].attrs = {
+        'units': 'degrees',
+        'long_name': 'Wind Direction',
+        '_FillValue': float('nan'),
+        'processing_level': ''
+    }
+    ds['humidity_mixing_ratio'].attrs = {
+        'units': 'kg/kg',
+        'long_name': 'Humidity Mixing Ratio',
+        '_FillValue': float('nan'),
+        'processing_level': ''
+    }
+    ds['air_pressure'].attrs = {
+        'units': 'Pa',
+        'long_name': 'Atmospheric Pressure',
+        '_FillValue': float('nan'),
+        'processing_level': ''
+    }
+    ds['speed_u'].attrs = {
+        'units': 'm/s',
+        'long_name': 'Wind speed in direction of increasing longitude',
+        '_FillValue': float('nan'),
+        'processing_level': ''
+    }
+    ds['speed_v'].attrs = {
+        'units': 'm/s',
+        'long_name': 'Wind speed in direction of increasing latitude',
+        '_FillValue': float('nan'),
+        'processing_level': ''
+    }
+
+    ds['specific_humidity'].attrs = {
+        'units': 'mg/kg',
+        'long_name': 'Specific Humidity',
+        '_FillValue': float('nan'),
+        'processing_level': '',
+        'Conventions': "CF-1.8, WMO-CF-1.0"
+    }
 
     # Add Global Attributes synonymous across all UASDC providers
-    ds.attrs['Conventions'] = "CF-1.8, WMO-CF-1.0"
-    ds.attrs['wmo__cf_profile'] = "FM 303-2024"
-    ds.attrs['featureType'] = "trajectory"
+    if not is_multi_mission:
+        ds.attrs['wmo__cf_profile'] = "FM 303-2024"
+        ds.attrs['featureType'] = "trajectory"
 
     # Add Global Attributes unique to Provider
     ds.attrs['platform_name'] = "WindBorne Global Sounding Balloon"
-    ds.attrs['flight_id'] = mission_name
+    if not is_multi_mission:
+        ds.attrs['flight_id'] = mission_name
+
     ds.attrs['site_terrain_elevation_height'] = 'not applicable'
     ds.attrs['processing_level'] = "b1"
     ds.to_netcdf(output_file)
