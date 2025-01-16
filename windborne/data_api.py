@@ -201,6 +201,7 @@ def observations(start_time, end_time=None, include_ids=None, include_updated_at
     # Initialize the polling loop
     current_timestamp = start_time
     has_next_page = True
+    fetced_so_far = 0
 
 
     while has_next_page:
@@ -226,7 +227,11 @@ def observations(start_time, end_time=None, include_ids=None, include_updated_at
                 continue
 
             observations = observations_page.get('observations', [])
-            print(f"Fetched {len(observations)} observation(s)")
+            fetced_so_far = fetced_so_far + len(observations)
+            print_current_timestamp = current_timestamp if current_timestamp < 1e11 else current_timestamp / 1e9
+            print(f"Fetched {fetced_so_far} observation(s)")
+            print(f"Current time:{datetime.fromtimestamp(print_current_timestamp).strftime('%Y-%m-%d %H:%M:%S')}")
+            print("-----------------------------------------------------")
 
             # Invoke the callback with fetched observations
             if callback:
@@ -469,6 +474,7 @@ def super_observations(start_time, end_time=None, interval=60, save_to_file=None
     # Initialize the polling loop
     current_timestamp = start_time
     has_next_page = True
+    fetced_so_far = 0
 
 
     while has_next_page:
@@ -490,7 +496,11 @@ def super_observations(start_time, end_time=None, interval=60, save_to_file=None
                 continue
 
             observations = observations_page.get('observations', [])
-            print(f"Fetched {len(observations)} super observation(s)")
+            fetced_so_far = fetced_so_far + len(observations)
+            print_current_timestamp = current_timestamp if current_timestamp < 1e11 else current_timestamp / 1e9
+            print(f"Fetched {fetced_so_far} super observation(s)")
+            print(f"Current time:{datetime.fromtimestamp(print_current_timestamp).strftime('%Y-%m-%d %H:%M:%S')}")
+            print("-----------------------------------------------------")
 
             # Invoke the callback with fetched observations
             if callback:
