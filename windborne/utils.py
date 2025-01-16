@@ -58,6 +58,20 @@ def make_api_request(url, params=None, return_type=None):
         print("--------------------------------------")
         print("To get an API key, email data@windbornesystems.com.")
         exit(91)
+    # Check if credentials are swapped
+    elif len(CLIENT_ID) in [32, 35]:
+        print("Your Client ID and API Key are swapped.")
+        print("--------------------------------------")
+        print("Swap them or modify them accordingly to get access to WindBorne API.")
+        print("--------------------------------------")
+        print("You may refer to https://windbornesystems.com/docs/api/cli#introduction\n"
+              "for instructions on how to set your credentials as environment variables for CLI and Code usage\n\n"
+              "and to https://windbornesystems.com/docs/api/pip_data#introduction\n"
+              "for instruction on how to set your credentials for code usage.")
+        print("--------------------------------------")
+        print(f"Current Client ID: {CLIENT_ID}")
+        print(f"Current API Key: {API_KEY}")
+        exit(90)
 
     # Validate WB_CLIENT_ID format
     if not (is_valid_uuid_v4(CLIENT_ID) or is_valid_client_id_format(CLIENT_ID)):
