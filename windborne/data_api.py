@@ -230,7 +230,7 @@ def observations(start_time, end_time=None, include_ids=None, include_updated_at
             fetced_so_far = fetced_so_far + len(observations)
             print_current_timestamp = current_timestamp if current_timestamp < 1e11 else current_timestamp / 1e9
             print(f"Fetched {fetced_so_far} observation(s)")
-            print(f"Current time :{datetime.fromtimestamp(print_current_timestamp).strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"Current time: {datetime.fromtimestamp(print_current_timestamp).strftime('%Y-%m-%d %H:%M:%S')}")
             print("-----------------------------------------------------")
 
             # Invoke the callback with fetched observations
@@ -298,6 +298,10 @@ def observations(start_time, end_time=None, include_ids=None, include_updated_at
 
     # Save data to a single file
     if save_to_file:
+        # Create directory path if it doesn't exist
+        directory = os.path.dirname(save_to_file)
+        if directory and not os.path.isdir(directory):
+            os.makedirs(directory, exist_ok=True)
         filtered_observations = {obs_id: obs for obs_id, obs in all_observations.items()
                                  if float(obs['timestamp']) >= start_time}
         # Sort by timestamp
@@ -506,7 +510,7 @@ def super_observations(start_time, end_time=None, interval=60, save_to_file=None
             fetced_so_far = fetced_so_far + len(observations)
             print_current_timestamp = current_timestamp if current_timestamp < 1e11 else current_timestamp / 1e9
             print(f"Fetched {fetced_so_far} super observation(s)")
-            print(f"Current time :{datetime.fromtimestamp(print_current_timestamp).strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"Current time: {datetime.fromtimestamp(print_current_timestamp).strftime('%Y-%m-%d %H:%M:%S')}")
             print("-----------------------------------------------------")
 
             # Invoke the callback with fetched observations
@@ -576,6 +580,10 @@ def super_observations(start_time, end_time=None, interval=60, save_to_file=None
 
     # Save data to a single file
     if save_to_file:
+        # Create directory path if it doesn't exist
+        directory = os.path.dirname(save_to_file)
+        if directory and not os.path.isdir(directory):
+            os.makedirs(directory, exist_ok=True)
         filtered_observations = {obs_id: obs for obs_id, obs in all_observations.items()
                                  if float(obs['timestamp']) >= start_time}
         # Sort by timestamp

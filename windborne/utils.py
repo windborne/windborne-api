@@ -1,5 +1,6 @@
 from .config import CLIENT_ID, API_KEY
 
+import os
 import requests
 import jwt
 import time
@@ -277,6 +278,11 @@ def save_csv_json(save_to_file, response, csv_data_key=None):
         response (dict or list): The response data to save.
         csv_data_key (str, optional): Key to extract data for CSV. Defaults to None.
     """
+    # Create directory path if it doesn't exist
+    directory = os.path.dirname(save_to_file)
+    if directory and not os.path.isdir(directory):
+        os.makedirs(directory, exist_ok=True)
+
     if '.' not in save_to_file:
         print("You have to provide a file type for your filename.")
         print("Supported formats:")
