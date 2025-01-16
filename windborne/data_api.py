@@ -304,6 +304,10 @@ def observations(start_time, end_time=None, include_ids=None, include_updated_at
         sorted_observations = dict(sorted(filtered_observations.items(),
                                           key=lambda x: float(x[1]['timestamp'])))
 
+        print(f"Saving {len(sorted_observations)} {'observation' if len(sorted_observations) == 1 else 'observations'} to {save_to_file}")
+        print("This may take a while...")
+        print("-----------------------------------------------------\n")
+
         if save_to_file.endswith('.nc'):
             first_obs_timestamp = float(next(iter(sorted_observations.values()))['timestamp'])
             convert_to_netcdf(sorted_observations, first_obs_timestamp, output_filename=save_to_file)
@@ -574,6 +578,10 @@ def super_observations(start_time, end_time=None, interval=60, save_to_file=None
         # Sort by timestamp
         sorted_observations = dict(sorted(filtered_observations.items(),
                                           key=lambda x: float(x[1]['timestamp'])))
+
+        print(f"Saving {len(sorted_observations)} {'observation' if len(sorted_observations) == 1 else 'observations'} to {save_to_file}")
+        print("This may take a while...")
+        print("-----------------------------------------------------\n")
 
         if save_to_file.endswith('.nc'):
             first_obs_timestamp = float(next(iter(sorted_observations.values()))['timestamp'])
