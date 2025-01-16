@@ -3,7 +3,7 @@ import argparse
 from . import (
     poll_super_observations,
     poll_observations,
-    get_observations,
+    get_observations_page,
     get_super_observations,
     get_flying_missions,
     get_mission_launch_site,
@@ -59,8 +59,8 @@ def main():
     poll_parser.add_argument('output', help='Save output to a single file (filename.csv, filename.json or filename.little_r) or to multiple files (csv or little_r)')
 
 
-    # Get Observations Command
-    obs_parser = subparsers.add_parser('observations', help='Get observations with filters')
+    # Get Observations Page Command
+    obs_parser = subparsers.add_parser('observations-page', help='Get observations page with filters')
     obs_parser.add_argument('since', help='Get observations since this time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
     obs_parser.add_argument('-mt', '--min-time', help='Minimum time filter (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
     obs_parser.add_argument('-xt', '--max-time', help='Maximum time filter (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
@@ -251,9 +251,9 @@ def main():
             output_format=output_format
         )
 
-    elif args.command == 'observations':
+    elif args.command == 'observations-page':
         if not args.output:
-            pprint(get_observations(
+            pprint(get_observations_page(
                 since=args.since,
                 min_time=args.min_time,
                 max_time=args.max_time,
@@ -267,7 +267,7 @@ def main():
                 max_longitude=args.max_longitude
             ))
         else:
-            get_observations(
+            get_observations_page(
                 since=args.since,
                 min_time=args.min_time,
                 max_time=args.max_time,

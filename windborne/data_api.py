@@ -8,9 +8,9 @@ from datetime import datetime, timezone, timedelta
 import csv
 import json
 
-def get_observations(since=None, min_time=None, max_time=None, include_ids=None, include_mission_name=True, include_updated_at=None, mission_id=None, min_latitude=None, max_latitude=None, min_longitude=None, max_longitude=None, save_to_file=None):
+def get_observations_page(since=None, min_time=None, max_time=None, include_ids=None, include_mission_name=True, include_updated_at=None, mission_id=None, min_latitude=None, max_latitude=None, min_longitude=None, max_longitude=None, save_to_file=None):
     """
-    Retrieves observations based on specified filters including geographical bounds.
+    Retrieves observations page based on specified filters including geographical bounds.
 
     Args:
         since (str): Filter observations after this timestamp.
@@ -206,7 +206,7 @@ def poll_observations(start_time, end_time=None, include_ids=None, include_updat
     while has_next_page:
         try:
             # Fetch observations
-            observations_page = get_observations(
+            observations_page = get_observations_page(
                 since=current_timestamp,
                 min_latitude=min_latitude,
                 max_latitude=max_latitude,

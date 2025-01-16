@@ -8,7 +8,7 @@ from .utils import (
 
 # Import Data API functions
 from .data_api import (
-    get_observations,
+    get_observations_page,
     get_super_observations,
 
     poll_super_observations,
@@ -44,7 +44,7 @@ __all__ = [
     "convert_to_netcdf",
     "sync_to_s3",
 
-    "get_observations",
+    "get_observations_page",
     "get_super_observations",
     "poll_super_observations",
     "poll_observations",
