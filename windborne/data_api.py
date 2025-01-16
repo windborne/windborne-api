@@ -474,7 +474,7 @@ def super_observations(start_time, end_time=None, interval=60, save_to_file=None
     while has_next_page:
         try:
             # Fetch observations
-            observations_page = get_super_observations(
+            observations_page = get_super_observations_page(
                 since=current_timestamp,
                 min_time=start_time,
                 max_time=end_time,
