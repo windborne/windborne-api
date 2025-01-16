@@ -389,7 +389,7 @@ def convert_to_netcdf(data, curtime, output_filename=None):
     ds = ds.assign_coords(time=("time", ds['time'].data))
 
     # Now that calculations are done, remove variables not needed in the netcdf output
-    variables_to_drop = ['humidity', 'speed_x', 'speed_y', 'timestamp', 'mission_name']
+    variables_to_drop = ['humidity', 'speed_x', 'speed_y', 'timestamp']
     existing_vars = [var for var in variables_to_drop if var in ds]
     ds = ds.drop_vars(existing_vars)
 
@@ -463,13 +463,17 @@ def convert_to_netcdf(data, curtime, output_filename=None):
         '_FillValue': float('nan'),
         'processing_level': ''
     }
-
     ds['specific_humidity'].attrs = {
         'units': 'mg/kg',
         'long_name': 'Specific Humidity',
         '_FillValue': float('nan'),
         'processing_level': '',
         'Conventions': "CF-1.8, WMO-CF-1.0"
+    }
+    ds['mission_name'].attrs = {
+        'long_name': 'Mission name',
+        'description': 'Which balloon collected the data',
+        '_FillValue': ''
     }
 
     # Add Global Attributes synonymous across all UASDC providers
