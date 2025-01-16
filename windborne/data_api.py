@@ -70,9 +70,9 @@ def get_observations_page(since=None, min_time=None, max_time=None, include_ids=
     
     return response
 
-def get_super_observations(since=None, min_time=None, max_time=None, include_ids=None, include_mission_name=None, include_updated_at=None, mission_id=None, save_to_file=None):
+def get_super_observations_page(since=None, min_time=None, max_time=None, include_ids=None, include_mission_name=None, include_updated_at=None, mission_id=None, save_to_file=None):
     """
-    Retrieves super observations based on specified filters.
+    Retrieves super observations page based on specified filters.
 
     Args:
         since (str): Filter observations after this timestamp.
@@ -230,7 +230,7 @@ def poll_observations(start_time, end_time=None, include_ids=None, include_updat
 
             # Invoke the callback with fetched observations
             if callback:
-                print("/nCallback/n")
+                print("\nCallback\n")
                 callback(observations)
 
             for obs in observations:

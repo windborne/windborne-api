@@ -9,7 +9,7 @@ from .utils import (
 # Import Data API functions
 from .data_api import (
     get_observations_page,
-    get_super_observations,
+    get_super_observations_page,
 
     poll_super_observations,
     poll_observations,
@@ -45,7 +45,7 @@ __all__ = [
     "sync_to_s3",
 
     "get_observations_page",
-    "get_super_observations",
+    "get_super_observations_page",
     "poll_super_observations",
     "poll_observations",
 

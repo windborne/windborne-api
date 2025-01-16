@@ -4,7 +4,7 @@ from . import (
     poll_super_observations,
     poll_observations,
     get_observations_page,
-    get_super_observations,
+    get_super_observations_page,
     get_flying_missions,
     get_mission_launch_site,
     get_predicted_path,
@@ -75,8 +75,8 @@ def main():
     obs_parser.add_argument('output', nargs='?', help='Output file')
 
     # Get Super Observations Command
-    super_obs_parser = subparsers.add_parser('super-observations', help='Get super observations with filters')
-    super_obs_parser.add_argument('since', help='Get super observations since this time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
+    super_obs_parser = subparsers.add_parser('super-observations-page', help='Get super observations page with filters')
+    super_obs_parser.add_argument('since', help='Get super observations page since this time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
     super_obs_parser.add_argument('-mt', '--min-time', help='Minimum time filter (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
     super_obs_parser.add_argument('-xt', '--max-time', help='Maximum time filter (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
     super_obs_parser.add_argument('-m', '--mission-id', help='Filter by mission ID')
@@ -282,7 +282,7 @@ def main():
                 save_to_file=args.output
             )
 
-    elif args.command == 'super-observations':
+    elif args.command == 'super-observations-page':
         if not args.output:
             pprint(get_super_observations(
                 since=args.since,
