@@ -71,7 +71,7 @@ def make_api_request(url, params=None, return_type=None):
         print("--------------------------------------")
         print(f"Current Client ID: {CLIENT_ID}")
         print(f"Current API Key: {API_KEY}")
-        exit(90)
+        exit(95)
 
     # Validate WB_CLIENT_ID format
     if not (is_valid_uuid_v4(CLIENT_ID) or is_valid_client_id_format(CLIENT_ID)):

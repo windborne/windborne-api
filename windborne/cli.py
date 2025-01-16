@@ -72,7 +72,7 @@ def main():
     obs_parser.add_argument('-id', '--include-ids', action='store_true', help='Include observation IDs')
     obs_parser.add_argument('-mn', '--include-mission-name', action='store_true', help='Include mission names')
     obs_parser.add_argument('-u', '--include-updated-at', action='store_true', help='Include update timestamps')
-    obs_parser.add_argument('output', help='Output file')
+    obs_parser.add_argument('output', nargs='?', help='Output file')
 
     # Get Super Observations Command
     super_obs_parser = subparsers.add_parser('super-observations', help='Get super observations with filters')
@@ -83,7 +83,7 @@ def main():
     super_obs_parser.add_argument('-id', '--include-ids', action='store_true', help='Include observation IDs')
     super_obs_parser.add_argument('-mn', '--include-mission-name', action='store_true', help='Include mission names')
     super_obs_parser.add_argument('-u', '--include-updated-at', action='store_true', help='Include update timestamps')
-    super_obs_parser.add_argument('output', help='Output file')
+    super_obs_parser.add_argument('output', nargs='?', help='Output file')
 
     # Get Flying Missions Command
     flying_parser = subparsers.add_parser('flying-missions', help='Get currently flying missions')
@@ -252,32 +252,58 @@ def main():
         )
 
     elif args.command == 'observations':
-        get_observations(
-            since=args.since,
-            min_time=args.min_time,
-            max_time=args.max_time,
-            include_ids=args.include_ids,
-            include_mission_name=args.include_mission_name,
-            include_updated_at=args.include_updated_at,
-            mission_id=args.mission_id,
-            min_latitude=args.min_latitude,
-            max_latitude=args.max_latitude,
-            min_longitude=args.min_longitude,
-            max_longitude=args.max_longitude,
-            save_to_file=args.output
-        )
+        if not args.output:
+            pprint(get_observations(
+                since=args.since,
+                min_time=args.min_time,
+                max_time=args.max_time,
+                include_ids=args.include_ids,
+                include_mission_name=args.include_mission_name,
+                include_updated_at=args.include_updated_at,
+                mission_id=args.mission_id,
+                min_latitude=args.min_latitude,
+                max_latitude=args.max_latitude,
+                min_longitude=args.min_longitude,
+                max_longitude=args.max_longitude
+            ))
+        else:
+            get_observations(
+                since=args.since,
+                min_time=args.min_time,
+                max_time=args.max_time,
+                include_ids=args.include_ids,
+                include_mission_name=args.include_mission_name,
+                include_updated_at=args.include_updated_at,
+                mission_id=args.mission_id,
+                min_latitude=args.min_latitude,
+                max_latitude=args.max_latitude,
+                min_longitude=args.min_longitude,
+                max_longitude=args.max_longitude,
+                save_to_file=args.output
+            )
 
     elif args.command == 'super-observations':
-        get_super_observations(
-            since=args.since,
-            min_time=args.min_time,
-            max_time=args.max_time,
-            include_ids=args.include_ids,
-            include_mission_name=args.include_mission_name,
-            include_updated_at=args.include_updated_at,
-            mission_id=args.mission_id,
-            save_to_file=args.output
-        )
+        if not args.output:
+            pprint(get_super_observations(
+                since=args.since,
+                min_time=args.min_time,
+                max_time=args.max_time,
+                include_ids=args.include_ids,
+                include_mission_name=args.include_mission_name,
+                include_updated_at=args.include_updated_at,
+                mission_id=args.mission_id
+            ))
+        else:
+            get_super_observations(
+                since=args.since,
+                min_time=args.min_time,
+                max_time=args.max_time,
+                include_ids=args.include_ids,
+                include_mission_name=args.include_mission_name,
+                include_updated_at=args.include_updated_at,
+                mission_id=args.mission_id,
+                save_to_file=args.output
+            )
 
     elif args.command == 'flying-missions':
         get_flying_missions(cli=True, save_to_file=args.output)
