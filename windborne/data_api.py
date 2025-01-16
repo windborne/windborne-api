@@ -115,7 +115,7 @@ def get_super_observations_page(since=None, min_time=None, max_time=None, includ
     
     return response
 
-def poll_observations(start_time, end_time=None, include_ids=None, include_updated_at=None, mission_id=None, min_latitude=None, max_latitude=None, min_longitude=None, max_longitude=None, interval=60, save_to_file=None, bucket_hours=6.0, output_format=None, callback=None):
+def observations(start_time, end_time=None, include_ids=None, include_updated_at=None, mission_id=None, min_latitude=None, max_latitude=None, min_longitude=None, max_longitude=None, interval=60, save_to_file=None, bucket_hours=6.0, output_format=None, callback=None):
     """
     Fetches observations between a start time and an optional end time and saves to files in specified format.
     Files are broken up into time buckets, with filenames containing the time at the mid-point of the bucket.
@@ -165,7 +165,7 @@ def poll_observations(start_time, end_time=None, include_ids=None, include_updat
         return
 
     # Supported formats for saving into a single file:
-    # NOTE: for poll_observations we handle .csv saving within poll_observations and not using save_csv_json
+    # NOTE: for observations we handle .csv saving within observations and not using save_csv_json
     #   - .csv
     #   - .json
     #   - .little_r
@@ -392,7 +392,7 @@ def poll_observations(start_time, end_time=None, include_ids=None, include_updat
     print("-----------------------------------------------------")
     print("All observations have been processed and saved.")
 
-def poll_super_observations(start_time, end_time=None, interval=60, save_to_file=None, bucket_hours=6.0, output_format=None, callback=None):
+def super_observations(start_time, end_time=None, interval=60, save_to_file=None, bucket_hours=6.0, output_format=None, callback=None):
     """
     Fetches super observations between a start time and an optional end time and saves to files in specified format.
     Files are broken up into time buckets, with filenames containing the time at the mid-point of the bucket.

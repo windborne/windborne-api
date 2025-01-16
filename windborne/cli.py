@@ -1,8 +1,8 @@
 import argparse
 
 from . import (
-    poll_super_observations,
-    poll_observations,
+    super_observations,
+    observations,
     get_observations_page,
     get_super_observations_page,
     get_flying_missions,
@@ -35,55 +35,55 @@ def main():
     ####################################################################################################################
     # DATA API FUNCTIONS
     ####################################################################################################################
-    # Poll Super Observations Command
-    poll_super_parser = subparsers.add_parser('poll-super-observations', help='Poll super observations within a time range')
-    poll_super_parser.add_argument('start_time', help='Starting time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
-    poll_super_parser.add_argument('end_time', help='End time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)', nargs='?', default=None)
-    poll_super_parser.add_argument('-i', '--interval', type=int, default=60, help='Polling interval in seconds')
-    poll_super_parser.add_argument('-b', '--bucket-hours', type=float, default=6.0, help='Hours per bucket')
-    poll_super_parser.add_argument('output', help='Save output to a single file (filename.csv, filename.json or filename.little_r) or to multiple files (csv or little_r)')
+    # Super Observations Command
+    super_obs_parser = subparsers.add_parser('super-observations', help='Poll super observations within a time range')
+    super_obs_parser.add_argument('start_time', help='Starting time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
+    super_obs_parser.add_argument('end_time', help='End time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)', nargs='?', default=None)
+    super_obs_parser.add_argument('-i', '--interval', type=int, default=60, help='Polling interval in seconds')
+    super_obs_parser.add_argument('-b', '--bucket-hours', type=float, default=6.0, help='Hours per bucket')
+    super_obs_parser.add_argument('output', help='Save output to a single file (filename.csv, filename.json or filename.little_r) or to multiple files (csv or little_r)')
 
-    # Poll Observations Command
-    poll_parser = subparsers.add_parser('poll-observations', help='Poll observations within a time range')
-    poll_parser.add_argument('start_time', help='Starting time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
-    poll_parser.add_argument('end_time', help='End time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)', nargs='?', default=None)
-    poll_parser.add_argument('-m', '--mission-id', help='Filter observations by mission ID')
-    poll_parser.add_argument('-ml', '--min-latitude', type=float, help='Minimum latitude filter')
-    poll_parser.add_argument('-xl', '--max-latitude', type=float, help='Maximum latitude filter')
-    poll_parser.add_argument('-mg', '--min-longitude', type=float, help='Minimum longitude filter')
-    poll_parser.add_argument('-xg', '--max-longitude', type=float, help='Maximum longitude filter')
-    poll_parser.add_argument('-id', '--include-ids', action='store_true', help='Include observation IDs')
-    poll_parser.add_argument('-u', '--include-updated-at', action='store_true', help='Include update timestamps')
-    poll_parser.add_argument('-i', '--interval', type=int, default=60, help='Polling interval in seconds')
-    poll_parser.add_argument('-b', '--bucket-hours', type=float, default=6.0, help='Hours per bucket')
-    poll_parser.add_argument('output', help='Save output to a single file (filename.csv, filename.json or filename.little_r) or to multiple files (csv or little_r)')
-
-
-    # Get Observations Page Command
-    obs_parser = subparsers.add_parser('observations-page', help='Get observations page with filters')
-    obs_parser.add_argument('since', help='Get observations since this time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
-    obs_parser.add_argument('-mt', '--min-time', help='Minimum time filter (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
-    obs_parser.add_argument('-xt', '--max-time', help='Maximum time filter (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
-    obs_parser.add_argument('-m', '--mission-id', help='Filter by mission ID')
+    # Observations Command
+    obs_parser = subparsers.add_parser('observations', help='Poll observations within a time range')
+    obs_parser.add_argument('start_time', help='Starting time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
+    obs_parser.add_argument('end_time', help='End time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)', nargs='?', default=None)
+    obs_parser.add_argument('-m', '--mission-id', help='Filter observations by mission ID')
     obs_parser.add_argument('-ml', '--min-latitude', type=float, help='Minimum latitude filter')
     obs_parser.add_argument('-xl', '--max-latitude', type=float, help='Maximum latitude filter')
     obs_parser.add_argument('-mg', '--min-longitude', type=float, help='Minimum longitude filter')
     obs_parser.add_argument('-xg', '--max-longitude', type=float, help='Maximum longitude filter')
     obs_parser.add_argument('-id', '--include-ids', action='store_true', help='Include observation IDs')
-    obs_parser.add_argument('-mn', '--include-mission-name', action='store_true', help='Include mission names')
     obs_parser.add_argument('-u', '--include-updated-at', action='store_true', help='Include update timestamps')
-    obs_parser.add_argument('output', nargs='?', help='Output file')
+    obs_parser.add_argument('-i', '--interval', type=int, default=60, help='Polling interval in seconds')
+    obs_parser.add_argument('-b', '--bucket-hours', type=float, default=6.0, help='Hours per bucket')
+    obs_parser.add_argument('output', help='Save output to a single file (filename.csv, filename.json or filename.little_r) or to multiple files (csv or little_r)')
+
+
+    # Get Observations Page Command
+    obs_page_parser = subparsers.add_parser('observations-page', help='Get observations page with filters')
+    obs_page_parser.add_argument('since', help='Get observations since this time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
+    obs_page_parser.add_argument('-mt', '--min-time', help='Minimum time filter (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
+    obs_page_parser.add_argument('-xt', '--max-time', help='Maximum time filter (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
+    obs_page_parser.add_argument('-m', '--mission-id', help='Filter by mission ID')
+    obs_page_parser.add_argument('-ml', '--min-latitude', type=float, help='Minimum latitude filter')
+    obs_page_parser.add_argument('-xl', '--max-latitude', type=float, help='Maximum latitude filter')
+    obs_page_parser.add_argument('-mg', '--min-longitude', type=float, help='Minimum longitude filter')
+    obs_page_parser.add_argument('-xg', '--max-longitude', type=float, help='Maximum longitude filter')
+    obs_page_parser.add_argument('-id', '--include-ids', action='store_true', help='Include observation IDs')
+    obs_page_parser.add_argument('-mn', '--include-mission-name', action='store_true', help='Include mission names')
+    obs_page_parser.add_argument('-u', '--include-updated-at', action='store_true', help='Include update timestamps')
+    obs_page_parser.add_argument('output', nargs='?', help='Output file')
 
     # Get Super Observations Command
-    super_obs_parser = subparsers.add_parser('super-observations-page', help='Get super observations page with filters')
-    super_obs_parser.add_argument('since', help='Get super observations page since this time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
-    super_obs_parser.add_argument('-mt', '--min-time', help='Minimum time filter (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
-    super_obs_parser.add_argument('-xt', '--max-time', help='Maximum time filter (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
-    super_obs_parser.add_argument('-m', '--mission-id', help='Filter by mission ID')
-    super_obs_parser.add_argument('-id', '--include-ids', action='store_true', help='Include observation IDs')
-    super_obs_parser.add_argument('-mn', '--include-mission-name', action='store_true', help='Include mission names')
-    super_obs_parser.add_argument('-u', '--include-updated-at', action='store_true', help='Include update timestamps')
-    super_obs_parser.add_argument('output', nargs='?', help='Output file')
+    super_obs_page_parser = subparsers.add_parser('super-observations-page', help='Get super observations page with filters')
+    super_obs_page_parser.add_argument('since', help='Get super observations page since this time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
+    super_obs_page_parser.add_argument('-mt', '--min-time', help='Minimum time filter (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
+    super_obs_page_parser.add_argument('-xt', '--max-time', help='Maximum time filter (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
+    super_obs_page_parser.add_argument('-m', '--mission-id', help='Filter by mission ID')
+    super_obs_page_parser.add_argument('-id', '--include-ids', action='store_true', help='Include observation IDs')
+    super_obs_page_parser.add_argument('-mn', '--include-mission-name', action='store_true', help='Include mission names')
+    super_obs_page_parser.add_argument('-u', '--include-updated-at', action='store_true', help='Include update timestamps')
+    super_obs_page_parser.add_argument('output', nargs='?', help='Output file')
 
     # Get Flying Missions Command
     flying_parser = subparsers.add_parser('flying-missions', help='Get currently flying missions')
@@ -198,8 +198,8 @@ def main():
     ####################################################################################################################
     # DATA API FUNCTIONS CALLED
     ####################################################################################################################
-    if args.command == 'poll-super-observations':
-        # Error handling is performed within poll_super_observations
+    if args.command == 'super-observations':
+        # Error handling is performed within super_observations
         # and we display the appropriate error messages
         # No need to implement them here
 
@@ -212,7 +212,7 @@ def main():
             save_to_file = None
             output_format = args.output
 
-        poll_super_observations(
+        super_observations(
             start_time=args.start_time,
             end_time=args.end_time,
             interval=args.interval,
@@ -221,8 +221,8 @@ def main():
             output_format=output_format
         )
 
-    elif args.command == 'poll-observations':
-        # Error handling is performed within poll_observations
+    elif args.command == 'observations':
+        # Error handling is performed within observations
         # and we display the appropriate error messages
         # No need to implement them here
 
@@ -235,7 +235,7 @@ def main():
             save_to_file = None
             output_format = args.output
 
-        poll_observations(
+        observations(
             start_time=args.start_time,
             end_time=args.end_time,
             include_ids=args.include_ids,
@@ -284,7 +284,7 @@ def main():
 
     elif args.command == 'super-observations-page':
         if not args.output:
-            pprint(get_super_observations(
+            pprint(get_super_observations_page(
                 since=args.since,
                 min_time=args.min_time,
                 max_time=args.max_time,
