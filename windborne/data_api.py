@@ -230,7 +230,7 @@ def observations(start_time, end_time=None, include_ids=None, include_updated_at
             fetced_so_far = fetced_so_far + len(observations)
             print_current_timestamp = current_timestamp if current_timestamp < 1e11 else current_timestamp / 1e9
             print(f"Fetched {fetced_so_far} observation(s)")
-            print(f"Current time:{datetime.fromtimestamp(print_current_timestamp).strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"Current time :{datetime.fromtimestamp(print_current_timestamp).strftime('%Y-%m-%d %H:%M:%S')}")
             print("-----------------------------------------------------")
 
             # Invoke the callback with fetched observations
@@ -330,6 +330,9 @@ def observations(start_time, end_time=None, include_ids=None, include_updated_at
 
     # Save data to multiple file
     elif output_format:
+        print(f"Processing {fetced_so_far} {'observation' if fetced_so_far == 1 else 'observations'} and save them over multiple files.")
+        print("This may take a while...")
+        print("-----------------------------------------------------\n")
         # Track statistics per mission
         mission_stats = {}  # {mission_name: {'files': 0, 'observations': 0}}
         total_observations_written = 0
@@ -391,7 +394,7 @@ def observations(start_time, end_time=None, include_ids=None, include_updated_at
                 mission_stats[mission_name]['files'] += 1
                 mission_stats[mission_name]['observations'] += len(observations)
         # Print total observations written
-        print(f"Total {'observation' if total_observations_written == 1 else 'observations'} written: {total_observations_written}")
+        print(f"Saved {total_observations_written} {'observation.' if total_observations_written == 1 else 'observations.'}")
         print("-----------------------------------------------------")
 
         # Print summary for each mission
@@ -503,7 +506,7 @@ def super_observations(start_time, end_time=None, interval=60, save_to_file=None
             fetced_so_far = fetced_so_far + len(observations)
             print_current_timestamp = current_timestamp if current_timestamp < 1e11 else current_timestamp / 1e9
             print(f"Fetched {fetced_so_far} super observation(s)")
-            print(f"Current time:{datetime.fromtimestamp(print_current_timestamp).strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"Current time :{datetime.fromtimestamp(print_current_timestamp).strftime('%Y-%m-%d %H:%M:%S')}")
             print("-----------------------------------------------------")
 
             # Invoke the callback with fetched observations
@@ -579,7 +582,7 @@ def super_observations(start_time, end_time=None, interval=60, save_to_file=None
         sorted_observations = dict(sorted(filtered_observations.items(),
                                           key=lambda x: float(x[1]['timestamp'])))
 
-        print(f"Saving {len(sorted_observations)} {'observation' if len(sorted_observations) == 1 else 'observations'} to {save_to_file}")
+        print(f"Saving {len(sorted_observations)} super {'observation' if len(sorted_observations) == 1 else 'observations'} to {save_to_file}")
         print("This may take a while...")
         print("-----------------------------------------------------\n")
 
@@ -606,6 +609,9 @@ def super_observations(start_time, end_time=None, interval=60, save_to_file=None
 
     # Save data to multiple file
     elif output_format:
+        print(f"Processing {fetced_so_far} super {'observation' if fetced_so_far == 1 else 'observations'} and save them over multiple files.")
+        print("This may take a while...")
+        print("-----------------------------------------------------\n")
         # Track statistics per mission
         mission_stats = {}  # {mission_name: {'files': 0, 'observations': 0}}
         total_observations_written = 0
