@@ -8,6 +8,12 @@ from datetime import datetime, timezone, timedelta
 import csv
 import json
 
+# ------------
+# CORE RESOURCES
+# ------------
+
+# Observations
+# ------------
 def get_observations_page(since=None, min_time=None, max_time=None, include_ids=None, include_mission_name=True, include_updated_at=None, mission_id=None, min_latitude=None, max_latitude=None, min_longitude=None, max_longitude=None, save_to_file=None):
     """
     Retrieves observations page based on specified filters including geographical bounds.
@@ -65,51 +71,6 @@ def get_observations_page(since=None, min_time=None, max_time=None, include_ids=
     
     response = make_api_request(url, params=params)
 
-    if save_to_file:
-        save_csv_json(save_to_file, response, csv_data_key='observations')
-    
-    return response
-
-def get_super_observations_page(since=None, min_time=None, max_time=None, include_ids=None, include_mission_name=None, include_updated_at=None, mission_id=None, save_to_file=None):
-    """
-    Retrieves super observations page based on specified filters.
-
-    Args:
-        since (str): Filter observations after this timestamp.
-        min_time (str): Minimum timestamp for observations.
-        max_time (str): Maximum timestamp for observations.
-        include_ids (bool): Include observation IDs in response.
-        include_mission_name (bool): Include mission names in response.
-        include_updated_at (bool): Include update timestamps in response.
-        mission_id (str): Filter observations by mission ID.
-        save_to_file (str): Optional path to save the response data.
-                           If provided, saves the data in CSV format.
-
-    Returns:
-        dict: The API response containing filtered super observations.
-    """
-
-    url = f"{DATA_API_BASE_URL}/super_observations.json"
-    
-    params = {}
-    if since:
-        params["since"] = to_unix_timestamp(since)
-    if min_time:
-        params["min_time"] = to_unix_timestamp(min_time)
-    if max_time:
-        params["max_time"] = to_unix_timestamp(max_time)
-    if mission_id:
-        params["mission_id"] = mission_id
-    if include_ids:
-        params["include_ids"] = True
-    if include_mission_name:
-        params["include_mission_name"] = True
-    if include_updated_at:
-        params["include_updated_at"] = True
-    
-    params = {k: v for k, v in params.items() if v is not None}
-    
-    response = make_api_request(url, params=params)
     if save_to_file:
         save_csv_json(save_to_file, response, csv_data_key='observations')
     
@@ -405,6 +366,54 @@ def observations(start_time, end_time=None, include_ids=None, include_updated_at
     print("-----------------------------------------------------")
     print("All observations have been processed and saved.")
 
+
+# Super Observations
+# ------------
+def get_super_observations_page(since=None, min_time=None, max_time=None, include_ids=None, include_mission_name=None, include_updated_at=None, mission_id=None, save_to_file=None):
+    """
+    Retrieves super observations page based on specified filters.
+
+    Args:
+        since (str): Filter observations after this timestamp.
+        min_time (str): Minimum timestamp for observations.
+        max_time (str): Maximum timestamp for observations.
+        include_ids (bool): Include observation IDs in response.
+        include_mission_name (bool): Include mission names in response.
+        include_updated_at (bool): Include update timestamps in response.
+        mission_id (str): Filter observations by mission ID.
+        save_to_file (str): Optional path to save the response data.
+                           If provided, saves the data in CSV format.
+
+    Returns:
+        dict: The API response containing filtered super observations.
+    """
+
+    url = f"{DATA_API_BASE_URL}/super_observations.json"
+    
+    params = {}
+    if since:
+        params["since"] = to_unix_timestamp(since)
+    if min_time:
+        params["min_time"] = to_unix_timestamp(min_time)
+    if max_time:
+        params["max_time"] = to_unix_timestamp(max_time)
+    if mission_id:
+        params["mission_id"] = mission_id
+    if include_ids:
+        params["include_ids"] = True
+    if include_mission_name:
+        params["include_mission_name"] = True
+    if include_updated_at:
+        params["include_updated_at"] = True
+    
+    params = {k: v for k, v in params.items() if v is not None}
+    
+    response = make_api_request(url, params=params)
+    if save_to_file:
+        save_csv_json(save_to_file, response, csv_data_key='observations')
+    
+    return response
+
 def super_observations(start_time, end_time=None, interval=60, save_to_file=None, bucket_hours=6.0, output_format=None, output_dir=None, callback=None):
     """
     Fetches super observations between a start time and an optional end time and saves to files in specified format.
@@ -686,6 +695,10 @@ def super_observations(start_time, end_time=None, interval=60, save_to_file=None
     print("-----------------------------------------------------")
     print("All super observations have been processed and saved.")
 
+
+# ------------
+# METADATA
+# ------------
 def get_flying_missions(cli=None, save_to_file=None):
     """
     Retrieves a list of currently flying missions.
