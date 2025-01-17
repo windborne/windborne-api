@@ -319,6 +319,7 @@ def observations(start_time, end_time=None, include_ids=None, include_updated_at
                 file_name_format = {
                     'csv': f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d_%dh.csv",
                     'json': f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d_%dh.json",
+                    'netcdf': f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d_%dh.nc",
                     'little_r': f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d-00_%dh.little_r"
                 }
                 file_name = file_name_format[output_format] % (
@@ -331,7 +332,7 @@ def observations(start_time, end_time=None, include_ids=None, include_updated_at
                 sorted_obs = sorted(observations.values(), key=lambda x: int(x['timestamp']))
 
                 if output_format == 'netcdf':
-                    convert_to_netcdf(sorted_obs, bucket_center.timestamp())
+                    convert_to_netcdf(sorted_obs, bucket_center.timestamp(), output_file)
 
                 elif output_format == 'csv':
                     with open(output_file, mode='w', newline='') as file:
@@ -648,6 +649,7 @@ def super_observations(start_time, end_time=None, interval=60, save_to_file=None
                 file_name_format = {
                     'csv': f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d_%dh.csv",
                     'json': f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d_%dh.json",
+                    'netcdf': f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d_%dh.nc",
                     'little_r': f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d-00_%dh.little_r"
                 }
                 file_name = file_name_format[output_format] % (
@@ -660,7 +662,7 @@ def super_observations(start_time, end_time=None, interval=60, save_to_file=None
                 sorted_obs = sorted(observations.values(), key=lambda x: int(x['timestamp']))
 
                 if output_format == 'netcdf':
-                    convert_to_netcdf(sorted_obs, bucket_center.timestamp())
+                    convert_to_netcdf(sorted_obs, bucket_center.timestamp(), output_file)
 
                 elif output_format == 'csv':
                     with open(output_file, mode='w', newline='') as file:

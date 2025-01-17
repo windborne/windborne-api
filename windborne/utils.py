@@ -362,10 +362,16 @@ def convert_to_netcdf(data, curtime, output_filename=None):
 
     # Convert dictionary to list for DataFrame
     data_list = []
-    for obs_id, obs_data in data.items():
-        # Convert 'None' strings to None type
-        clean_data = {k: None if v == 'None' else v for k, v in obs_data.items()}
-        data_list.append(clean_data)
+    if isinstance(data, dict):
+        # If input is dictionary, convert to list
+        for obs_id, obs_data in data.items():
+            clean_data = {k: None if v == 'None' else v for k, v in obs_data.items()}
+            data_list.append(clean_data)
+    else:
+        # If input is already a list
+        for obs_data in data:
+            clean_data = {k: None if v == 'None' else v for k, v in obs_data.items()}
+            data_list.append(clean_data)
 
     # Put the data in a panda dataframe in order to easily push to xarray then netcdf output
     df = pd.DataFrame(data_list)
