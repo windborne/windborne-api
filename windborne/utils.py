@@ -337,7 +337,7 @@ def save_csv_json(save_to_file, response, csv_data_key=None):
         print("Unsupported file format. Please use either .json or .csv.")
         exit(4)
 
-def convert_to_netcdf(data, curtime, output_filename=None):
+def convert_to_netcdf(data, curtime, output_filename):
     # This module outputs data in netcdf format for the WMO ISARRA program.  The output format is netcdf
     #   and the style (variable names, file names, etc.) are described here:
     #  https://github.com/synoptic/wmo-uasdc/tree/main/raw_uas_to_netCDF
@@ -387,16 +387,16 @@ def convert_to_netcdf(data, curtime, output_filename=None):
 
     # Build the filename and save some variables for use later
     mt = datetime.fromtimestamp(curtime, tz=timezone.utc)
+
+    is_multi_mission = True
+
     # Handle dropsondes
     mission_name = str(df['mission_name'].iloc[0]) if (not df.empty and not pd.isna(df['mission_name'].iloc[0])) else ' '
+    # Dropsondes name is ''
+    if mission_name == ' ':
+        is_multi_mission = False
 
-    is_multi_mission = False
-
-    if output_filename:
-        output_file = output_filename
-        is_multi_mission = True  # we should calculate this directly, rather than relying on the filename
-    else:
-        output_file = f"WindBorne_{mission_name}_{mt.year:04d}-{mt.month:02d}-{mt.day:02d}_{mt.hour:02d}.nc"
+    output_file = output_filename
 
     # Derived quantities calculated here:
 
@@ -501,8 +501,7 @@ def convert_to_netcdf(data, curtime, output_filename=None):
     }
     ds['mission_name'].attrs = {
         'long_name': 'Mission name',
-        'description': 'Which balloon collected the data',
-        '_FillValue': ''
+        'description': 'Which balloon collected the data'
     }
 
     # Add Global Attributes synonymous across all UASDC providers
@@ -578,7 +577,7 @@ def format_little_r(observations):
     """
     little_r_records = []
 
-    for obs_id, point in observations:
+    for point in observations:
         # Observation time
         observation_time = datetime.fromtimestamp(point['timestamp'], tz=timezone.utc)
 

@@ -3,8 +3,13 @@ import argparse
 from . import (
     super_observations,
     observations,
+
     get_observations_page,
     get_super_observations_page,
+
+    poll_super_observations,
+    poll_observations,
+
     get_flying_missions,
     get_mission_launch_site,
     get_predicted_path,
@@ -42,7 +47,7 @@ def main():
     super_obs_parser.add_argument('-i', '--interval', type=int, default=60, help='Polling interval in seconds')
     super_obs_parser.add_argument('-b', '--bucket-hours', type=float, default=6.0, help='Hours per bucket')
     super_obs_parser.add_argument('-d', '--output-dir', help='Directory path where the separate files should be saved. If not provided, files will be saved in current directory.')
-    super_obs_parser.add_argument('output', help='Save output to a single file (filename.csv, filename.json or filename.little_r) or to multiple files (csv or little_r)')
+    super_obs_parser.add_argument('output', help='Save output to a single file (filename.csv, filename.json or filename.little_r) or to or to multiple files (csv, json, netcdf or little_r)')
 
     # Observations Command
     obs_parser = subparsers.add_parser('observations', help='Poll observations within a time range')
@@ -58,7 +63,7 @@ def main():
     obs_parser.add_argument('-i', '--interval', type=int, default=60, help='Polling interval in seconds')
     obs_parser.add_argument('-b', '--bucket-hours', type=float, default=6.0, help='Hours per bucket')
     obs_parser.add_argument('-d', '--output-dir', help='Directory path where the separate files should be saved. If not provided, files will be saved in current directory.')
-    obs_parser.add_argument('output', help='Save output to a single file (filename.csv, filename.json or filename.little_r) or to multiple files (csv or little_r)')
+    obs_parser.add_argument('output', help='Save output to a single file (filename.csv, filename.json or filename.little_r) or to multiple files (csv, json, netcdf or little_r)')
 
 
     # Get Observations Page Command
@@ -86,6 +91,29 @@ def main():
     super_obs_page_parser.add_argument('-mn', '--include-mission-name', action='store_true', help='Include mission names')
     super_obs_page_parser.add_argument('-u', '--include-updated-at', action='store_true', help='Include update timestamps')
     super_obs_page_parser.add_argument('output', nargs='?', help='Output file')
+
+    # Poll Super Observations Command
+    poll_super_obs_parser = subparsers.add_parser('poll-super-observations', help='Continuously polls for super observations and saves to files in specified format.')
+    poll_super_obs_parser.add_argument('start_time', help='Starting time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
+    poll_super_obs_parser.add_argument('-i', '--interval', type=int, default=60, help='Polling interval in seconds')
+    poll_super_obs_parser.add_argument('-b', '--bucket-hours', type=float, default=6.0, help='Hours per bucket')
+    poll_super_obs_parser.add_argument('-d', '--output-dir', help='Directory path where the separate files should be saved. If not provided, files will be saved in current directory.')
+    poll_super_obs_parser.add_argument('output', help='Save output to multiple files (csv, json, netcdf or little_r)')
+
+    # Poll Observations Command
+    poll_obs_parser = subparsers.add_parser('poll-observations', help='Continuously polls for observations and saves to files in specified format.')
+    poll_obs_parser.add_argument('start_time', help='Starting time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
+    poll_obs_parser.add_argument('-m', '--mission-id', help='Filter observations by mission ID')
+    poll_obs_parser.add_argument('-ml', '--min-latitude', type=float, help='Minimum latitude filter')
+    poll_obs_parser.add_argument('-xl', '--max-latitude', type=float, help='Maximum latitude filter')
+    poll_obs_parser.add_argument('-mg', '--min-longitude', type=float, help='Minimum longitude filter')
+    poll_obs_parser.add_argument('-xg', '--max-longitude', type=float, help='Maximum longitude filter')
+    poll_obs_parser.add_argument('-id', '--include-ids', action='store_true', help='Include observation IDs')
+    poll_obs_parser.add_argument('-u', '--include-updated-at', action='store_true', help='Include update timestamps')
+    poll_obs_parser.add_argument('-i', '--interval', type=int, default=60, help='Polling interval in seconds')
+    poll_obs_parser.add_argument('-b', '--bucket-hours', type=float, default=6.0, help='Hours per bucket')
+    poll_obs_parser.add_argument('-d', '--output-dir', help='Directory path where the separate files should be saved. If not provided, files will be saved in current directory.')
+    poll_obs_parser.add_argument('output', help='Save output to multiple files (csv, json, netcdf or little_r)')
 
     # Get Flying Missions Command
     flying_parser = subparsers.add_parser('flying-missions', help='Get currently flying missions')
@@ -221,6 +249,37 @@ def main():
             end_time=args.end_time,
             interval=args.interval,
             save_to_file=save_to_file,
+            bucket_hours=args.bucket_hours,
+            output_dir=output_dir,
+            output_format=output_format
+        )
+
+    elif args.command == 'poll-super-observations':
+        output_format = args.output
+        output_dir = args.output_dir
+
+        poll_super_observations(
+            start_time=args.start_time,
+            interval=args.interval,
+            bucket_hours=args.bucket_hours,
+            output_dir=output_dir,
+            output_format=output_format
+        )
+
+    elif args.command == 'poll-observations':
+        output_format = args.output
+        output_dir = args.output_dir
+
+        poll_observations(
+            start_time=args.start_time,
+            include_ids=args.include_ids,
+            include_updated_at=args.include_updated_at,
+            mission_id=args.mission_id,
+            min_latitude=args.min_latitude,
+            max_latitude=args.max_latitude,
+            min_longitude=args.min_longitude,
+            max_longitude=args.max_longitude,
+            interval=args.interval,
             bucket_hours=args.bucket_hours,
             output_dir=output_dir,
             output_format=output_format

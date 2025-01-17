@@ -7,6 +7,9 @@ from math import floor
 from datetime import datetime, timezone, timedelta
 import csv
 import json
+import hashlib
+
+# UTC should be used across the lib
 
 # ------------
 # CORE RESOURCES
@@ -165,6 +168,9 @@ def observations(start_time, end_time=None, include_ids=None, include_updated_at
     has_next_page = True
     fetced_so_far = 0
 
+    print(f"Starting polling observations\nfrom {datetime.fromtimestamp(start_time, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC to {datetime.fromtimestamp(end_time, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC")
+    print("-----------------------------------------------------")
+
 
     while has_next_page:
         try:
@@ -191,13 +197,13 @@ def observations(start_time, end_time=None, include_ids=None, include_updated_at
             observations = observations_page.get('observations', [])
             fetced_so_far = fetced_so_far + len(observations)
             print_current_timestamp = current_timestamp if current_timestamp < 1e11 else current_timestamp / 1e9
-            print(f"Fetched {fetced_so_far} observation(s)")
-            print(f"Current time: {datetime.fromtimestamp(print_current_timestamp).strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"Fetched {fetced_so_far} observations")
+            print(f"Current time: {datetime.fromtimestamp(print_current_timestamp, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}")
             print("-----------------------------------------------------")
 
             # Invoke the callback with fetched observations
             if callback:
-                print("\nCallback\n")
+                print("--------\nCallback\n--------")
                 callback(observations)
 
             for obs in observations:
@@ -254,6 +260,12 @@ def observations(start_time, end_time=None, include_ids=None, include_updated_at
 
             current_timestamp = next_timestamp
 
+        except KeyboardInterrupt:
+            print("\n\n\U0001F6D1 Received interrupt, stopping...")
+            print("-----------------------------------------------------")
+            print("Requested data was not saved!\nRun again and do not interrupt the run to save data.")
+            print("-----------------------------------------------------")
+            exit(3)
         except Exception as e:
             print(f"Error occurred: {e}")
             exit(1001)
@@ -276,7 +288,7 @@ def observations(start_time, end_time=None, include_ids=None, include_updated_at
 
         if save_to_file.endswith('.nc'):
             first_obs_timestamp = float(next(iter(sorted_observations.values()))['timestamp'])
-            convert_to_netcdf(sorted_observations, first_obs_timestamp, output_filename=save_to_file)
+            convert_to_netcdf(sorted_observations, first_obs_timestamp, save_to_file)
         elif save_to_file.endswith('.json'):
             with open(save_to_file, 'w', encoding='utf-8') as f:
                 json.dump(sorted_observations, f, indent=4)
@@ -367,6 +379,237 @@ def observations(start_time, end_time=None, include_ids=None, include_updated_at
     print("-----------------------------------------------------")
     print("All observations have been processed and saved.")
 
+def poll_observations(start_time, include_ids=None, include_updated_at=None, mission_id=None, min_latitude=None, max_latitude=None, min_longitude=None, max_longitude=None, interval=60, bucket_hours=6.0, output_format=None, output_dir=None, callback=None):
+    """
+    Continuously polls for observations and saves to files in specified format.
+    Will run indefinitely until interrupted.
+
+    Args:
+        start_time (str): Starting time in YYYY-MM-DD HH:MM:SS, YYYY-MM-DD_HH:MM or ISO format
+        include_ids (bool): Include observation IDs in response.
+        include_updated_at (bool): Include update timestamps in response.
+        mission_id (str): Filter observations by mission ID.
+        min_latitude (float): Minimum latitude boundary.
+        max_latitude (float): Maximum latitude boundary.
+        min_longitude (float): Minimum longitude boundary.
+        max_longitude (float): Maximum longitude boundary.
+        interval (int): Polling interval in seconds when no data is received (default: 60)
+        bucket_hours (float): Size of time buckets in hours (default: 6.0)
+        output_format (str): Format for bucket files ('json', 'csv', 'little_r', 'netcdf')
+        output_dir (str): Directory for bucket files (default: current directory)
+        callback (callable): Optional callback for data processing
+    """
+    # Print warning about infinite loop
+    print(" ___________________________________________________________________")
+    print("|                          WARNING  \U000026A0\U0000FE0F                               |")
+    print("|                 You are entering an endless loop.                 |")
+    print("|                                                                   |")
+    print("|                 Press Ctrl + C anytime to exit.                   |")
+    print("|___________________________________________________________________|\n\n")
+    time.sleep(4)
+
+    start_time = to_unix_timestamp(start_time)
+
+    if output_format and output_format not in ['json', 'csv', 'little_r', 'netcdf']:
+        print("Please use one of the following formats:")
+        print("  - json\n  - csv\n  - little_r\n  - netcdf")
+        return
+
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+        print(f"\U0001F4C1 Files will be saved to {output_dir}")
+    else:
+        print(f"\U0001F4C1 Files will be saved to {os.getcwd()}")
+
+    # Convert start_time to datetime
+    start_dt = datetime.fromtimestamp(start_time, tz=timezone.utc)
+
+    # Calculate first center time that's after start_time
+    hours_since_day_start = start_dt.hour + start_dt.minute / 60
+    bucket_number = hours_since_day_start // bucket_hours
+    first_center = start_dt.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(hours=(bucket_number + 1) * bucket_hours)
+
+    headers = [
+        "timestamp", "id", "time", "latitude", "longitude", "altitude", "humidity",
+        "mission_name", "pressure", "specific_humidity", "speed_u", "speed_v", "temperature"
+    ]
+
+    buckets = {}  # {(bucket_center, mission_name): {'data': {}, 'last_write': timestamp, 'data_hash': str}}
+    current_timestamp = start_time
+    fetched_so_far = 0
+    mission_stats = {}
+
+    print(f"Starting continuous polling from {datetime.fromtimestamp(start_time, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"Polling interval: {interval} seconds")
+    print("-----------------------------------------------------")
+
+    try:
+        while True:
+            observations_page = get_observations_page(
+                since=current_timestamp,
+                min_latitude=min_latitude,
+                max_latitude=max_latitude,
+                min_longitude=min_longitude,
+                max_longitude=max_longitude,
+                include_updated_at=include_updated_at,
+                mission_id=mission_id,
+                include_ids=include_ids,
+                include_mission_name=True
+            )
+
+            if observations_page is None:
+                print(f"\nNull response from API. Retrying in {interval} seconds ...")
+                time.sleep(interval)
+                continue
+
+            observations = observations_page.get('observations', [])
+
+            # Invoke the callback with fetched super observations
+            if callback:
+                print("--------\nCallback\n--------")
+                callback(observations)
+
+            if observations:
+                fetched_so_far += len(observations)
+                print_current_timestamp = current_timestamp if current_timestamp < 1e11 else current_timestamp / 1e9
+                print(f"Fetched {fetched_so_far} observations")
+                print(f"Current time: {datetime.fromtimestamp(print_current_timestamp, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}")
+                print("-----------------------------------------------------")
+
+                for obs in observations:
+                    if 'mission_name' not in obs:
+                        continue
+
+                    timestamp = obs.get('timestamp')
+                    if not timestamp:
+                        continue
+
+                    try:
+                        obs_time = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+                    except (OSError, ValueError, TypeError, OverflowError):
+                        continue
+
+                    mission_name = obs.get('mission_name', 'Unknown')
+                    obs['time'] = obs_time.replace(tzinfo=timezone.utc).isoformat()
+
+                    processed_obs = {
+                        header: obs.get(header) if obs.get(header) not in [None, '', ' '] else 'None'
+                        for header in headers
+                    }
+
+                    obs_id = f"{timestamp}_{mission_name}"
+
+                    if obs_time >= start_dt:
+                        hours_diff = (obs_time - first_center).total_seconds() / 3600
+                        bucket_index = floor(hours_diff / bucket_hours)
+                        bucket_center = first_center + timedelta(hours=bucket_index * bucket_hours)
+                        bucket_end = bucket_center + timedelta(hours=bucket_hours)
+
+                        if obs_time <= bucket_end:
+                            bucket_key = (bucket_center, mission_name)
+
+                            # Initialize bucket if needed
+                            if bucket_key not in buckets:
+                                buckets[bucket_key] = {
+                                    'data': {},
+                                    'last_write': 0,
+                                    'data_hash': ''
+                                }
+
+                            # Update bucket data
+                            buckets[bucket_key]['data'][obs_id] = processed_obs
+
+                            # Track statistics
+                            if mission_name not in mission_stats:
+                                mission_stats[mission_name] = {'files': set(), 'observations': 0}
+                            mission_stats[mission_name]['observations'] += 1
+
+                            # Calculate new data hash
+                            sorted_data = sorted(buckets[bucket_key]['data'].items(), key=lambda x: int(x[1]['timestamp']))
+                            data_hash = hashlib.md5(str(sorted_data).encode()).hexdigest()
+
+                            # Check if we should write the bucket
+                            current_time = datetime.now(timezone.utc)
+                            time_since_last_write = current_time.timestamp() - buckets[bucket_key]['last_write']
+                            data_changed = data_hash != buckets[bucket_key]['data_hash']
+
+                            # Write if it's been more than interval seconds since last write OR if data has changed
+                            if (time_since_last_write >= interval or data_changed) and output_format:
+                                bucket_hour = int((bucket_center.hour + bucket_hours/2) % 24)
+
+                                file_name_format = {
+                                    'csv': f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d_%dh.csv",
+                                    'json': f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d_%dh.json",
+                                    'netcdf': f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d_%dh.nc",
+                                    'little_r': f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d-00_%dh.little_r"
+                                }
+
+                                file_name = file_name_format[output_format] % (
+                                    bucket_center.year, bucket_center.month, bucket_center.day,
+                                    bucket_hour, bucket_hours)
+
+                                output_file = os.path.join(output_dir or '.', file_name)
+                                sorted_obs = [obs for _, obs in sorted_data]
+
+                                # Write the file based on format
+                                try:
+                                    if output_format == 'netcdf':
+                                        convert_to_netcdf(sorted_obs, bucket_center.timestamp(), output_file)
+                                    elif output_format == 'csv':
+                                        with open(output_file, mode='w', newline='') as file:
+                                            writer = csv.DictWriter(file, fieldnames=headers)
+                                            writer.writeheader()
+                                            writer.writerows(sorted_obs)
+                                    elif output_format == 'json':
+                                        sorted_obs_dict = {k: v for k, v in sorted_data}
+                                        with open(output_file, 'w', encoding='utf-8') as file:
+                                            json.dump(sorted_obs_dict, file, indent=4)
+                                    elif output_format == 'little_r':
+                                        little_r_records = format_little_r(sorted_obs)
+                                        with open(output_file, 'w') as file:
+                                            file.write('\n'.join(little_r_records))
+
+                                    buckets[bucket_key]['last_write'] = current_time.timestamp()
+                                    buckets[bucket_key]['data_hash'] = data_hash
+                                    mission_stats[mission_name]['files'].add(output_file)
+                                except Exception as e:
+                                    print(f"Error writing bucket file {file_name}: {str(e)}")
+
+                # Clean up old buckets
+                current_time = datetime.now(timezone.utc)
+                buckets = {
+                    k: v for k, v in buckets.items()
+                    if current_time - k[0] <= timedelta(hours=bucket_hours * 2)  # Keep slightly longer for potential updates
+                }
+
+            next_timestamp = observations_page.get('next_since')
+            has_next_page = observations_page.get('has_next_page', False)
+
+            if next_timestamp and next_timestamp > current_timestamp:
+                current_timestamp = next_timestamp
+            elif not has_next_page:
+                print("-----------------------------------------------------")
+                print(f"\U0001F503 Latest super observations data have been processed.\nRetrying getting new observations data in {interval} seconds...")
+                print("-----------------------------------------------------")
+                time.sleep(interval)
+                continue
+
+            if not observations:
+                print(f"\U0001F503 No new super observations data available.\n Retrying getting new observations data in {interval} seconds...")
+                print("-----------------------------------------------------")
+                time.sleep(interval)
+
+    except KeyboardInterrupt:
+        print("\n\n\U0001F6D1 Received interrupt, stopping...")
+        print("-----------------------------------------------------")
+        for mission_name, stats in mission_stats.items():
+            print(f"Mission {mission_name}: {stats['observations']} observations across {len(stats['files'])} files")
+    except Exception as e:
+        print(f"Error occurred: {str(e)}")
+        exit(1001)
+    finally:
+        print("-----------------------------------------------------")
+        print("Finished processing observations.")
 
 # Super Observations
 # ------------
@@ -495,6 +738,8 @@ def super_observations(start_time, end_time=None, interval=60, save_to_file=None
     has_next_page = True
     fetced_so_far = 0
 
+    print(f"Starting polling super observations\nfrom {datetime.fromtimestamp(start_time, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} to {datetime.fromtimestamp(end_time, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}")
+    print("-----------------------------------------------------")
 
     while has_next_page:
         try:
@@ -517,15 +762,13 @@ def super_observations(start_time, end_time=None, interval=60, save_to_file=None
             observations = observations_page.get('observations', [])
             fetced_so_far = fetced_so_far + len(observations)
             print_current_timestamp = current_timestamp if current_timestamp < 1e11 else current_timestamp / 1e9
-            print(f"Fetched {fetced_so_far} super observation(s)")
-            print(f"Current time: {datetime.fromtimestamp(print_current_timestamp).strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"Fetched {fetced_so_far} super observations")
+            print(f"Current time: {datetime.fromtimestamp(print_current_timestamp, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}")
             print("-----------------------------------------------------")
 
-            # Invoke the callback with fetched observations
+            # Invoke the callback with fetched super observations
             if callback:
-                print("--------")
-                print("Callback")
-                print("--------")
+                print("--------\nCallback\n--------")
                 callback(observations)
 
             for obs in observations:
@@ -582,6 +825,12 @@ def super_observations(start_time, end_time=None, interval=60, save_to_file=None
 
             current_timestamp = next_timestamp
 
+        except KeyboardInterrupt:
+            print("\n\n\U0001F6D1 Received interrupt, stopping...")
+            print("-----------------------------------------------------")
+            print("Requested data was not saved!\nRun again and do not interrupt the run to save data.")
+            print("-----------------------------------------------------")
+            exit(3)
         except Exception as e:
             print(f"Error occurred: {e}")
             exit(1001)
@@ -604,7 +853,7 @@ def super_observations(start_time, end_time=None, interval=60, save_to_file=None
 
         if save_to_file.endswith('.nc'):
             first_obs_timestamp = float(next(iter(sorted_observations.values()))['timestamp'])
-            convert_to_netcdf(sorted_observations, first_obs_timestamp, output_filename=save_to_file)
+            convert_to_netcdf(sorted_observations, first_obs_timestamp, save_to_file)
 
         elif save_to_file.endswith('.json'):
             with open(save_to_file, 'w', encoding='utf-8') as f:
@@ -697,6 +946,225 @@ def super_observations(start_time, end_time=None, interval=60, save_to_file=None
     print("-----------------------------------------------------")
     print("All super observations have been processed and saved.")
 
+def poll_super_observations(start_time, interval=60, bucket_hours=6.0, output_format=None, output_dir=None, callback=None):
+    """
+    Continuously polls for super observations and saves to files in specified format.
+    Will run indefinitely until interrupted.
+
+    Args:
+        start_time (str): Starting time in YYYY-MM-DD HH:MM:SS, YYYY-MM-DD_HH:MM or ISO format
+        interval (int): Polling interval in seconds when no data is received (default: 60)
+        bucket_hours (float): Size of time buckets in hours (default: 6.0)
+        output_format (str): Format for bucket files ('json', 'csv', 'little_r', 'netcdf')
+        output_dir (str): Directory for bucket files (default: current directory)
+        callback (callable): Optional callback for data processing
+    """
+    # Print warning about infinite loop
+    print(" ___________________________________________________________________")
+    print("|                          WARNING  \U000026A0\U0000FE0F                               |")
+    print("|                 You are entering an endless loop.                 |")
+    print("|                                                                   |")
+    print("|                 Press Ctrl + C anytime to exit.                   |")
+    print("|___________________________________________________________________|\n\n")
+    time.sleep(4)
+
+    start_time = to_unix_timestamp(start_time)
+
+    if output_format and output_format not in ['json', 'csv', 'little_r', 'netcdf']:
+        print("Please use one of the following formats:")
+        print("  - json\n  - csv\n  - little_r\n  - netcdf")
+        return
+
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+        print(f"\U0001F4C1 Files will be saved to {output_dir}")
+    else:
+        print(f"\U0001F4C1 Files will be saved to {os.getcwd()}")
+
+    # Convert start_time to datetime
+    start_dt = datetime.fromtimestamp(start_time, tz=timezone.utc)
+
+    # Calculate first center time that's after start_time
+    hours_since_day_start = start_dt.hour + start_dt.minute / 60
+    bucket_number = hours_since_day_start // bucket_hours
+    first_center = start_dt.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(hours=(bucket_number + 1) * bucket_hours)
+
+    headers = [
+        "timestamp", "id", "time", "latitude", "longitude", "altitude", "humidity",
+        "mission_name", "pressure", "specific_humidity", "speed_u", "speed_v", "temperature"
+    ]
+
+    buckets = {}  # {(bucket_center, mission_name): {'data': {}, 'last_write': timestamp, 'data_hash': str}}
+    current_timestamp = start_time
+    fetched_so_far = 0
+    mission_stats = {}
+
+    print(f"Starting continuous polling from {datetime.fromtimestamp(start_time, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC")
+    print(f"Polling interval: {interval} seconds")
+    print("-----------------------------------------------------")
+
+    try:
+        while True:
+            observations_page = get_super_observations_page(
+                since=current_timestamp,
+                min_time=start_time,
+                include_ids=True,
+                include_mission_name=True
+            )
+
+            if observations_page is None:
+                print(f"\nNull response from API. Retrying in {interval} seconds ...")
+                time.sleep(interval)
+                continue
+
+            observations = observations_page.get('observations', [])
+
+            # Invoke the callback with fetched super observations
+            if callback:
+                print("--------\nCallback\n--------")
+                callback(observations)
+
+            if observations:
+                fetched_so_far += len(observations)
+                print_current_timestamp = current_timestamp if current_timestamp < 1e11 else current_timestamp / 1e9
+                print(f"Fetched {fetched_so_far} super observations")
+                print(f"Current time: {datetime.fromtimestamp(print_current_timestamp, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}")
+                print("-----------------------------------------------------")
+
+                for obs in observations:
+                    if 'mission_name' not in obs:
+                        continue
+
+                    timestamp = obs.get('timestamp')
+                    if not timestamp:
+                        continue
+
+                    try:
+                        obs_time = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+                    except (OSError, ValueError, TypeError, OverflowError):
+                        continue
+
+                    mission_name = obs.get('mission_name', 'Unknown')
+                    obs['time'] = obs_time.replace(tzinfo=timezone.utc).isoformat()
+
+                    processed_obs = {
+                        header: obs.get(header) if obs.get(header) not in [None, '', ' '] else 'None'
+                        for header in headers
+                    }
+
+                    obs_id = f"{timestamp}_{mission_name}"
+
+                    if obs_time >= start_dt:
+                        hours_diff = (obs_time - first_center).total_seconds() / 3600
+                        bucket_index = floor(hours_diff / bucket_hours)
+                        bucket_center = first_center + timedelta(hours=bucket_index * bucket_hours)
+                        bucket_end = bucket_center + timedelta(hours=bucket_hours)
+
+                        if obs_time <= bucket_end:
+                            bucket_key = (bucket_center, mission_name)
+
+                            # Initialize bucket if needed
+                            if bucket_key not in buckets:
+                                buckets[bucket_key] = {
+                                    'data': {},
+                                    'last_write': 0,
+                                    'data_hash': ''
+                                }
+
+                            # Update bucket data
+                            buckets[bucket_key]['data'][obs_id] = processed_obs
+
+                            # Track statistics
+                            if mission_name not in mission_stats:
+                                mission_stats[mission_name] = {'files': set(), 'observations': 0}
+                            mission_stats[mission_name]['observations'] += 1
+
+                            # Calculate new data hash
+                            sorted_data = sorted(buckets[bucket_key]['data'].items(), key=lambda x: int(x[1]['timestamp']))
+                            data_hash = hashlib.md5(str(sorted_data).encode()).hexdigest()
+
+                            # Check if we should write the bucket
+                            current_time = datetime.now(timezone.utc)
+                            time_since_last_write = current_time.timestamp() - buckets[bucket_key]['last_write']
+                            data_changed = data_hash != buckets[bucket_key]['data_hash']
+
+                            # Write if it's been more than interval seconds since last write OR if data has changed
+                            if (time_since_last_write >= interval or data_changed) and output_format:
+                                bucket_hour = int((bucket_center.hour + bucket_hours/2) % 24)
+
+                                file_name_format = {
+                                    'csv': f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d_%dh.csv",
+                                    'json': f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d_%dh.json",
+                                    'netcdf': f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d_%dh.nc",
+                                    'little_r': f"WindBorne_{mission_name}_%04d-%02d-%02d_%02d-00_%dh.little_r"
+                                }
+
+                                file_name = file_name_format[output_format] % (
+                                    bucket_center.year, bucket_center.month, bucket_center.day,
+                                    bucket_hour, bucket_hours)
+
+                                output_file = os.path.join(output_dir or '.', file_name)
+                                sorted_obs = [obs for _, obs in sorted_data]
+
+                                # Write the file based on format
+                                try:
+                                    if output_format == 'netcdf':
+                                        convert_to_netcdf(sorted_obs, bucket_center.timestamp(), output_file)
+                                    elif output_format == 'csv':
+                                        with open(output_file, mode='w', newline='') as file:
+                                            writer = csv.DictWriter(file, fieldnames=headers)
+                                            writer.writeheader()
+                                            writer.writerows(sorted_obs)
+                                    elif output_format == 'json':
+                                        sorted_obs_dict = {k: v for k, v in sorted_data}
+                                        with open(output_file, 'w', encoding='utf-8') as file:
+                                            json.dump(sorted_obs_dict, file, indent=4)
+                                    elif output_format == 'little_r':
+                                        little_r_records = format_little_r(sorted_obs)
+                                        with open(output_file, 'w') as file:
+                                            file.write('\n'.join(little_r_records))
+
+                                    buckets[bucket_key]['last_write'] = current_time.timestamp()
+                                    buckets[bucket_key]['data_hash'] = data_hash
+                                    mission_stats[mission_name]['files'].add(output_file)
+                                except Exception as e:
+                                    print(f"Error writing bucket file {file_name}: {str(e)}")
+
+                # Clean up old buckets
+                current_time = datetime.now(timezone.utc)
+                buckets = {
+                    k: v for k, v in buckets.items()
+                    if current_time - k[0] <= timedelta(hours=bucket_hours * 2)  # Keep slightly longer for potential updates
+                }
+
+            next_timestamp = observations_page.get('next_since')
+            has_next_page = observations_page.get('has_next_page', False)
+
+            if next_timestamp and next_timestamp > current_timestamp:
+                current_timestamp = next_timestamp
+            elif not has_next_page:
+                print("-----------------------------------------------------")
+                print(f"\U0001F503 Latest super observations data have been processed.\nRetrying getting new super observations data in {interval} seconds...")
+                print("-----------------------------------------------------")
+                time.sleep(interval)
+                continue
+
+            if not observations:
+                print(f"\U0001F503 No new super observations data available.\n Retrying getting new super observations data in {interval} seconds...")
+                print("-----------------------------------------------------")
+                time.sleep(interval)
+
+    except KeyboardInterrupt:
+        print("\n\U0001F6D1 Received interrupt, stopping...")
+        print("-----------------------------------------------------")
+        for mission_name, stats in mission_stats.items():
+            print(f"Mission {mission_name}: {stats['observations']} super observations across {len(stats['files'])} files")
+    except Exception as e:
+        print(f"Error occurred: {str(e)}")
+        exit(1001)
+    finally:
+        print("-----------------------------------------------------")
+        print("Finished processing super observations.")
 
 # ------------
 # METADATA

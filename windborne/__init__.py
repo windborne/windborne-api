@@ -14,6 +14,9 @@ from .data_api import (
     get_super_observations_page,
     super_observations,
 
+    poll_super_observations,
+    poll_observations,
+
     get_flying_missions,
     get_mission_launch_site,
     get_predicted_path,
@@ -49,6 +52,9 @@ __all__ = [
 
     "get_super_observations_page",
     "super_observations",
+
+    "poll_super_observations",
+    "poll_observations",
 
     "get_flying_missions",
     "get_mission_launch_site",
