@@ -439,7 +439,7 @@ def poll_observations(start_time, include_ids=None, include_updated_at=None, mis
     fetched_so_far = 0
     mission_stats = {}
 
-    print(f"Starting continuous polling from {datetime.fromtimestamp(start_time, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"Starting continuous observations polling from {datetime.fromtimestamp(start_time, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC")
     print(f"Polling interval: {interval} seconds")
     print("-----------------------------------------------------")
 
@@ -738,7 +738,7 @@ def super_observations(start_time, end_time=None, interval=60, save_to_file=None
     has_next_page = True
     fetced_so_far = 0
 
-    print(f"Starting polling super observations\nfrom {datetime.fromtimestamp(start_time, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} to {datetime.fromtimestamp(end_time, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"Starting polling super observations\nfrom {datetime.fromtimestamp(start_time, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC to {datetime.fromtimestamp(end_time, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC")
     print("-----------------------------------------------------")
 
     while has_next_page:
@@ -999,7 +999,7 @@ def poll_super_observations(start_time, interval=60, bucket_hours=6.0, output_fo
     fetched_so_far = 0
     mission_stats = {}
 
-    print(f"Starting continuous polling from {datetime.fromtimestamp(start_time, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC")
+    print(f"Starting continuous super observations polling from {datetime.fromtimestamp(start_time, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC")
     print(f"Polling interval: {interval} seconds")
     print("-----------------------------------------------------")
 
