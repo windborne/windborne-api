@@ -388,13 +388,13 @@ def convert_to_netcdf(data, curtime, output_filename):
     # Build the filename and save some variables for use later
     mt = datetime.fromtimestamp(curtime, tz=timezone.utc)
 
-    is_multi_mission = True
-
     # Handle dropsondes
     mission_name = str(df['mission_name'].iloc[0]) if (not df.empty and not pd.isna(df['mission_name'].iloc[0])) else ' '
-    # Dropsondes name is ''
-    if mission_name == ' ':
-        is_multi_mission = False
+
+    is_multi_mission = False
+
+    if len(df['mission_name'].unique()) > 1:
+        is_multi_mission = True
 
     output_file = output_filename
 
