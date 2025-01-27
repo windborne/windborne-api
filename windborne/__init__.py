@@ -1,18 +1,12 @@
 # Import key functions and classes for easier access when users import the package
 
-# Import Utils functions
-from .utils import (
-    convert_to_netcdf,
-    sync_to_s3
-)
-
 # Import Data API functions
 from .data_api import (
     get_observations_page,
-    observations,
+    get_observations,
 
     get_super_observations_page,
-    super_observations,
+    get_super_observations,
 
     poll_super_observations,
     poll_observations,
@@ -28,7 +22,7 @@ from .forecasts_api import (
     get_initialization_times,
 
     get_temperature_2m,
-    get_dewpoint_2m,
+    # get_dewpoint_2m,
     get_wind_u_10m, get_wind_v_10m,
     get_pressure_msl,
     get_500hpa_wind_u, get_500hpa_wind_v,
@@ -44,14 +38,11 @@ from .forecasts_api import (
 
 # Define what should be available when users import *
 __all__ = [
-    "convert_to_netcdf",
-    "sync_to_s3",
-
     "get_observations_page",
-    "observations",
+    "get_observations",
 
     "get_super_observations_page",
-    "super_observations",
+    "get_super_observations",
 
     "poll_super_observations",
     "poll_observations",
@@ -64,7 +55,7 @@ __all__ = [
     "get_initialization_times",
 
     "get_temperature_2m",
-    "get_dewpoint_2m",
+    # "get_dewpoint_2m",
     "get_wind_u_10m",
     "get_wind_v_10m",
     "get_500hpa_wind_u",

@@ -8,3 +8,6 @@ __pycache__/
 
 # Ignore Windborne package metadata
 windborne.egg-info/
+
+spec/credentials.json
+spec_outputs/*

@@ -1,8 +1,9 @@
 import argparse
+import json
 
 from . import (
-    super_observations,
-    observations,
+    get_super_observations,
+    get_observations,
 
     get_observations_page,
     get_super_observations_page,
@@ -17,7 +18,7 @@ from . import (
     get_point_forecasts,
     get_initialization_times,
     get_temperature_2m,
-    get_dewpoint_2m,
+    # get_dewpoint_2m,
     get_wind_u_10m, get_wind_v_10m,
     get_500hpa_wind_u, get_500hpa_wind_v,
     get_500hpa_temperature, get_850hpa_temperature,
@@ -44,9 +45,9 @@ def main():
     super_obs_parser = subparsers.add_parser('super-observations', help='Poll super observations within a time range')
     super_obs_parser.add_argument('start_time', help='Starting time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
     super_obs_parser.add_argument('end_time', help='End time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)', nargs='?', default=None)
-    super_obs_parser.add_argument('-i', '--interval', type=int, default=60, help='Polling interval in seconds')
     super_obs_parser.add_argument('-b', '--bucket-hours', type=float, default=6.0, help='Hours per bucket')
     super_obs_parser.add_argument('-d', '--output-dir', help='Directory path where the separate files should be saved. If not provided, files will be saved in current directory.')
+    super_obs_parser.add_argument('-m', '--mission-id', help='Filter by mission ID')
     super_obs_parser.add_argument('output', help='Save output to a single file (filename.csv, filename.json or filename.little_r) or to or to multiple files (csv, json, netcdf or little_r)')
 
     # Observations Command
@@ -58,9 +59,7 @@ def main():
     obs_parser.add_argument('-xl', '--max-latitude', type=float, help='Maximum latitude filter')
     obs_parser.add_argument('-mg', '--min-longitude', type=float, help='Minimum longitude filter')
     obs_parser.add_argument('-xg', '--max-longitude', type=float, help='Maximum longitude filter')
-    obs_parser.add_argument('-id', '--include-ids', action='store_true', help='Include observation IDs')
     obs_parser.add_argument('-u', '--include-updated-at', action='store_true', help='Include update timestamps')
-    obs_parser.add_argument('-i', '--interval', type=int, default=60, help='Polling interval in seconds')
     obs_parser.add_argument('-b', '--bucket-hours', type=float, default=6.0, help='Hours per bucket')
     obs_parser.add_argument('-d', '--output-dir', help='Directory path where the separate files should be saved. If not provided, files will be saved in current directory.')
     obs_parser.add_argument('output', help='Save output to a single file (filename.csv, filename.json or filename.little_r) or to multiple files (csv, json, netcdf or little_r)')
@@ -87,7 +86,6 @@ def main():
     super_obs_page_parser.add_argument('-mt', '--min-time', help='Minimum time filter (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
     super_obs_page_parser.add_argument('-xt', '--max-time', help='Maximum time filter (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
     super_obs_page_parser.add_argument('-m', '--mission-id', help='Filter by mission ID')
-    super_obs_page_parser.add_argument('-id', '--include-ids', action='store_true', help='Include observation IDs')
     super_obs_page_parser.add_argument('-mn', '--include-mission-name', action='store_true', help='Include mission names')
     super_obs_page_parser.add_argument('-u', '--include-updated-at', action='store_true', help='Include update timestamps')
     super_obs_page_parser.add_argument('output', nargs='?', help='Output file')
@@ -95,9 +93,9 @@ def main():
     # Poll Super Observations Command
     poll_super_obs_parser = subparsers.add_parser('poll-super-observations', help='Continuously polls for super observations and saves to files in specified format.')
     poll_super_obs_parser.add_argument('start_time', help='Starting time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
-    poll_super_obs_parser.add_argument('-i', '--interval', type=int, default=60, help='Polling interval in seconds')
     poll_super_obs_parser.add_argument('-b', '--bucket-hours', type=float, default=6.0, help='Hours per bucket')
     poll_super_obs_parser.add_argument('-d', '--output-dir', help='Directory path where the separate files should be saved. If not provided, files will be saved in current directory.')
+    poll_super_obs_parser.add_argument('-m', '--mission-id', help='Filter observations by mission ID')
     poll_super_obs_parser.add_argument('output', help='Save output to multiple files (csv, json, netcdf or little_r)')
 
     # Poll Observations Command
@@ -108,9 +106,7 @@ def main():
     poll_obs_parser.add_argument('-xl', '--max-latitude', type=float, help='Maximum latitude filter')
     poll_obs_parser.add_argument('-mg', '--min-longitude', type=float, help='Minimum longitude filter')
     poll_obs_parser.add_argument('-xg', '--max-longitude', type=float, help='Maximum longitude filter')
-    poll_obs_parser.add_argument('-id', '--include-ids', action='store_true', help='Include observation IDs')
     poll_obs_parser.add_argument('-u', '--include-updated-at', action='store_true', help='Include update timestamps')
-    poll_obs_parser.add_argument('-i', '--interval', type=int, default=60, help='Polling interval in seconds')
     poll_obs_parser.add_argument('-b', '--bucket-hours', type=float, default=6.0, help='Hours per bucket')
     poll_obs_parser.add_argument('-d', '--output-dir', help='Directory path where the separate files should be saved. If not provided, files will be saved in current directory.')
     poll_obs_parser.add_argument('output', help='Save output to multiple files (csv, json, netcdf or little_r)')
@@ -235,20 +231,20 @@ def main():
 
         # In case user wants to save all poll observation data in a single file | filename.format
         if '.' in args.output:
-            save_to_file = args.output
+            output_file = args.output
             output_format = None
             output_dir = None
         # In case user wants separate file for each data from missions (buckets)
         else:
-            save_to_file = None
+            output_file = None
             output_format = args.output
             output_dir = args.output_dir
 
-        super_observations(
+        get_super_observations(
             start_time=args.start_time,
             end_time=args.end_time,
-            interval=args.interval,
-            save_to_file=save_to_file,
+            output_file=output_file,
+            mission_id=args.mission_id,
             bucket_hours=args.bucket_hours,
             output_dir=output_dir,
             output_format=output_format
@@ -260,7 +256,7 @@ def main():
 
         poll_super_observations(
             start_time=args.start_time,
-            interval=args.interval,
+            mission_id=args.mission_id,
             bucket_hours=args.bucket_hours,
             output_dir=output_dir,
             output_format=output_format
@@ -272,14 +268,12 @@ def main():
 
         poll_observations(
             start_time=args.start_time,
-            include_ids=args.include_ids,
             include_updated_at=args.include_updated_at,
             mission_id=args.mission_id,
             min_latitude=args.min_latitude,
             max_latitude=args.max_latitude,
             min_longitude=args.min_longitude,
             max_longitude=args.max_longitude,
-            interval=args.interval,
             bucket_hours=args.bucket_hours,
             output_dir=output_dir,
             output_format=output_format
@@ -292,27 +286,25 @@ def main():
 
         # In case user wants to save all poll observation data in a single file | filename.format
         if '.' in args.output:
-            save_to_file = args.output
+            output_file = args.output
             output_format = None
             output_dir = None
         # In case user wants separate file for each data from missions (buckets)
         else:
-            save_to_file = None
+            output_file = None
             output_format = args.output
             output_dir = args.output_dir
 
-        observations(
+        get_observations(
             start_time=args.start_time,
             end_time=args.end_time,
-            include_ids=args.include_ids,
             include_updated_at=args.include_updated_at,
             mission_id=args.mission_id,
             min_latitude=args.min_latitude,
             max_latitude=args.max_latitude,
             min_longitude=args.min_longitude,
             max_longitude=args.max_longitude,
-            interval=args.interval,
-            save_to_file=save_to_file,
+            output_file=output_file,
             bucket_hours=args.bucket_hours,
             output_dir=output_dir,
             output_format=output_format
@@ -320,7 +312,7 @@ def main():
 
     elif args.command == 'observations-page':
         if not args.output:
-            pprint(get_observations_page(
+            print(json.dumps(get_observations_page(
                 since=args.since,
                 min_time=args.min_time,
                 max_time=args.max_time,
@@ -332,7 +324,7 @@ def main():
                 max_latitude=args.max_latitude,
                 min_longitude=args.min_longitude,
                 max_longitude=args.max_longitude
-            ))
+            ), indent=4))
         else:
             get_observations_page(
                 since=args.since,
@@ -346,12 +338,12 @@ def main():
                 max_latitude=args.max_latitude,
                 min_longitude=args.min_longitude,
                 max_longitude=args.max_longitude,
-                save_to_file=args.output
+                output_file=args.output
             )
 
     elif args.command == 'super-observations-page':
         if not args.output:
-            pprint(get_super_observations_page(
+            print(json.dumps(get_super_observations_page(
                 since=args.since,
                 min_time=args.min_time,
                 max_time=args.max_time,
@@ -359,7 +351,7 @@ def main():
                 include_mission_name=args.include_mission_name,
                 include_updated_at=args.include_updated_at,
                 mission_id=args.mission_id
-            ))
+            ), indent=4))
         else:
             get_super_observations_page(
                 since=args.since,
@@ -369,22 +361,22 @@ def main():
                 include_mission_name=args.include_mission_name,
                 include_updated_at=args.include_updated_at,
                 mission_id=args.mission_id,
-                save_to_file=args.output
+                output_file=args.output
             )
 
     elif args.command == 'flying-missions':
-        get_flying_missions(cli=True, save_to_file=args.output)
+        get_flying_missions(from_cli=True, output_file=args.output)
 
     elif args.command == 'launch-site':
         get_mission_launch_site(
             mission_id=args.mission_id,
-            save_to_file=args.output
+            output_file=args.output
         )
 
     elif args.command == 'predict-path':
         get_predicted_path(
             mission_id=args.mission_id,
-            save_to_file=args.output
+            output_file=args.output
         )
     ####################################################################################################################
     # FORECASTS API FUNCTIONS CALLED
@@ -403,7 +395,7 @@ def main():
             min_forecast_hour=min_forecast_hour,
             max_forecast_hour=max_forecast_hour,
             initialization_time=initialization_time,
-            save_to_file=args.output_file
+            output_file=args.output_file
         )
 
     elif args.command == 'init_times':
@@ -419,21 +411,21 @@ def main():
             print("To get the gridded output of global 2m temperature forecast you need to provide the time for which to get the forecast and an output file.")
             print("\nUsage: windborne grid_temp_2m time output_file")
         elif len(args.args) == 2:
-            get_temperature_2m(time=args.args[0], save_to_file=args.args[1])
+            get_temperature_2m(time=args.args[0], output_file=args.args[1])
         else:
             print("Too many arguments")
             print("\nUsage: windborne grid_temp_2m time output_file")
 
-    elif args.command == 'grid_dewpoint_2m':
-        # Parse grid_dewpoint_2m arguments
-        if len(args.args) in [0,1]:
-            print(f"To get the gridded output of global 2m dew point forecast you need to provide the time for which to get the forecast and an output file.")
-            print("\nUsage: windborne grid_dewpoint_2m time output_file")
-        elif len(args.args) == 2:
-            get_dewpoint_2m(time=args.args[0], save_to_file=args.args[1])
-        else:
-            print("Too many arguments")
-            print("\nUsage: windborne grid_dewpoint_2m time output_file")
+    # elif args.command == 'grid_dewpoint_2m':
+    #     # Parse grid_dewpoint_2m arguments
+    #     if len(args.args) in [0,1]:
+    #         print(f"To get the gridded output of global 2m dew point forecast you need to provide the time for which to get the forecast and an output file.")
+    #         print("\nUsage: windborne grid_dewpoint_2m time output_file")
+    #     elif len(args.args) == 2:
+    #         get_dewpoint_2m(time=args.args[0], output_file=args.args[1])
+    #     else:
+    #         print("Too many arguments")
+    #         print("\nUsage: windborne grid_dewpoint_2m time output_file")
 
     elif args.command == 'grid_wind_u_10m':
         # Parse grid_wind_u_10m arguments
@@ -441,7 +433,7 @@ def main():
             print(f"To get the gridded output of global 10m u-component of wind forecasts you need to provide the time for which to get the forecast and an output file.")
             print("\nUsage: windborne grid_wind_u_10m time output_file")
         elif len(args.args) == 2:
-            get_wind_u_10m(time=args.args[0], save_to_file=args.args[1])
+            get_wind_u_10m(time=args.args[0], output_file=args.args[1])
         else:
             print("Too many arguments")
             print("\nUsage: windborne grid_wind_u_10m time output_file")
@@ -452,7 +444,7 @@ def main():
             print(f"To get the gridded output of global 10m v-component of wind forecasts you need to provide the time for which to get the forecast and an output file.")
             print("\nUsage: windborne grid_wind_v_10m time output_file")
         elif len(args.args) == 2:
-            get_wind_v_10m(time=args.args[0], save_to_file=args.args[1])
+            get_wind_v_10m(time=args.args[0], output_file=args.args[1])
         else:
             print("Too many arguments")
             print("\nUsage: windborne grid_wind_v_10m time output_file")
@@ -463,7 +455,7 @@ def main():
             print(f"To get the gridded output of global 500hPa u-component of wind forecasts you need to provide the time for which to get the forecast and an output file.")
             print("\nUsage: windborne grid_500hpa_wind_u time output_file")
         elif len(args.args) == 2:
-            get_500hpa_wind_u(time=args.args[0], save_to_file=args.args[1])
+            get_500hpa_wind_u(time=args.args[0], output_file=args.args[1])
         else:
             print("Too many arguments")
             print("\nUsage: windborne grid_500hpa_wind_u time output_file")
@@ -474,7 +466,7 @@ def main():
             print(f"To get the gridded output of global 500hPa v-component of wind forecasts you need to provide the time for which to get the forecast and an output file.")
             print("\nUsage: windborne grid_500hpa_wind_v time output_file")
         elif len(args.args) == 2:
-            get_500hpa_wind_v(time=args.args[0], save_to_file=args.args[1])
+            get_500hpa_wind_v(time=args.args[0], output_file=args.args[1])
         else:
             print("Too many arguments")
             print("\nUsage: windborne grid_500hpa_wind_v time output_file")
@@ -486,7 +478,7 @@ def main():
             print("\nUsage: windborne grid_500hpa_temperature time output_file")
             return
         elif len(args.args) == 2:
-            get_500hpa_temperature(time=args.args[0], save_to_file=args.args[1])
+            get_500hpa_temperature(time=args.args[0], output_file=args.args[1])
         else:
             print("Too many arguments")
             print("\nUsage: windborne grid_500hpa_temperature time output_file")
@@ -498,7 +490,7 @@ def main():
             print("\nUsage: windborne grid_850hpa_temperature time output_file")
             return
         elif len(args.args) == 2:
-            get_850hpa_temperature(time=args.args[0], save_to_file=args.args[1])
+            get_850hpa_temperature(time=args.args[0], output_file=args.args[1])
         else:
             print("Too many arguments")
             print("\nUsage: windborne grid_850hpa_temperature time output_file")
@@ -509,7 +501,7 @@ def main():
             print(f"To get the gridded output of global mean sea level pressure forecasts you need to provide the time for which to get the forecast and an output file.")
             print("\nUsage: windborne grid_pressure_msl time output_file")
         elif len(args.args) == 2:
-            get_pressure_msl(time=args.args[0], save_to_file=args.args[1])
+            get_pressure_msl(time=args.args[0], output_file=args.args[1])
         else:
             print("Too many arguments")
             print("\nUsage: windborne grid_pressure_msl time output_file")
@@ -521,7 +513,7 @@ def main():
             print("\nUsage: windborne grid_500hpa_geopotential time output_file")
             return
         elif len(args.args) == 2:
-            get_500hpa_geopotential(time=args.args[0], save_to_file=args.args[1])
+            get_500hpa_geopotential(time=args.args[0], output_file=args.args[1])
         else:
             print("Too many arguments")
             print("\nUsage: windborne grid_500hpa_geopotential time output_file")
@@ -533,7 +525,7 @@ def main():
             print("\nUsage: windborne grid_850hpa_geopotential time output_file")
             return
         elif len(args.args) == 2:
-            get_850hpa_geopotential(time=args.args[0], save_to_file=args.args[1])
+            get_850hpa_geopotential(time=args.args[0], output_file=args.args[1])
         else:
             print("Too many arguments")
             print("\nUsage: windborne grid_850hpa_geopotential time output_file")
@@ -550,7 +542,7 @@ def main():
             print("\nUsage: windborne hist_temp_2m initialization_time forecast_hour output_file")
             return
         elif len(args.args) == 3:
-            get_historical_temperature_2m(initialization_time=args.args[0], forecast_hour=args.args[1], save_to_file=args.args[2])
+            get_historical_temperature_2m(initialization_time=args.args[0], forecast_hour=args.args[1], output_file=args.args[2])
         else:
             print("Too many arguments")
             print("\nUsage: windborne hist_temp_2m initialization_time forecast_hour output_file")
@@ -565,7 +557,7 @@ def main():
             print("\nUsage: windborne hist_500hpa_geopotential initialization_time forecast_hour output_file")
             return
         elif len(args.args) == 3:
-            get_historical_500hpa_geopotential(initialization_time=args.args[0], forecast_hour=args.args[1], save_to_file=args.args[2])
+            get_historical_500hpa_geopotential(initialization_time=args.args[0], forecast_hour=args.args[1], output_file=args.args[2])
         else:
             print("Too many arguments")
             print("\nUsage: windborne hist_500hpa_geopotential initialization_time forecast_hour output_file")
@@ -578,7 +570,7 @@ def main():
                   "  - An ouput file to save the data")
             print("\nUsage: windborne hist_500hpa_wind_u initialization_time forecast_hour output_file")
         elif len(args.args) == 3:
-            get_historical_500hpa_wind_u(initialization_time=args.args[0], forecast_hour=args.args[1], save_to_file=args.args[2])
+            get_historical_500hpa_wind_u(initialization_time=args.args[0], forecast_hour=args.args[1], output_file=args.args[2])
         else:
             print("Too many arguments")
             print("\nUsage: windborne hist_500hpa_wind_u initialization_time forecast_hour output_file")
@@ -591,7 +583,7 @@ def main():
                   "  - An ouput file to save the data")
             print("\nUsage: windborne hist_500hpa_wind_u initialization_time forecast_hour output_file")
         elif len(args.args) == 3:
-            get_historical_500hpa_wind_v(initialization_time=args.args[0], forecast_hour=args.args[1], save_to_file=args.args[2])
+            get_historical_500hpa_wind_v(initialization_time=args.args[0], forecast_hour=args.args[1], output_file=args.args[2])
         else:
             print("Too many arguments")
             print("\nUsage: windborne hist_500hpa_wind_v initialization_time forecast_hour output_file")
@@ -614,7 +606,7 @@ def main():
         elif len(args.args) == 1:
             if '.' in args.args[0]:
                 # Save tcs with the latest available initialization time in filename
-                get_tropical_cyclones(basin=args.basin, save_to_file=args.args[0])
+                get_tropical_cyclones(basin=args.basin, output_file=args.args[0])
             else:
                 # Display tcs for selected initialization time
                 if get_tropical_cyclones(initialization_time=args.args[0], basin=args.basin):
@@ -625,7 +617,7 @@ def main():
                     print(f"No active tropical cyclones for {basin_name} and {args.args[0]} initialization time.")
         elif len(args.args) == 2:
             print(f"Saving tropical cyclones for initialization time {args.args[0]} and {basin_name}\n")
-            get_tropical_cyclones(initialization_time=args.args[0], basin=args.basin, save_to_file=args.args[1])
+            get_tropical_cyclones(initialization_time=args.args[0], basin=args.basin, output_file=args.args[1])
         else:
             print("Error: Too many arguments")
             print("Usage: windborne cyclones [initialization_time] output_file")

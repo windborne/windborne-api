@@ -1,28 +1,84 @@
-from .config import (FORECASTS_API_BASE_URL,
-                     FORECASTS_GRIDDED_URL,
-                     FORECASTS_HISTORICAL_URL,
-                     FORECASTS_TCS_URL,
-                     TCS_SUPPORTED_FORMATS)
+import requests
 
-from .utils import (make_api_request,
-                    parse_time,
-                    download_and_save_nc,
-                    save_csv_json,
-                    save_as_geojson,
-                    save_as_gpx,
-                    save_as_kml,
-                    save_as_little_r)
+from .utils import (
+    parse_time,
+    save_arbitrary_response
+)
+
+from .api_request import (
+    make_api_request
+)
+
+from .cyclone_formatting import (
+    save_track_as_geojson,
+    save_track_as_gpx,
+    save_track_as_kml,
+    save_track_as_little_r
+)
+
+FORECASTS_API_BASE_URL = "https://forecasts.windbornesystems.com/api/v1"
+FORECASTS_GRIDDED_URL = f"{FORECASTS_API_BASE_URL}/gridded"
+FORECASTS_HISTORICAL_URL = f"{FORECASTS_API_BASE_URL}/gridded/historical"
+FORECASTS_TCS_URL = f"{FORECASTS_API_BASE_URL}/tropical_cyclones"
+TCS_SUPPORTED_FORMATS = ('.csv', '.json', '.geojson', '.gpx', '.kml', 'little_r')
+
 
 # Point forecasts
-def get_point_forecasts(coordinates, min_forecast_time=None, max_forecast_time=None, min_forecast_hour=None, max_forecast_hour=None, initialization_time=None, save_to_file=None):
-    # Sanitize coordinates by removing whitespace
-    coordinates = coordinates.replace(" ", "")
+def get_point_forecasts(coordinates, min_forecast_time=None, max_forecast_time=None, min_forecast_hour=None, max_forecast_hour=None, initialization_time=None, output_file=None):
+    """
+    Get point forecasts from the API.
 
-    params = {"coordinates": coordinates}
+    Args:
+        coordinates (str, list): Coordinates in the format "latitude,longitude"
+                                  or a list of tuples, lists, or dictionaries with keys 'latitude' and 'longitude'
+        min_forecast_time (str, optional): Minimum forecast time in ISO 8601 format (YYYY-MM-DDTHH:00:00)
+        max_forecast_time (str, optional): Maximum forecast time in ISO 8601 format (YYYY-MM-DDTHH:00:00)
+        min_forecast_hour (int, optional): Minimum forecast hour
+        max_forecast_hour (int, optional): Maximum forecast hour
+        initialization_time (str, optional): Initialization time in ISO 8601 format (YYYY-MM-DDTHH:00:00)
+        output_file (str, optional): Path to save the response data
+                                      Supported formats: .json, .csv
+    """
 
-    if not coordinates:
+    # coordinates should be formatted as a semi-colon separated list of latitude,longitude tuples, eg 37,-121;40.3,-100
+    formatted_coordinates = coordinates
+
+    if isinstance(coordinates, list):
+        coordinate_items = []
+        for coordinate in coordinates:
+            if isinstance(coordinate, tuple) or isinstance(coordinate, list):
+                if len(coordinate) != 2:
+                    print("Coordinates should be tuples or lists with two elements: latitude and longitude.")
+                    return
+
+                coordinate_items.append(f"{coordinate[0]},{coordinate[1]}")
+            elif isinstance(coordinate, str):
+                coordinate_items.append(coordinate)
+            elif isinstance(coordinate, dict):
+                if 'latitude' in coordinate and 'longitude' in coordinate:
+                    coordinate_items.append(f"{coordinate['latitude']},{coordinate['longitude']}")
+                elif 'lat' in coordinate and 'lon' in coordinate:
+                    coordinate_items.append(f"{coordinate['lat']},{coordinate['lon']}")
+                elif 'lat' in coordinate and 'long' in coordinate:
+                    coordinate_items.append(f"{coordinate['lat']},{coordinate['long']}")
+                elif 'lat' in coordinate and 'lng' in coordinate:
+                    coordinate_items.append(f"{coordinate['lat']},{coordinate['lng']}")
+                else:
+                    print("Coordinates should be dictionaries with keys 'latitude' and 'longitude'.")
+                    return
+
+        formatted_coordinates = ";".join(coordinate_items)
+
+    formatted_coordinates = formatted_coordinates.replace(" ", "")
+
+    if not formatted_coordinates or formatted_coordinates == "":
         print("To get points forecasts you must provide coordinates.")
         return
+
+    params = {
+        "coordinates": formatted_coordinates
+    }
+
     if min_forecast_time:
         params["min_forecast_time"] = parse_time(min_forecast_time)
     if max_forecast_time:
@@ -35,234 +91,83 @@ def get_point_forecasts(coordinates, min_forecast_time=None, max_forecast_time=N
         initialization_time = parse_time(initialization_time,init_time_flag=True)
         params["initialization_time"] = initialization_time
 
-    print("We are initiating handshake procedure with our S3 server.\n")
+    print("Generating point forecast...")
 
     response = make_api_request(f"{FORECASTS_API_BASE_URL}/points", params=params)
 
-    if save_to_file:
-        # Save as .json
-        save_csv_json(save_to_file, response, csv_data_key='forecasts')
+    if output_file:
+        save_arbitrary_response(output_file, response, csv_data_key='forecasts')
 
     return response
 
-# Gridded forecasts
-# We return the whole response, not just the url
 
-# 500hPa geopotential
-# 850hPa geopotential
-# 500hPa wind u
-# 500hPa wind v
-# 500hPa temperature
-# 850hPa temperature
-# wind_u_10m
-# wind_v_10m
-# pressure_msl
-# temperature_2m
+def get_gridded_forecast(time, variable, output_file=None):
+    """
+    Get gridded forecast data from the API.
+    Note that this is primarily meant to be used internally by the other functions in this module.
 
-def get_temperature_2m(time, save_to_file=None):
+    Args:
+        time (str): Date in either ISO 8601 format (YYYY-MM-DDTHH:00:00)
+                    or compact format (YYYYMMDDHH)
+                    where HH must be 00, 06, 12, or 18
+        variable (str): The variable you want the forecast for
+        output_file (str, optional): Path to save the response data
+                                      Supported formats: .nc
+    """
+
     params = {}
 
     if not time:
-        print("To get the gridded output of global 2m temperature forecast you need to provide the time for which to get the forecast.")
+        print("Error: the time you want the forecast for is required.")
         return
     else:
         time_parsed = parse_time(time)
         params["time"] = time_parsed
 
-    print("We are initiating handshake procedure with our S3 server.\n")
+    response = make_api_request(f"{FORECASTS_GRIDDED_URL}/{variable}", params=params, as_json=False)
 
-    response = make_api_request(f"{FORECASTS_GRIDDED_URL}/temperature_2m", params=params, return_type='all')
-
-    if save_to_file:
-        download_and_save_nc(save_to_file, response)
-
-    return response
-
-# not implemented yet
-def get_dewpoint_2m(time, save_to_file=None):
-    params = {}
-
-    if not time:
-        print("To get the gridded output of global 2m dewpoint forecast you need to provide the time for which to get the forecast.")
-        return
-    else:
-        time_parsed = parse_time(time)
-        params["time"] = time_parsed
-
-    print("We are initiating handshake procedure with our S3 server.\n")
-    response = make_api_request(f"{FORECASTS_GRIDDED_URL}/dewpoint_2m", params=params, return_type='all')
-
-    if save_to_file:
-        download_and_save_nc(save_to_file, response)
+    if output_file:
+        print(f"Output URL found; downloading to {output_file}...")
+        download_and_save_output(output_file, response)
 
     return response
 
-def get_wind_u_10m(time, save_to_file=None):
-    params = {}
+def get_temperature_2m(time, output_file=None):
+    return get_gridded_forecast(time, "temperature_2m", output_file)
 
-    if not time:
-        print("To get the gridded output of global 10m u-component of wind forecasts you need to provide the time for which to get the forecast.")
-        return
-    else:
-        time_parsed = parse_time(time)
-        params["time"] = time_parsed
+# Not yet implemented
+# def get_dewpoint_2m(time, output_file=None):
+#     return get_gridded_forecast(time, "dewpoint_2m", output_file)
 
-    print("We are initiating handshake procedure with our S3 server.\n")
-    response = make_api_request(f"{FORECASTS_GRIDDED_URL}/wind_u_10m", params=params, return_type='all')
+def get_wind_u_10m(time, output_file=None):
+    return get_gridded_forecast(time, "wind_u_10m", output_file)
 
-    if save_to_file:
-        download_and_save_nc(save_to_file, response)
+def get_wind_v_10m(time, output_file=None):
+    return get_gridded_forecast(time, "wind_v_10m", output_file)
 
-    return response
+def get_500hpa_wind_u(time, output_file=None):
+    return get_gridded_forecast(time, "500/wind_u", output_file)
 
-def get_wind_v_10m(time, save_to_file=None):
-    params = {}
+def get_500hpa_wind_v(time, output_file=None):
+    return get_gridded_forecast(time, "500/wind_v", output_file)
 
-    if not time:
-        print("To get the gridded output of global 10m v-component of wind forecasts you need to provide the time for which to get the forecast.")
-        return
-    else:
-        time_parsed = parse_time(time)
-        params["time"] = time_parsed
+def get_500hpa_temperature(time, output_file=None):
+    return get_gridded_forecast(time, "500/temperature", output_file)
 
-    print("We are initiating handshake procedure with our S3 server.\n")
-    response = make_api_request(f"{FORECASTS_GRIDDED_URL}/wind_v_10m", params=params, return_type='all')
+def get_850hpa_temperature(time, output_file=None):
+    return get_gridded_forecast(time, "850/temperature", output_file)
 
-    if save_to_file:
-        download_and_save_nc(save_to_file, response)
+def get_pressure_msl(time, output_file=None):
+    return get_gridded_forecast(time, "pressure_msl", output_file)
 
-    return response
+def get_500hpa_geopotential(time, output_file=None):
+    return get_gridded_forecast(time, "500/geopotential", output_file)
 
-def get_500hpa_wind_u(time, save_to_file=None):
-    params = {}
+def get_850hpa_geopotential(time, output_file=None):
+    return get_gridded_forecast(time, "850/geopotential", output_file)
 
-    if not time:
-        print("To get the gridded output of global 500hPa wind u-component of wind forecasts you need to provide the time for which to get the forecast.")
-        return
-    else:
-        time_parsed = parse_time(time)
-        params["time"] = time_parsed
 
-    print("We are initiating handshake procedure with our S3 server.\n")
-    response = make_api_request(f"{FORECASTS_GRIDDED_URL}/500/wind_u", params=params, return_type='all')
-
-    if save_to_file:
-        download_and_save_nc(save_to_file, response)
-
-    return response
-
-def get_500hpa_wind_v(time, save_to_file=None):
-    params = {}
-
-    if not time:
-        print("To get the gridded output of global 500hPa wind v-component of wind forecasts you need to provide the time for which to get the forecast.")
-        return
-    else:
-        time_parsed = parse_time(time)
-        params["time"] = time_parsed
-
-    print("We are initiating handshake procedure with our S3 server.\n")
-    response = make_api_request(f"{FORECASTS_GRIDDED_URL}/500/wind_v", params=params, return_type='all')
-
-    if save_to_file:
-        download_and_save_nc(save_to_file, response)
-
-    return response
-
-def get_500hpa_temperature(time, save_to_file=None):
-    params = {}
-
-    if not time:
-        print("To get the gridded output of global 500hPa temperature forecasts you need to provide the time for which to get the forecast.")
-        return
-    else:
-        time_parsed = parse_time(time)
-        params["time"] = time_parsed
-
-    print("We are initiating handshake procedure with our S3 server.\n")
-    response = make_api_request(f"{FORECASTS_GRIDDED_URL}/500/temperature", params=params, return_type='all')
-
-    if save_to_file:
-        download_and_save_nc(save_to_file, response)
-
-    return response
-
-def get_850hpa_temperature(time, save_to_file=None):
-    params = {}
-
-    if not time:
-        print("To get the gridded output of global 850hPa temperature forecasts you need to provide the time for which to get the forecast.")
-        return
-    else:
-        time_parsed = parse_time(time)
-        params["time"] = time_parsed
-
-    print("We are initiating handshake procedure with our S3 server.\n")
-    response = make_api_request(f"{FORECASTS_GRIDDED_URL}/850/temperature", params=params, return_type='all')
-
-    if save_to_file:
-        download_and_save_nc(save_to_file, response)
-
-    return response
-
-def get_pressure_msl(time, save_to_file=None):
-    params = {}
-
-    if not time:
-        print("To get the gridded output of global mean sea level pressure forecasts you need to provide the time for which to get the forecast.")
-        return
-    else:
-        time_parsed = parse_time(time)
-        params["time"] = time_parsed
-
-    print("We are initiating handshake procedure with our S3 server.\n")
-    response = make_api_request(f"{FORECASTS_GRIDDED_URL}/pressure_msl", params=params, return_type='all')
-
-    if save_to_file:
-        download_and_save_nc(save_to_file, response)
-
-    return response
-
-def get_500hpa_geopotential(time, save_to_file=None):
-    params = {}
-
-    if not time:
-        print("To get the gridded output of global 500hPa geopotential forecasts you need to provide the time for which to get the forecast.")
-        return
-    else:
-        time_parsed = parse_time(time)
-        params["time"] = time_parsed
-
-    print("We are initiating handshake procedure with our S3 server.\n")
-    response = make_api_request(f"{FORECASTS_GRIDDED_URL}/500/geopotential", params=params, return_type='all')
-
-    if save_to_file:
-        download_and_save_nc(save_to_file, response)
-
-    return response
-
-def get_850hpa_geopotential(time, save_to_file=None):
-    params = {}
-
-    if not time:
-        print("To get the gridded output of global 850hPa geopotential forecasts you need to provide the time for which to get the forecast.")
-        return
-    else:
-        time_parsed = parse_time(time)
-        params["time"] = time_parsed
-
-    print("We are initiating handshake procedure with our S3 server.\n")
-    response = make_api_request(f"{FORECASTS_GRIDDED_URL}/850/geopotential", params=params, return_type='all')
-
-    if save_to_file:
-        download_and_save_nc(save_to_file, response)
-
-    return response
-
-# Historical forecasts
-# We return the whole response, not just the url
-
-def get_historical_temperature_2m(initialization_time, forecast_hour, save_to_file=None):
+def get_historical_output(initialization_time, forecast_hour, variable, output_file=None):
     params = {}
 
     if not initialization_time or not forecast_hour:
@@ -271,88 +176,32 @@ def get_historical_temperature_2m(initialization_time, forecast_hour, save_to_fi
               "- how many hours after the run time the forecast is valid at.\n")
         return
     else:
-        time_parsed = parse_time(initialization_time, init_time_flag=True)
-        params["initialization_time"] = time_parsed
+        params["initialization_time"] = parse_time(initialization_time, init_time_flag=True)
         params["forecast_hour"] = forecast_hour
 
-    print("We are initiating handshake procedure with our S3 server.\n")
+    response = make_api_request(f"{FORECASTS_HISTORICAL_URL}/{variable}", params=params, as_json=False)
 
-    response = make_api_request(f"{FORECASTS_HISTORICAL_URL}/temperature_2m", params=params, return_type='all')
-
-    if save_to_file:
-        download_and_save_nc(save_to_file, response)
+    if output_file:
+        print(f"Output URL found; downloading to {output_file}...")
+        download_and_save_output(output_file, response)
 
     return response
 
-def get_historical_500hpa_geopotential(initialization_time, forecast_hour, save_to_file=None):
-    params = {}
 
-    if not initialization_time or not forecast_hour:
-        print("To get the historical output of global 500hPa geopotential forecasts you need to provide:\n"
-              "- the initialization time of the forecast\n"
-              "- how many hours after the run time the forecast is valid at.\n")
-        return
-    else:
-        time_parsed = parse_time(initialization_time,init_time_flag=True)
-        params["initialization_time"] = time_parsed
-        params["forecast_hour"] = forecast_hour
+def get_historical_temperature_2m(initialization_time, forecast_hour, output_file=None):
+    return get_historical_output(initialization_time, forecast_hour, "temperature_2m", output_file)
 
-    print("We are initiating handshake procedure with our S3 server.\n")
+def get_historical_500hpa_geopotential(initialization_time, forecast_hour, output_file=None):
+    return get_historical_output(initialization_time, forecast_hour, "500/geopotential", output_file)
 
-    response = make_api_request(f"{FORECASTS_HISTORICAL_URL}/500/geopotential", params=params, return_type='all')
+def get_historical_500hpa_wind_u(initialization_time, forecast_hour, output_file=None):
+    return get_historical_output(initialization_time, forecast_hour, "500/wind_u", output_file)
 
-    if save_to_file:
-        download_and_save_nc(save_to_file, response)
+def get_historical_500hpa_wind_v(initialization_time, forecast_hour, output_file=None):
+    return get_historical_output(initialization_time, forecast_hour, "500/wind_v", output_file)
 
-    return response
 
-def get_historical_500hpa_wind_u(initialization_time, forecast_hour, save_to_file=None):
-    params = {}
-
-    if not initialization_time or not forecast_hour:
-        print("To get the historical output of global 500hPa wind u forecasts you need to provide:\n"
-              "- the initialization time of the forecast\n"
-              "- how many hours after the run time the forecast is valid at.\n")
-        return
-    else:
-        time_parsed = parse_time(initialization_time,init_time_flag=True)
-        params["initialization_time"] = time_parsed
-        params["forecast_hour"] = forecast_hour
-
-    print("We are initiating handshake procedure with our S3 server.\n")
-
-    response = make_api_request(f"{FORECASTS_HISTORICAL_URL}/500/wind_u", params=params, return_type='all')
-
-    if save_to_file:
-        download_and_save_nc(save_to_file, response)
-
-    return response
-
-def get_historical_500hpa_wind_v(initialization_time, forecast_hour, save_to_file=None):
-    params = {}
-
-    if not initialization_time or not forecast_hour:
-        print("To get the historical output of global 500hPa wind v forecasts you need to provide:\n"
-              "- the initialization time of the forecast\n"
-              "- how many hours after the run time the forecast is valid at.\n")
-        return
-    else:
-        time_parsed = parse_time(initialization_time, init_time_flag=True)
-        params["initialization_time"] = time_parsed
-        params["forecast_hour"] = forecast_hour
-
-    print("We are initiating handshake procedure with our S3 server.\n")
-
-    response = make_api_request(f"{FORECASTS_HISTORICAL_URL}/500/wind_v", params=params, return_type='all')
-
-    if save_to_file:
-        download_and_save_nc(save_to_file, response)
-
-    return response
-
-# Other
-# TCs
-def get_tropical_cyclones(initialization_time=None, basin=None, save_to_file=None):
+def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None):
     """
     Get tropical cyclone data from the API.
 
@@ -360,7 +209,7 @@ def get_tropical_cyclones(initialization_time=None, basin=None, save_to_file=Non
         initialization_time (str): Date in either ISO 8601 format (YYYY-MM-DDTHH:00:00)
                                  or compact format (YYYYMMDDHH)
                                  where HH must be 00, 06, 12, or 18
-        save_to_file (str, optional): Path to save the response data
+        output_file (str, optional): Path to save the response data
                                       Supported formats: .json, .csv, .gpx, .geojson, .kml, .little_r
 
     Returns:
@@ -391,12 +240,12 @@ def get_tropical_cyclones(initialization_time=None, basin=None, save_to_file=Non
     # Response here is a .json
     response = make_api_request(FORECASTS_TCS_URL, params=params)
 
-    if save_to_file:
-        if '.' not in save_to_file:
+    if output_file:
+        if '.' not in output_file:
             print("You have to provide a filetype for your output file.")
             print_tc_supported_formats()
             exit (4)
-        elif not save_to_file.lower().endswith(TCS_SUPPORTED_FORMATS):
+        elif not output_file.lower().endswith(TCS_SUPPORTED_FORMATS):
             print("Unsupported file format.")
             print_tc_supported_formats()
             exit(44)
@@ -412,7 +261,7 @@ def get_tropical_cyclones(initialization_time=None, basin=None, save_to_file=Non
             print("-------------------------------------------------------")
             print("You are too quick!\nThe tropical cyclone data for initialization time are not uploaded yet.")
             print('You may check again in a few hours again.')
-        elif save_to_file.lower().endswith('.csv'):
+        elif output_file.lower().endswith('.csv'):
             # Flatten for CSV
             flattened_data = []
             for cyclone_id, tracks in response.items():
@@ -424,32 +273,33 @@ def get_tropical_cyclones(initialization_time=None, basin=None, save_to_file=Non
                         'time': track['time']
                     }
                     flattened_data.append(track_data)
-            save_csv_json(save_to_file, {'prediction': flattened_data}, csv_data_key='prediction')
-        elif save_to_file.lower().endswith('.json'):
+            save_arbitrary_response(output_file, {'prediction': flattened_data}, csv_data_key='prediction')
+        elif output_file.lower().endswith('.json'):
             # Direct save for JSON
-            save_csv_json(save_to_file, response)
-        elif save_to_file.lower().endswith('.geojson'):
-            save_as_geojson(save_to_file, response)
-        elif save_to_file.lower().endswith('.gpx'):
-            save_as_gpx(save_to_file, response)
-        elif save_to_file.lower().endswith('.kml'):
-            save_as_kml(save_to_file, response)
-        elif save_to_file.lower().endswith('.little_r'):
-            save_as_little_r(save_to_file, response)
+            save_arbitrary_response(output_file, response)
+        elif output_file.lower().endswith('.geojson'):
+            save_track_as_geojson(output_file, response)
+        elif output_file.lower().endswith('.gpx'):
+            save_track_as_gpx(output_file, response)
+        elif output_file.lower().endswith('.kml'):
+            save_track_as_kml(output_file, response)
+        elif output_file.lower().endswith('.little_r'):
+            save_track_as_little_r(output_file, response)
 
     return response
+
 
 def get_initialization_times():
     """
-    Get available initialization times for pointy.
-    Returns:
-        dict: API response data or None if there's an error
+    Get available WeatherMesh initialization times (also known as cycle times).
+
+    Returns dict with keys "latest" and "available" (a list)
     """
 
-    # Response here is a .json
     response = make_api_request(f"{FORECASTS_API_BASE_URL}/initialization_times.json")
 
     return response
+
 
 # Tropical cyclones
 def print_tc_supported_formats():
@@ -457,3 +307,34 @@ def print_tc_supported_formats():
     print("Supported formats:")
     for fmt in TCS_SUPPORTED_FORMATS:
         print(f"  - {fmt}")
+
+
+def download_and_save_output(output_file, response):
+    """
+    Downloads a forecast output from a presigned S3 url contained in a response and saves it as a .nc file.
+
+    Args:
+        output_file (str): Path where to save the .nc file
+        response (str): Response that contains the S3 url to download the data from
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+
+    # Add .nc extension if not present
+    if not output_file.endswith('.nc'):
+        output_file = output_file + '.nc'
+
+    try:
+        # Save the content directly to file
+        with open(output_file, 'wb') as f:
+            f.write(response.content)
+        print(f"Data Successfully saved to {output_file}")
+        return True
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error downloading the file: {e}")
+        return False
+    except Exception as e:
+        print(f"Error processing the file: {e}")
+        return False
