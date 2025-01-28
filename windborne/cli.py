@@ -365,12 +365,13 @@ def main():
             )
 
     elif args.command == 'flying-missions':
-        get_flying_missions(from_cli=True, output_file=args.output)
+        get_flying_missions(output_file=args.output, print_results=(not args.output))
 
     elif args.command == 'launch-site':
         get_mission_launch_site(
             mission_id=args.mission_id,
-            output_file=args.output
+            output_file=args.output,
+            print_result=(not args.output)
         )
 
     elif args.command == 'predict-path':

@@ -257,6 +257,9 @@ def get_observations_core(api_args, csv_headers, get_page, start_time=None, end_
     For example, for 6-hour buckets centered on 00 UTC, the start time should be 21 UTC of the previous day.
 
     Args:
+        api_args (dict): Arguments to pass to the API endpoint.
+        csv_headers (list): Headers for CSV files.
+        get_page (callable): Function to fetch a page of observations.
         start_time (str): A date string, supporting formats YYYY-MM-DD HH:MM:SS, YYYY-MM-DD_HH:MM and ISO strings,
                           representing the starting time of fetching data.
         end_time (str): Optional. A date string, supporting formats YYYY-MM-DD HH:MM:SS, YYYY-MM-DD_HH:MM and ISO strings,
@@ -531,7 +534,7 @@ def poll_super_observations(**kwargs):
 # ------------
 # METADATA
 # ------------
-def get_flying_missions(from_cli=None, output_file=None):
+def get_flying_missions(output_file=None, print_results=False):
     """
     Retrieves a list of currently flying missions.
     In CLI mode, displays missions in a formatted table.
@@ -539,6 +542,7 @@ def get_flying_missions(from_cli=None, output_file=None):
     Args:
         output_file (str): Optional path to save the response data.
                            If provided, saves the data in CSV or JSON format.
+        print_results (bool): Whether to print the results in the CLI.
 
     Returns:
         dict: The API response containing list of flying missions.
@@ -549,35 +553,47 @@ def get_flying_missions(from_cli=None, output_file=None):
     flying_missions = flying_missions_response.get("missions", [])
 
     # Display currently flying missions only if we are in cli and we don't save info in file
-    if flying_missions and from_cli and not output_file:
-        print("Currently flying missions:\n")
+    if print_results:
+        if flying_missions:
+            print("Currently flying missions:\n")
 
-        # Define headers and data
-        headers = ["Index", "Mission ID", "Mission Name"]
-        rows = [
-            [str(i), mission.get("id", "N/A"), mission.get("name", "Unnamed Mission")]
-            for i, mission in enumerate(flying_missions, start=1)
-        ]
+            # Define headers and data
+            headers = ["Index", "Mission ID", "Mission Name"]
+            rows = [
+                [str(i), mission.get("id", "N/A"), mission.get("name", "Unnamed Mission")]
+                for i, mission in enumerate(flying_missions, start=1)
+            ]
 
-        # Kinda overkill | but it's a good practice if we ever change missions naming convention
-        # Calculate column widths
-        col_widths = [max(len(cell) for cell in col) + 2 for col in zip(headers, *rows)]
+            # Kinda overkill | but it's a good practice if we ever change missions naming convention
+            # Calculate column widths
+            col_widths = [max(len(cell) for cell in col) + 2 for col in zip(headers, *rows)]
 
-        # Display table
-        print("".join(f"{headers[i]:<{col_widths[i]}}" for i in range(len(headers))))
-        print("".join("-" * col_width for col_width in col_widths))
-        for row in rows:
-            print("".join(f"{row[i]:<{col_widths[i]}}" for i in range(len(row))))
+            # Display table
+            print("".join(f"{headers[i]:<{col_widths[i]}}" for i in range(len(headers))))
+            print("".join("-" * col_width for col_width in col_widths))
+            for row in rows:
+                print("".join(f"{row[i]:<{col_widths[i]}}" for i in range(len(row))))
+        else:
+            print("No missions are currently flying.")
 
     if output_file:
         save_arbitrary_response(output_file, flying_missions_response, csv_data_key='missions')
     
-    return flying_missions_response
+    return flying_missions
 
 
-def get_mission_launch_site(mission_id=None, output_file=None):
+def get_mission_launch_site(mission_id=None, output_file=None, print_result=False):
     """
     Retrieves launch site information for a specified mission.
+
+    Args:
+        mission_id (str): The ID of the mission to fetch the launch site for.
+        output_file (str): Optional path to save the response data.
+                           If provided, saves the data in CSV format.
+        print_result (bool): Whether to print the results in the CLI.
+
+    Returns:
+        dict: The API response containing the launch site information.
     """
     if not mission_id:
         print("Must provide mission ID")
@@ -586,7 +602,7 @@ def get_mission_launch_site(mission_id=None, output_file=None):
     url = f"{DATA_API_BASE_URL}/missions/{mission_id}/launch_site.json"
     response = make_api_request(url)
 
-    if response and not output_file:
+    if response and print_result:
         launch_site = response.get('launch_site')
         if isinstance(launch_site, dict):
             print("Mission launch site\n")
@@ -599,7 +615,7 @@ def get_mission_launch_site(mission_id=None, output_file=None):
     if output_file:
         save_arbitrary_response(output_file, response, csv_data_key='launch_site')
 
-    return response
+    return response.get('launch_site')
 
 def get_predicted_path(mission_id=None, output_file=None):
     """
@@ -612,7 +628,7 @@ def get_predicted_path(mission_id=None, output_file=None):
                                If provided, saves the data in CSV format.
 
         Returns:
-            dict: The API response containing the predicted flight path data.
+            list: The API response containing the predicted flight path data.
     """
     if not mission_id:
         print("To get the predicted flight path for a given mission you must provide a mission ID.")
@@ -655,4 +671,4 @@ def get_predicted_path(mission_id=None, output_file=None):
     if output_file:
         save_arbitrary_response(output_file, response, csv_data_key='prediction')
     
-    return response
+    return response.get('prediction')
