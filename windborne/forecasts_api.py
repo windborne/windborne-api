@@ -1,8 +1,10 @@
 import requests
+import json
 
 from .utils import (
     parse_time,
-    save_arbitrary_response
+    save_arbitrary_response,
+    print_table
 )
 
 from .api_request import (
@@ -24,7 +26,7 @@ TCS_SUPPORTED_FORMATS = ('.csv', '.json', '.geojson', '.gpx', '.kml', 'little_r'
 
 
 # Point forecasts
-def get_point_forecasts(coordinates, min_forecast_time=None, max_forecast_time=None, min_forecast_hour=None, max_forecast_hour=None, initialization_time=None, output_file=None):
+def get_point_forecasts(coordinates, min_forecast_time=None, max_forecast_time=None, min_forecast_hour=None, max_forecast_hour=None, initialization_time=None, output_file=None, print_response=False):
     """
     Get point forecasts from the API.
 
@@ -38,6 +40,7 @@ def get_point_forecasts(coordinates, min_forecast_time=None, max_forecast_time=N
         initialization_time (str, optional): Initialization time in ISO 8601 format (YYYY-MM-DDTHH:00:00)
         output_file (str, optional): Path to save the response data
                                       Supported formats: .json, .csv
+        print_response (bool, optional): Whether to print the response data
     """
 
     # coordinates should be formatted as a semi-colon separated list of latitude,longitude tuples, eg 37,-121;40.3,-100
@@ -91,12 +94,24 @@ def get_point_forecasts(coordinates, min_forecast_time=None, max_forecast_time=N
         initialization_time = parse_time(initialization_time,init_time_flag=True)
         params["initialization_time"] = initialization_time
 
-    print("Generating point forecast...")
+    if print_response:
+        print("Generating point forecast...")
 
     response = make_api_request(f"{FORECASTS_API_BASE_URL}/points", params=params)
 
     if output_file:
         save_arbitrary_response(output_file, response, csv_data_key='forecasts')
+
+    if print_response:
+        unformatted_coordinates = formatted_coordinates.split(';')
+
+        keys = ['time', 'temperature_2m', 'dewpoint_2m', 'wind_u_10m', 'wind_v_10m', 'precipitation', 'pressure_msl']
+        headers = ['Time', '2m Temperature (°C)', '2m Dewpoint (°C)', 'Wind U (m/s)', 'Wind V (m/s)', 'Precipitation (mm)', 'MSL Pressure (hPa)']
+
+        for i in range(len(response['forecasts'])):
+            latitude, longitude = unformatted_coordinates[i].split(',')
+            print(f"\nForecast for ({latitude}, {longitude})")
+            print_table(response['forecasts'][i], keys=keys, headers=headers)
 
     return response
 
@@ -125,6 +140,9 @@ def get_gridded_forecast(time, variable, output_file=None):
         params["time"] = time_parsed
 
     response = make_api_request(f"{FORECASTS_GRIDDED_URL}/{variable}", params=params, as_json=False)
+
+    if response is None:
+        return None
 
     if output_file:
         print(f"Output URL found; downloading to {output_file}...")
@@ -181,6 +199,9 @@ def get_historical_output(initialization_time, forecast_hour, variable, output_f
 
     response = make_api_request(f"{FORECASTS_HISTORICAL_URL}/{variable}", params=params, as_json=False)
 
+    if response is None:
+        return None
+
     if output_file:
         print(f"Output URL found; downloading to {output_file}...")
         download_and_save_output(output_file, response)
@@ -201,7 +222,7 @@ def get_historical_500hpa_wind_v(initialization_time, forecast_hour, output_file
     return get_historical_output(initialization_time, forecast_hour, "500/wind_v", output_file)
 
 
-def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None):
+def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None, print_response=False):
     """
     Get tropical cyclone data from the API.
 
@@ -209,8 +230,10 @@ def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None
         initialization_time (str): Date in either ISO 8601 format (YYYY-MM-DDTHH:00:00)
                                  or compact format (YYYYMMDDHH)
                                  where HH must be 00, 06, 12, or 18
+        basin (str, optional): Basin code (e.g., 'NA', 'EP', 'WP', 'NI', 'SI', 'AU', 'SP')
         output_file (str, optional): Path to save the response data
                                       Supported formats: .json, .csv, .gpx, .geojson, .kml, .little_r
+        print_response (bool, optional): Whether to print the response data
 
     Returns:
         dict: API response data or None if there's an error
@@ -221,7 +244,6 @@ def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None
         initialization_time_parsed = parse_time(initialization_time, init_time_flag=True)
         params["initialization_time"] = initialization_time_parsed
     else:
-        # Madee this for our displaying message when no active tcs found
         initialization_time = 'latest'
 
     if basin:
@@ -286,10 +308,19 @@ def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None
         elif output_file.lower().endswith('.little_r'):
             save_track_as_little_r(output_file, response)
 
+    if print_response:
+        if len(response) == 0:
+            print("No tropical cyclones for initialization time:", initialization_time)
+        else:
+            print("Tropical Cyclones for initialization time:", initialization_time)
+            for cyclone_id, tracks in response.items():
+                print(f"\nCyclone ID: {cyclone_id}")
+                print_table(tracks, keys=['time', 'latitude', 'longitude'], headers=['Time', 'Latitude', 'Longitude'])
+
     return response
 
 
-def get_initialization_times():
+def get_initialization_times(print_response=False):
     """
     Get available WeatherMesh initialization times (also known as cycle times).
 
@@ -297,6 +328,12 @@ def get_initialization_times():
     """
 
     response = make_api_request(f"{FORECASTS_API_BASE_URL}/initialization_times.json")
+
+    if print_response:
+        print("Latest initialization time:", response['latest'])
+        print("Available initialization times:")
+        for time in response['available']:
+            print(f" - {time}")
 
     return response
 

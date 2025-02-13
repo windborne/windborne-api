@@ -139,7 +139,7 @@ def main():
     points_parser.add_argument('-mh','--min-hour', type=int, help='Minimum forecast hour')
     points_parser.add_argument('-xh','--max-hour', type=int, help='Maximum forecast hour')
     points_parser.add_argument('-i', '--init-time', help='Initialization time')
-    points_parser.add_argument('output_file', help='Output file')
+    points_parser.add_argument('output_file', nargs='?', help='Output file')
 
     # GRIDDED FORECASTS
     ####################################################################################################################
@@ -210,9 +210,9 @@ def main():
     ####################################################################################################################
 
     # Tropical Cyclones Command
-    cyclones_parser = subparsers.add_parser('cyclones', help='Get tropical cyclone forecasts')
-    cyclones_parser.add_argument('-b', '--basin',  help='Optional: filter tropical cyclones on basin[ NA, EP, WP, NI, SI, AU, SP]')
-    cyclones_parser.add_argument('args', nargs='*',
+    tropical_cyclones_parser = subparsers.add_parser('tropical_cyclones', help='Get tropical cyclone forecasts')
+    tropical_cyclones_parser.add_argument('-b', '--basin',  help='Optional: filter tropical cyclones on basin[ NA, EP, WP, NI, SI, AU, SP]')
+    tropical_cyclones_parser.add_argument('args', nargs='*',
                                  help='[optional: initialization time (YYYYMMDDHH, YYYY-MM-DDTHH, or YYYY-MM-DDTHH:mm:ss)] output_file')
 
     # Initialization Times Command
@@ -396,15 +396,12 @@ def main():
             min_forecast_hour=min_forecast_hour,
             max_forecast_hour=max_forecast_hour,
             initialization_time=initialization_time,
-            output_file=args.output_file
+            output_file=args.output_file,
+            print_response=(not args.output_file)
         )
 
     elif args.command == 'init_times':
-        if get_initialization_times():
-            print("Available initialization times for point forecasts:\n")
-            pprint(get_initialization_times())
-        else:
-            print("We can't currently display available initialization times for point forecasts:\n")
+        get_initialization_times(print_response=True)
 
     elif args.command == 'grid_temp_2m':
         # Parse grid_temp_2m arguments
@@ -589,39 +586,28 @@ def main():
             print("Too many arguments")
             print("\nUsage: windborne hist_500hpa_wind_v initialization_time forecast_hour output_file")
 
-    elif args.command == 'cyclones':
+    elif args.command == 'tropical_cyclones':
         # Parse cyclones arguments
-        basin_name = 'ALL basins'
+        basin_name = 'all basins'
         if args.basin:
             basin_name = f"{args.basin} basin"
-            print(f"Checking for tropical cyclones only within {args.basin} basin\n")
 
         if len(args.args) == 0:
-            print("Loading tropical cyclones for our latest available initialization time\n")
-            if get_tropical_cyclones(basin=args.basin):
-                print(f"Found {len(get_tropical_cyclones())} cyclone(s)\n")
-                pprint(get_tropical_cyclones(basin=args.basin))
-                return
-            else:
-                print("There are no active tropical cyclones for our latest available initialization time.")
+            get_tropical_cyclones(basin=args.basin, print_response=True)
+            return
         elif len(args.args) == 1:
             if '.' in args.args[0]:
                 # Save tcs with the latest available initialization time in filename
                 get_tropical_cyclones(basin=args.basin, output_file=args.args[0])
             else:
                 # Display tcs for selected initialization time
-                if get_tropical_cyclones(initialization_time=args.args[0], basin=args.basin):
-                    print(f"Loading tropical cyclones for initialization time {args.args[0]}\n")
-                    print(f"Found {len(get_tropical_cyclones(initialization_time=args.args[0]))} cyclone(s)\n")
-                    pprint(get_tropical_cyclones(initialization_time=args.args[0], basin=args.basin))
-                else:
-                    print(f"No active tropical cyclones for {basin_name} and {args.args[0]} initialization time.")
+                get_tropical_cyclones(initialization_time=args.args[0], basin=args.basin, print_response=True)
         elif len(args.args) == 2:
             print(f"Saving tropical cyclones for initialization time {args.args[0]} and {basin_name}\n")
             get_tropical_cyclones(initialization_time=args.args[0], basin=args.basin, output_file=args.args[1])
         else:
             print("Error: Too many arguments")
-            print("Usage: windborne cyclones [initialization_time] output_file")
+            print("Usage: windborne tropical_cyclones [initialization_time] output_file")
 
     else:
         parser.print_help()

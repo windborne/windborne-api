@@ -6,7 +6,7 @@ import json
 
 from .api_request import make_api_request
 from .observation_formatting import format_little_r, convert_to_netcdf
-from .utils import to_unix_timestamp, save_arbitrary_response
+from .utils import to_unix_timestamp, save_arbitrary_response, print_table
 
 DATA_API_BASE_URL = "https://sensor-data.windbornesystems.com/api/v1"
 
@@ -645,22 +645,7 @@ def get_predicted_path(mission_id=None, output_file=None):
         if flying_missions:
             print("\nCurrently flying missions:\n")
 
-            # Define headers and data
-            headers = ["Index", "Mission ID", "Mission Name"]
-            rows = [
-                [str(i), mission.get("id", "N/A"), mission.get("name", "Unnamed Mission")]
-                for i, mission in enumerate(flying_missions, start=1)
-            ]
-
-            # Kinda overkill | but it's a good practice if we ever change missions naming convention
-            # Calculate column widths
-            col_widths = [max(len(cell) for cell in col) + 2 for col in zip(headers, *rows)]
-
-            # Display table
-            print("".join(f"{headers[i]:<{col_widths[i]}}" for i in range(len(headers))))
-            print("".join("-" * col_width for col_width in col_widths))
-            for row in rows:
-                print("".join(f"{row[i]:<{col_widths[i]}}" for i in range(len(row))))
+            print_table(flying_missions, keys=['i', 'id', 'name'], headers=['Index', 'Mission ID', 'Mission Name'])
         else:
             print("No missions are currently flying.")
         return

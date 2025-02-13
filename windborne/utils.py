@@ -46,7 +46,7 @@ def to_unix_timestamp(date_string):
 
 # Supported date format
 # Compact format YYYYMMDDHH
-def parse_time(time, init_time_flag=None):
+def parse_time(time, init_time_flag=None, require_past=False):
     """
     Parse and validate initialization time with support for multiple formats.
     Returns validated initialization time in ISO format, or None if invalid.
@@ -78,10 +78,9 @@ def parse_time(time, init_time_flag=None):
                 print("  - Initialization time hour must be 00, 06, 12, or 18")
                 exit(2)
 
-        if parsed_date > datetime.now():
-            print(f"How would it be to live in {parsed_date} ?\n")
-            print("Looks like you are coming from the future!\n")
-            exit(1111)
+        if require_past and parsed_date > datetime.now():
+            print(f"Invalid date: {time} -- cannot be in the future")
+            exit(2)
 
         return parsed_date.strftime('%Y-%m-%dT%H:00:00')
 
@@ -158,3 +157,33 @@ def save_arbitrary_response(output_file, response, csv_data_key=None):
     else:
         print("Unsupported file format. Please use either .json or .csv.")
         exit(4)
+
+
+def print_table(data, keys=None, headers=None):
+    if len(data) == 0:
+        print("No data found")
+        return
+
+    if keys is None:
+        keys = list(data[0].keys())
+
+    if headers is None:
+        headers = keys
+
+    # headers = ["Index", "Mission ID", "Mission Name"]
+    rows = [
+        [
+            str(value.get(key)) if key != 'i' else str(i)
+            for key in keys
+        ]
+        for i, value in enumerate(data, start=1)
+    ]
+
+    # Calculate column widths
+    col_widths = [max(len(cell) for cell in col) + 2 for col in zip(headers, *rows)]
+
+    # Display table
+    print("".join(f"{headers[i]:<{col_widths[i]}}" for i in range(len(headers))))
+    print("".join("-" * col_width for col_width in col_widths))
+    for row in rows:
+        print("".join(f"{row[i]:<{col_widths[i]}}" for i in range(len(row))))
