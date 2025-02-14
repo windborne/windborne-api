@@ -7,6 +7,7 @@ import json
 from .api_request import make_api_request
 from .observation_formatting import format_little_r, convert_to_netcdf
 from .utils import to_unix_timestamp, save_arbitrary_response, print_table
+from .track_formatting import save_track
 
 DATA_API_BASE_URL = "https://sensor-data.windbornesystems.com/api/v1"
 
@@ -551,6 +552,9 @@ def get_flying_missions(output_file=None, print_results=False):
     url = f"{DATA_API_BASE_URL}/missions.json"
     flying_missions_response = make_api_request(url)
     flying_missions = flying_missions_response.get("missions", [])
+    for mission in flying_missions:
+        if mission.get('number'):
+            mission['name'] = f"W-{mission['number']}"
 
     # Display currently flying missions only if we are in cli and we don't save info in file
     if print_results:
@@ -617,7 +621,8 @@ def get_mission_launch_site(mission_id=None, output_file=None, print_result=Fals
 
     return response.get('launch_site')
 
-def get_predicted_path(mission_id=None, output_file=None):
+
+def get_predicted_path(mission_id=None, output_file=None, print_result=False):
     """
         Fetches the predicted flight path for a given mission.
         Displays currently flying missions if the provided mission ID is invalid.
@@ -625,7 +630,7 @@ def get_predicted_path(mission_id=None, output_file=None):
         Args:
             mission_id (str): The ID of the mission to fetch the prediction for.
             output_file (str): Optional path to save the response data.
-                               If provided, saves the data in CSV format.
+            print_result (bool): Whether to print the results in the CLI.
 
         Returns:
             list: The API response containing the predicted flight path data.
@@ -635,25 +640,70 @@ def get_predicted_path(mission_id=None, output_file=None):
         return
 
     # Check if provided mission ID belong to a flying mission
-    flying_missions_response = get_flying_missions()
-    flying_missions = flying_missions_response.get("missions", [])
+    flying_missions = get_flying_missions()
 
-    if mission_id not in [mission.get("id") for mission in flying_missions]:
+    mission = None
+    for candidate in flying_missions:
+        if candidate.get('id') == mission_id or candidate.get('name') == mission_id:
+            mission = candidate
+            break
+
+    if mission is None:
         print(f"Provided mission ID '{mission_id}' does not belong to a mission that is currently flying.")
 
         # Display currently flying missions
         if flying_missions:
             print("\nCurrently flying missions:\n")
 
-            print_table(flying_missions, keys=['i', 'id', 'name'], headers=['Index', 'Mission ID', 'Mission Name'])
+            print_table(flying_missions, keys=['id', 'name'], headers=['Mission ID', 'Mission Name'])
         else:
             print("No missions are currently flying.")
         return
 
-    url = f"{DATA_API_BASE_URL}/missions/{mission_id}/prediction.json"
+    url = f"{DATA_API_BASE_URL}/missions/{mission.get('id')}/prediction.json"
     response = make_api_request(url)
 
+    if response is None:
+        return
+
     if output_file:
-        save_arbitrary_response(output_file, response, csv_data_key='prediction')
-    
+        name = mission.get('name', mission_id)
+        save_track(output_file, {name: response['prediction']}, time_key='time')
+
+    if print_result:
+        print("Predicted flight path\n")
+        print_table(response['prediction'], keys=['time', 'latitude', 'longitude', 'altitude'], headers=['Time', 'Latitude', 'Longitude', 'Altitude'])
+
     return response.get('prediction')
+
+
+def get_flight_path(mission_id=None, output_file=None, print_result=False):
+    """
+        Fetches the flight path for a given mission.
+
+        Args:
+            mission_id (str): The ID of the mission to fetch the flight path for.
+            output_file (str): Optional path to save the response data.
+            print_result (bool): Whether to print the results in the CLI.
+
+        Returns:
+            list: The API response containing the flight path.
+    """
+    if not mission_id:
+        print("A mission id is required to get a flight path")
+        return
+
+    url = f"{DATA_API_BASE_URL}/missions/{mission_id}/flight_data.json"
+    response = make_api_request(url)
+
+    if response is None:
+        return
+
+    if output_file:
+        save_track(output_file, {mission_id: response['flight_data']}, time_key='transmit_time')
+
+    if print_result:
+        print("Flight path\n")
+        print_table(response['flight_data'], keys=['transmit_time', 'latitude', 'longitude', 'altitude'], headers=['Time', 'Latitude', 'Longitude', 'Altitude'])
+
+    return response.get('flight_data')

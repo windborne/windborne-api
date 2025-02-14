@@ -14,6 +14,7 @@ from .data_api import (
     get_flying_missions,
     get_mission_launch_site,
     get_predicted_path,
+    get_flight_path
 )
 
 # Import Forecasts API functions
@@ -50,6 +51,7 @@ __all__ = [
     "get_flying_missions",
     "get_mission_launch_site",
     "get_predicted_path",
+    "get_flight_path",
 
     "get_point_forecasts",
     "get_initialization_times",

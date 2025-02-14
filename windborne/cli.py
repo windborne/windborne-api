@@ -14,6 +14,7 @@ from . import (
     get_flying_missions,
     get_mission_launch_site,
     get_predicted_path,
+    get_flight_path,
 
     get_point_forecasts,
     get_initialization_times,
@@ -124,6 +125,11 @@ def main():
     prediction_parser = subparsers.add_parser('predict-path', help='Get predicted flight path')
     prediction_parser.add_argument('mission_id', help='Mission ID')
     prediction_parser.add_argument('output', nargs='?', help='Output file')
+
+    # Get Flight Path Command
+    flight_path_parser = subparsers.add_parser('flight-path', help='Get traveled flight path')
+    flight_path_parser.add_argument('mission_id', help='Mission ID')
+    flight_path_parser.add_argument('output', nargs='?', help='Output file')
 
     ####################################################################################################################
     # FORECASTS API FUNCTIONS
@@ -377,8 +383,18 @@ def main():
     elif args.command == 'predict-path':
         get_predicted_path(
             mission_id=args.mission_id,
-            output_file=args.output
+            output_file=args.output,
+            print_result=(not args.output)
         )
+
+    elif args.command == 'flight-path':
+        get_flight_path(
+            mission_id=args.mission_id,
+            output_file=args.output,
+            print_result=(not args.output)
+        )
+
+
     ####################################################################################################################
     # FORECASTS API FUNCTIONS CALLED
     ####################################################################################################################

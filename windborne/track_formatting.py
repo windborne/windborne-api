@@ -1,15 +1,69 @@
-from datetime import datetime, timezone
+from datetime import datetime
+import json
 
+TRACK_SUPPORTED_FORMATS = ['.csv', '.json', '.geojson', '.gpx', '.kml', 'little_r']
 
-def save_track_as_little_r(filename, cyclone_data):
+def save_track(output_file, track_data, time_key='time', require_ids=False):
     """
-    Convert and save cyclone data in little_R format.
+    Save track data to a file in the specified format.
+    Expects track_data to be a dictionary with cyclone/mission IDs as keys and lists of track points as values.
+    """
+    include_id = require_ids or len(track_data) > 1
+
+    if output_file.lower().endswith('.json'):
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(track_data, f, indent=4)
+    elif output_file.lower().endswith('.csv'):
+        save_track_as_csv(output_file, track_data, time_key=time_key, include_id=include_id)
+    elif output_file.lower().endswith('.geojson'):
+        save_track_as_geojson(output_file, track_data, time_key=time_key)
+    elif output_file.lower().endswith('.gpx'):
+        save_track_as_gpx(output_file, track_data, time_key=time_key)
+    elif output_file.lower().endswith('.kml'):
+        save_track_as_kml(output_file, track_data)
+    elif output_file.lower().endswith('.little_r'):
+        save_track_as_little_r(output_file, track_data, time_key=time_key)
+    else:
+        print(f"Unsupported file format. Supported formats are: {', '.join(TRACK_SUPPORTED_FORMATS)}")
+        return
+
+
+def save_track_as_csv(filename, track_data, time_key='time', include_id=False):
+    """
+    Convert and save track data as CSV.
+    """
+    flattened_data = []
+    for name, tracks in track_data.items():
+        for track in tracks:
+            track_data = {
+                'id': name,
+                'latitude': track['latitude'],
+                'longitude': track['longitude'],
+                'time': track[time_key]
+            }
+            flattened_data.append(track_data)
+
+    with open(filename, 'w', encoding='utf-8') as f:
+        if include_id:
+            f.write('id,latitude,longitude,time\n')
+        else:
+            f.write('latitude,longitude,time\n')
+
+        for row in flattened_data:
+            if include_id:
+                f.write(f"{row['id']},{row['latitude']},{row['longitude']},{row['time']}\n")
+            else:
+                f.write(f"{row['latitude']},{row['longitude']},{row['time']}\n")
+
+def save_track_as_little_r(filename, track_data, time_key='time'):
+    """
+    Convert and save track data in little_R format.
     """
     with open(filename, 'w', encoding='utf-8') as f:
-        for cyclone_id, tracks in cyclone_data.items():
+        for cyclone_id, tracks in track_data.items():
             for track in tracks:
                 # Parse the time
-                dt = datetime.fromisoformat(track['time'].replace('Z', '+00:00'))
+                dt = datetime.fromisoformat(track[time_key].replace('Z', '+00:00'))
 
                 # Header line 1
                 header1 = f"{float(track['latitude']):20.5f}{float(track['longitude']):20.5f}{'HMS':40}"
@@ -35,21 +89,20 @@ def save_track_as_little_r(filename, cyclone_data):
     print("Saved to", filename)
 
 
-def save_track_as_kml(filename, cyclone_data):
+def save_track_as_kml(filename, track_data):
     """
-    Convert and save cyclone data as KML, handling meridian crossing.
+    Convert and save track data as KML, handling meridian crossing.
     """
     kml = '<?xml version="1.0" encoding="UTF-8"?>\n'
     kml += '<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document>\n'
 
-    for cyclone_id, tracks in cyclone_data.items():
-        kml += f'  <Placemark>\n    <name>{cyclone_id}</name>\n    <MultiGeometry>\n'
+    for id, tracks in track_data.items():
+        kml += f'  <Placemark>\n    <name>{id}</name>\n    <MultiGeometry>\n'
 
         current_segment = []
 
         for i in range(len(tracks)):
             lon = float(tracks[i]['longitude'])
-            lat = float(tracks[i]['latitude'])
 
             if not current_segment:
                 current_segment.append(tracks[i])
@@ -61,7 +114,7 @@ def save_track_as_kml(filename, cyclone_data):
             if abs(lon - prev_lon) > 180:
                 # Write the current segment
                 kml += '      <LineString>\n        <coordinates>\n'
-                coordinates = [f'          {track["longitude"]},{track["latitude"]},{0}'
+                coordinates = [f'          {track["longitude"]},{track["latitude"]},{track.get("altitude", 0)}'
                                for track in current_segment]
                 kml += '\n'.join(coordinates)
                 kml += '\n        </coordinates>\n      </LineString>\n'
@@ -74,7 +127,7 @@ def save_track_as_kml(filename, cyclone_data):
         # Write the last segment if it's not empty
         if current_segment:
             kml += '      <LineString>\n        <coordinates>\n'
-            coordinates = [f'          {track["longitude"]},{track["latitude"]},{0}'
+            coordinates = [f'          {track["longitude"]},{track["latitude"]},{track.get("altitude", 0)}'
                            for track in current_segment]
             kml += '\n'.join(coordinates)
             kml += '\n        </coordinates>\n      </LineString>\n'
@@ -88,12 +141,12 @@ def save_track_as_kml(filename, cyclone_data):
     print(f"Saved to {filename}")
 
 
-def save_track_as_gpx(filename, cyclone_data):
-    """Convert and save cyclone data as GPX, handling meridian crossing."""
+def save_track_as_gpx(filename, track_data, time_key='time'):
+    """Convert and save track data as GPX, handling meridian crossing."""
     gpx = '<?xml version="1.0" encoding="UTF-8"?>\n'
     gpx += '<gpx version="1.1" creator="Windborne" xmlns="http://www.topografix.com/GPX/1/1">\n'
 
-    for cyclone_id, tracks in cyclone_data.items():
+    for cyclone_id, tracks in track_data.items():
         gpx += f'  <trk>\n    <name>{cyclone_id}</name>\n'
 
         current_segment = []
@@ -101,7 +154,6 @@ def save_track_as_gpx(filename, cyclone_data):
 
         for i in range(len(tracks)):
             lon = float(tracks[i]['longitude'])
-            lat = float(tracks[i]['latitude'])
 
             if not current_segment:
                 current_segment.append(tracks[i])
@@ -130,7 +182,7 @@ def save_track_as_gpx(filename, cyclone_data):
             gpx += '    <trkseg>\n'
             for point in current_segment:
                 gpx += f'      <trkpt lat="{point["latitude"]}" lon="{point["longitude"]}">\n'
-                gpx += f'        <time>{point["time"]}</time>\n'
+                gpx += f'        <time>{point[time_key]}</time>\n'
                 gpx += '      </trkpt>\n'
             gpx += '    </trkseg>\n'
 
@@ -143,10 +195,10 @@ def save_track_as_gpx(filename, cyclone_data):
     print(f"Saved to {filename}")
 
 
-def save_track_as_geojson(filename, cyclone_data):
-    """Convert and save cyclone data as GeoJSON, handling meridian crossing."""
+def save_track_as_geojson(filename, track_data, time_key='time'):
+    """Convert and save track data as GeoJSON, handling meridian crossing."""
     features = []
-    for cyclone_id, tracks in cyclone_data.items():
+    for id, tracks in track_data.items():
         # Initialize lists to store line segments
         line_segments = []
         current_segment = []
@@ -188,9 +240,9 @@ def save_track_as_geojson(filename, cyclone_data):
         feature = {
             "type": "Feature",
             "properties": {
-                "cyclone_id": cyclone_id,
-                "start_time": tracks[0]['time'],
-                "end_time": tracks[-1]['time']
+                "id": id,
+                "start_time": tracks[0][time_key],
+                "end_time": tracks[-1][time_key]
             },
             "geometry": {
                 "type": "MultiLineString",

@@ -1,5 +1,4 @@
 import requests
-import json
 
 from .utils import (
     parse_time,
@@ -7,22 +6,14 @@ from .utils import (
     print_table
 )
 
-from .api_request import (
-    make_api_request
-)
-
-from .cyclone_formatting import (
-    save_track_as_geojson,
-    save_track_as_gpx,
-    save_track_as_kml,
-    save_track_as_little_r
-)
+from .api_request import make_api_request
+from .track_formatting import save_track
 
 FORECASTS_API_BASE_URL = "https://forecasts.windbornesystems.com/api/v1"
 FORECASTS_GRIDDED_URL = f"{FORECASTS_API_BASE_URL}/gridded"
 FORECASTS_HISTORICAL_URL = f"{FORECASTS_API_BASE_URL}/gridded/historical"
 FORECASTS_TCS_URL = f"{FORECASTS_API_BASE_URL}/tropical_cyclones"
-TCS_SUPPORTED_FORMATS = ('.csv', '.json', '.geojson', '.gpx', '.kml', 'little_r')
+TCS_SUPPORTED_FORMATS = ('.csv', '.json', '.geojson', '.gpx', '.kml', '.little_r')
 
 
 # Point forecasts
@@ -263,11 +254,7 @@ def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None
     response = make_api_request(FORECASTS_TCS_URL, params=params)
 
     if output_file:
-        if '.' not in output_file:
-            print("You have to provide a filetype for your output file.")
-            print_tc_supported_formats()
-            exit (4)
-        elif not output_file.lower().endswith(TCS_SUPPORTED_FORMATS):
+        if not output_file.lower().endswith(TCS_SUPPORTED_FORMATS):
             print("Unsupported file format.")
             print_tc_supported_formats()
             exit(44)
@@ -276,37 +263,14 @@ def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None
             # make_api_request covers 403, 404, 502, HTTP, Connections Errors
             # If we pass all of these and we get an empty dictionary ==> there are no active TCs
             print("There are no active tropical cyclones for your request\n")
-            print("We didn't save any file on your machine.")
             # It's pointless to save an empty file
             # save_response_to_file() will throw error on saving {}
         elif response is None:
             print("-------------------------------------------------------")
             print("You are too quick!\nThe tropical cyclone data for initialization time are not uploaded yet.")
-            print('You may check again in a few hours again.')
-        elif output_file.lower().endswith('.csv'):
-            # Flatten for CSV
-            flattened_data = []
-            for cyclone_id, tracks in response.items():
-                for track in tracks:
-                    track_data = {
-                        'cyclone_id': cyclone_id,
-                        'latitude': track['latitude'],
-                        'longitude': track['longitude'],
-                        'time': track['time']
-                    }
-                    flattened_data.append(track_data)
-            save_arbitrary_response(output_file, {'prediction': flattened_data}, csv_data_key='prediction')
-        elif output_file.lower().endswith('.json'):
-            # Direct save for JSON
-            save_arbitrary_response(output_file, response)
-        elif output_file.lower().endswith('.geojson'):
-            save_track_as_geojson(output_file, response)
-        elif output_file.lower().endswith('.gpx'):
-            save_track_as_gpx(output_file, response)
-        elif output_file.lower().endswith('.kml'):
-            save_track_as_kml(output_file, response)
-        elif output_file.lower().endswith('.little_r'):
-            save_track_as_little_r(output_file, response)
+            print('You may check again in a few hour.')
+        else:
+            save_track(output_file, response, require_ids=True)
 
     if print_response:
         if len(response) == 0:
