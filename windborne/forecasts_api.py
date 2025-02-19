@@ -141,6 +141,9 @@ def get_gridded_forecast(time, variable, output_file=None):
 
     return response
 
+def get_full_gridded_forecast(time, output_file=None):
+    return get_gridded_forecast(time, "FULL", output_file)
+
 def get_temperature_2m(time, output_file=None):
     return get_gridded_forecast(time, "temperature_2m", output_file)
 

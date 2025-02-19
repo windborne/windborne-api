@@ -14,10 +14,12 @@ from . import (
     get_flying_missions,
     get_mission_launch_site,
     get_predicted_path,
+    get_current_location,
     get_flight_path,
 
     get_point_forecasts,
     get_initialization_times,
+    get_full_gridded_forecast,
     get_temperature_2m,
     # get_dewpoint_2m,
     get_wind_u_10m, get_wind_v_10m,
@@ -121,6 +123,11 @@ def main():
     launch_site_parser.add_argument('mission_id', help='Mission ID')
     launch_site_parser.add_argument('output', nargs='?', help='Output file')
 
+    # Get Current Location Command
+    current_location_parser = subparsers.add_parser('current-location', help='Get current location')
+    current_location_parser.add_argument('mission_id', help='Mission ID')
+    current_location_parser.add_argument('output', nargs='?', help='Output file')
+
     # Get Predicted Path Command
     prediction_parser = subparsers.add_parser('predict-path', help='Get predicted flight path')
     prediction_parser.add_argument('mission_id', help='Mission ID')
@@ -149,6 +156,9 @@ def main():
 
     # GRIDDED FORECASTS
     ####################################################################################################################
+    full_gridded_parser = subparsers.add_parser('grid_full', help='Get full gridded forecast')
+    full_gridded_parser.add_argument('args', nargs='*', help='time output_file')
+
     # Gridded 2m temperature Command
     gridded_temperature_2m_parser = subparsers.add_parser('grid_temp_2m', help='Get gridded output of global 2m temperature forecasts')
     gridded_temperature_2m_parser.add_argument('args', nargs='*', help='time output_file')
@@ -379,7 +389,12 @@ def main():
             output_file=args.output,
             print_result=(not args.output)
         )
-
+    elif args.command == 'current-location':
+        get_current_location(
+            mission_id=args.mission_id,
+            output_file=args.output,
+            print_result=(not args.output)
+        )
     elif args.command == 'predict-path':
         get_predicted_path(
             mission_id=args.mission_id,
@@ -418,6 +433,17 @@ def main():
 
     elif args.command == 'init_times':
         get_initialization_times(print_response=True)
+
+    if args.command == 'grid_full':
+        # Parse get_full_gridded_forecast arguments
+        if len(args.args) in [0,1]:
+            print("To get the full gridded forecast you need to provide the time for which to get the forecast and an output file.")
+            print("\nUsage: windborne get_full_gridded_forecast time output_file")
+        elif len(args.args) == 2:
+            get_full_gridded_forecast(time=args.args[0], output_file=args.args[1])
+        else:
+            print("Too many arguments")
+            print("\nUsage: windborne get_full_gridded_forecast time output_file")
 
     elif args.command == 'grid_temp_2m':
         # Parse grid_temp_2m arguments

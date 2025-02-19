@@ -622,22 +622,22 @@ def get_mission_launch_site(mission_id=None, output_file=None, print_result=Fals
     return response.get('launch_site')
 
 
-def get_predicted_path(mission_id=None, output_file=None, print_result=False):
+def get_flying_mission(mission_id, verify_flying=True):
     """
-        Fetches the predicted flight path for a given mission.
-        Displays currently flying missions if the provided mission ID is invalid.
+    Fetches a flying mission by ID.
+    If the mission is not flying, displays a list of currently flying missions.
 
-        Args:
-            mission_id (str): The ID of the mission to fetch the prediction for.
-            output_file (str): Optional path to save the response data.
-            print_result (bool): Whether to print the results in the CLI.
+    Args:
+        mission_id (str): The ID of the mission to fetch.
+        verify_flying (bool): Whether to always check if the mission is flying.
 
-        Returns:
-            list: The API response containing the predicted flight path data.
+    Returns:
+        dict: The API response containing the mission data, or None if the mission is not flying.
     """
-    if not mission_id:
-        print("To get the predicted flight path for a given mission you must provide a mission ID.")
-        return
+    if not verify_flying and not mission_id.startswith('W-'):
+        return {
+            'id': mission_id,
+        }
 
     # Check if provided mission ID belong to a flying mission
     flying_missions = get_flying_missions()
@@ -658,7 +658,29 @@ def get_predicted_path(mission_id=None, output_file=None, print_result=False):
             print_table(flying_missions, keys=['id', 'name'], headers=['Mission ID', 'Mission Name'])
         else:
             print("No missions are currently flying.")
+        return None
+
+    return mission
+
+
+def get_predicted_path(mission_id=None, output_file=None, print_result=False):
+    """
+        Fetches the predicted flight path for a given mission.
+        Displays currently flying missions if the provided mission ID is invalid.
+
+        Args:
+            mission_id (str): The ID of the mission to fetch the prediction for.
+            output_file (str): Optional path to save the response data.
+            print_result (bool): Whether to print the results in the CLI.
+
+        Returns:
+            list: The API response containing the predicted flight path data.
+    """
+    if not mission_id:
+        print("To get the predicted flight path for a given mission you must provide a mission ID.")
         return
+
+    mission = get_flying_mission(mission_id)
 
     url = f"{DATA_API_BASE_URL}/missions/{mission.get('id')}/prediction.json"
     response = make_api_request(url)
@@ -675,6 +697,42 @@ def get_predicted_path(mission_id=None, output_file=None, print_result=False):
         print_table(response['prediction'], keys=['time', 'latitude', 'longitude', 'altitude'], headers=['Time', 'Latitude', 'Longitude', 'Altitude'])
 
     return response.get('prediction')
+
+
+def get_current_location(mission_id=None, output_file=None, print_result=False, verify_flying=True):
+    """
+    Fetches the current location for a given mission.
+
+    Args:
+        mission_id (str): The ID of the mission to fetch the current location for.
+        output_file (str): Optional path to save the response data.
+        print_result (bool): Whether to print the results in the CLI.
+        verify_flying (bool): Whether to verify the mission is flying before trying to fetch the current location
+
+    Returns:
+        dict: Current location with latitude, longitude, and altitude, or None if not found
+    """
+    if not mission_id:
+        print("To get the current location for a given mission you must provide a mission ID.")
+        return
+
+    mission = get_flying_mission(mission_id, verify_flying=verify_flying)
+
+    url = f"{DATA_API_BASE_URL}/missions/{mission.get('id')}/current_location.json"
+    response = make_api_request(url)
+
+    if response is None:
+        return
+
+    if output_file:
+        save_arbitrary_response(output_file, response, csv_data_key=None)
+
+    if print_result:
+        print("Current location\n")
+        print_table([response], keys=['latitude', 'longitude', 'altitude'],
+                    headers=['Latitude', 'Longitude', 'Altitude'])
+
+    return response
 
 
 def get_flight_path(mission_id=None, output_file=None, print_result=False):

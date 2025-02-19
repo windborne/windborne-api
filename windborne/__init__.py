@@ -14,6 +14,7 @@ from .data_api import (
     get_flying_missions,
     get_mission_launch_site,
     get_predicted_path,
+    get_current_location,
     get_flight_path
 )
 
@@ -22,6 +23,7 @@ from .forecasts_api import (
     get_point_forecasts,
     get_initialization_times,
 
+    get_full_gridded_forecast,
     get_temperature_2m,
     # get_dewpoint_2m,
     get_wind_u_10m, get_wind_v_10m,
@@ -51,11 +53,13 @@ __all__ = [
     "get_flying_missions",
     "get_mission_launch_site",
     "get_predicted_path",
+    "get_current_location",
     "get_flight_path",
 
     "get_point_forecasts",
     "get_initialization_times",
 
+    "get_full_gridded_forecast",
     "get_temperature_2m",
     # "get_dewpoint_2m",
     "get_wind_u_10m",
