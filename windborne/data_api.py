@@ -560,14 +560,13 @@ def get_flying_missions(output_file=None, print_results=False):
     flying_missions_response = make_api_request(url, params=query_params)
 
     flying_missions = flying_missions_response.get("missions", [])
-    if len(flying_missions) == 0:
-        return []
+    num_fetched_missions = len(flying_missions) 
     
-    total_missions_fetched = 0
-    while len(flying_missions) < page_size:
+    while num_fetched_missions == page_size:
         query_params['page'] += 1
 
         new_missions = make_api_request(url, params=query_params).get('missions', [])
+        num_fetched_missions = len(new_missions)
         
         flying_missions += new_missions
     
