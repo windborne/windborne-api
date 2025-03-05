@@ -548,10 +548,28 @@ def get_flying_missions(output_file=None, print_results=False):
     Returns:
         dict: The API response containing list of flying missions.
     """
+    page_size = 64
+
+    # Initial query to get total flying
+    query_params = {
+        'page': 0,
+        'page_size': page_size 
+    }
 
     url = f"{DATA_API_BASE_URL}/missions.json"
-    flying_missions_response = make_api_request(url)
+    flying_missions_response = make_api_request(url, params=query_params)
+
     flying_missions = flying_missions_response.get("missions", [])
+    num_fetched_missions = len(flying_missions) 
+    
+    while num_fetched_missions == page_size:
+        query_params['page'] += 1
+
+        new_missions = make_api_request(url, params=query_params).get('missions', [])
+        num_fetched_missions = len(new_missions)
+        
+        flying_missions += new_missions
+    
     for mission in flying_missions:
         if mission.get('number'):
             mission['name'] = f"W-{mission['number']}"
