@@ -360,10 +360,10 @@ def iterate_through_observations(get_page, args, callback=None, batch_callback=N
 
         observations = response.get('observations', [])
 
-        if since is not None:
-            if callback:
-                callback(response)
-            else:
+        if callback:
+            callback(response)
+        else:
+            if since is not None:
                 since_timestamp = since
                 if since_timestamp > 4_000_000_000: # in nanoseconds rather than seconds
                     since_timestamp /= 1_000_000_000
