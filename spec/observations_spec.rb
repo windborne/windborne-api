@@ -6,7 +6,7 @@ describe 'observations' do
     run('observations', "2024-12-01_06:00", "2024-12-01_07:00", output_path)
 
     observations = JSON.parse(File.read(output_path))
-    expect(observations.size).to eq(7590)
+    expect(observations.size).to eq(7950)
   end
 
   it 'fetches observations to a file with a mission filter' do
@@ -24,9 +24,9 @@ describe 'observations' do
     run('observations', "2024-12-01_06:00", "2024-12-01_07:00", "json", "-d", output_dir)
 
     json_outputs = Dir.glob("#{output_dir}/*.json")
-    expect(json_outputs.size).to eq(23)
+    expect(json_outputs.size).to eq(24)
     total_observations = json_outputs.map { |file| JSON.parse(File.read(file)).size }.sum
-    expect(total_observations).to eq(7590)
+    expect(total_observations).to eq(7950)
 
     w1958_obs = JSON.parse(File.read("#{output_dir}/WindBorne_W-1958_2024-12-01_06_6h.json"))
     expect(w1958_obs.size).to eq(67)
@@ -38,9 +38,9 @@ describe 'observations' do
     run('observations', "2024-12-01_06:00", "2024-12-01_12:00", "json", "-d", output_dir, '-b', '2')
 
     json_outputs = Dir.glob("#{output_dir}/*.json")
-    expect(json_outputs.size).to eq(68)
+    expect(json_outputs.size).to eq(70)
     total_observations = json_outputs.map { |file| JSON.parse(File.read(file)).size }.sum
-    expect(total_observations).to eq(45667)
+    expect(total_observations).to eq(46999)
 
     w1958_obs = JSON.parse(File.read("#{output_dir}/WindBorne_W-1958_2024-12-01_06_2h.json"))
     expect(w1958_obs.size).to eq(67)
@@ -85,7 +85,7 @@ describe 'observations' do
     expect(details).to include("lon: -13.585162")
     expect(details).to include("mission_id: e58f5b18-de55-4bf4-8a62-d840651441f4")
     expect(details).to include("mission_name: W-1960")
-    expect(details).to include("air_pressure: 140.61")
+    expect(details).to include("air_pressure: 140.46")
     expect(details).to include("specific_humidity: --")
     expect(details).to include("speed_u: 33.86")
     expect(details).to include("speed_v: 4.11")

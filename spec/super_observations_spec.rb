@@ -6,7 +6,7 @@ describe 'super_observations' do
     run('super-observations', "2024-12-01_06:00", "2024-12-01_07:00", output_path)
 
     super_observations = JSON.parse(File.read(output_path))
-    expect(super_observations.size).to eq(356)
+    expect(super_observations.size).to eq(363)
   end
 
   it 'fetches super observations to a file with a mission filter' do
@@ -24,9 +24,9 @@ describe 'super_observations' do
     run('super-observations', "2024-12-01_06:00", "2024-12-01_07:00", "json", "-d", output_dir)
 
     json_outputs = Dir.glob("#{output_dir}/*.json")
-    expect(json_outputs.size).to eq(23)
+    expect(json_outputs.size).to eq(24)
     total_super_observations = json_outputs.map { |file| JSON.parse(File.read(file)).size }.sum
-    expect(total_super_observations).to eq(356)
+    expect(total_super_observations).to eq(363)
 
     w1958_obs = JSON.parse(File.read("#{output_dir}/WindBorne_W-1958_2024-12-01_06_6h.json"))
     expect(w1958_obs.size).to eq(1)

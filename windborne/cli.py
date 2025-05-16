@@ -434,7 +434,7 @@ def main():
     elif args.command == 'init_times':
         get_initialization_times(print_response=True)
 
-    if args.command == 'grid_full':
+    elif args.command == 'grid_full':
         # Parse get_full_gridded_forecast arguments
         if len(args.args) in [0,1]:
             print("To get the full gridded forecast you need to provide the time for which to get the forecast and an output file.")

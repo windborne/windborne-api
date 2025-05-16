@@ -11,3 +11,6 @@ windborne.egg-info/
 
 spec/credentials.json
 spec_outputs/*
+spec/spec.iml
+
+windborne/windborne.iml
