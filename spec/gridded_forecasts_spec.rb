@@ -2,6 +2,7 @@ describe 'gridded_forecasts' do
   it 'saves gridded forecasts to netcdf' do
     variables = %w[
       temp_2m
+      dewpoint_2m
       wind_u_10m
       wind_v_10m
       pressure_msl
@@ -20,19 +21,12 @@ describe 'gridded_forecasts' do
       run("grid_#{variable}", valid_at.strftime('%Y%m%d%H'), output_path)
       expect(File.exist?(output_path)).to be true
 
-      # inject a python script to check the netcdf file
-      python_script = "from netCDF4 import Dataset; f = Dataset('#{output_path}', 'r'); print(f); print('\\n'.join(name + ': ' + str(var[0]) for name, var in f.variables.items()))"
-      details, _ = Open3.capture2("python3", "-c", python_script)
-
-      initialization_time = details.match(/initialization_time: (.+)/)[1] # iso string
-      forecast_hour = details.match(/forecast_hour: (.+)/)[1]
-      derived_valid_at = Time.parse(initialization_time) + forecast_hour.to_i * 60 * 60
-
-      expect(derived_valid_at.utc).to eq(valid_at.utc)
+      details = netcdf_meta(output_path)
+      expect(details[:valid_at]).to eq(valid_at.utc)
     end
   end
 
-  it 'saves full gridded forecasts to netcdf', focus: true do
+  it 'saves full gridded forecasts to netcdf' do
     valid_at = (Time.now + 24 * 60 * 60).utc
     valid_at = Time.new(valid_at.year, valid_at.month, valid_at.day, valid_at.hour, 0, 0, valid_at.utc_offset)
 
@@ -41,13 +35,28 @@ describe 'gridded_forecasts' do
     run('grid_full', valid_at.strftime('%Y%m%d%H'), output_path, print: true)
     expect(File.exist?(output_path)).to be true
 
-    python_script = "from netCDF4 import Dataset; f = Dataset('#{output_path}', 'r'); print(f); print('\\n'.join(name + ': ' + str(var[0]) for name, var in f.variables.items()))"
-    details, _ = Open3.capture2("python3", "-c", python_script)
+    details = netcdf_meta(output_path)
+    expect(details[:valid_at]).to eq(valid_at.utc)
+  end
 
-    initialization_time = details.match(/initialization_time: (.+)/)[1] # iso string
-    forecast_hour = details.match(/forecast_hour: (.+)/)[1]
-    derived_valid_at = Time.parse(initialization_time) + forecast_hour.to_i * 60 * 60
+  it 'can get a gridded forecast for a specific initialization time' do
+    variable = 'temp_2m'
 
-    expect(derived_valid_at.utc).to eq(valid_at.utc)
+    # set initialization time to 24 hours ago
+    # make sure the hour is divisible by 6
+    initialization_time = (Time.now - 24 * 60 * 60).utc
+    initialization_time = Time.new(initialization_time.year, initialization_time.month, initialization_time.day, initialization_time.hour - (initialization_time.hour % 6), 0, 0, initialization_time.utc_offset)
+    forecast_hour = 24
+
+    output_path = "spec_outputs/gridded_forecast_#{variable}_#{initialization_time.strftime('%Y%m%d%H')}.nc"
+    File.delete(output_path) if File.exist?(output_path)
+
+    run('hist_temp_2m', initialization_time.strftime('%Y%m%d%H'), forecast_hour.to_s, output_path, print: true)
+    expect(File.exist?(output_path)).to be true
+
+    details = netcdf_meta(output_path)
+    expect(details[:initialization_time]).to eq(initialization_time.utc)
+    expect(details[:forecast_hour]).to eq(forecast_hour)
+    expect(details[:valid_at]).to eq(initialization_time.utc + forecast_hour * 60 * 60)
   end
 end

@@ -24,9 +24,10 @@ from .forecasts_api import (
     get_initialization_times,
     get_forecast_hours,
 
+    get_gridded_forecast,
     get_full_gridded_forecast,
     get_temperature_2m,
-    # get_dewpoint_2m,
+    get_dewpoint_2m,
     get_wind_u_10m, get_wind_v_10m,
     get_pressure_msl,
     get_500hpa_wind_u, get_500hpa_wind_v,
@@ -61,9 +62,10 @@ __all__ = [
     "get_initialization_times",
     "get_forecast_hours",
 
+    "get_gridded_forecast",
     "get_full_gridded_forecast",
     "get_temperature_2m",
-    # "get_dewpoint_2m",
+    "get_dewpoint_2m",
     "get_wind_u_10m",
     "get_wind_v_10m",
     "get_500hpa_wind_u",

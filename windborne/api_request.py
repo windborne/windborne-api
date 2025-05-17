@@ -199,6 +199,9 @@ def make_api_request(url, params=None, as_json=True, retry_counter=0):
                     mission_id = url.split('/missions/')[1].split('/')[0]
                     print(f"Mission ID provided: {mission_id}")
                     print(f"No mission found with id: {mission_id}")
+            print("-------------------------------------------------------")
+            print("Response text:")
+            print(http_err.response.text)
             return None
         elif http_err.response.status_code == 502:
             print(f"Temporary connection failure; sleeping for {2**retry_counter}s before retrying")

@@ -107,7 +107,7 @@ def get_point_forecasts(coordinates, min_forecast_time=None, max_forecast_time=N
     return response
 
 
-def get_gridded_forecast(time, variable, output_file=None):
+def get_gridded_forecast(variable, time=None, initialization_time=None, forecast_hour=None, output_file=None, silent=False):
     """
     Get gridded forecast data from the API.
     Note that this is primarily meant to be used internally by the other functions in this module.
@@ -115,20 +115,28 @@ def get_gridded_forecast(time, variable, output_file=None):
     Args:
         time (str): Date in either ISO 8601 format (YYYY-MM-DDTHH:00:00)
                     or compact format (YYYYMMDDHH)
-                    where HH must be 00, 06, 12, or 18
         variable (str): The variable you want the forecast for
         output_file (str, optional): Path to save the response data
                                       Supported formats: .nc
     """
 
-    params = {}
+    # backwards compatibility for time and variable order swap
+    if time in ['temperature_2m', 'dewpoint_2m', 'wind_u_10m', 'wind_v_10m', '500/wind_u', '500/wind_v', '500/temperature', '850/temperature', 'pressure_msl', '500/geopotential', '850/geopotential', 'FULL']:
+        variable, time = time, variable
 
-    if not time:
-        print("Error: the time you want the forecast for is required.")
+    # require either time or initialization_time and forecast_hour
+    if not time and not initialization_time and not forecast_hour:
+        print("Error: you must provide either time or initialization_time and forecast_hour.")
         return
-    else:
-        time_parsed = parse_time(time)
-        params["time"] = time_parsed
+    elif time and (initialization_time or forecast_hour):
+        print("Warning: time, initialization_time, forecast_hour all provided; using initialization_time and forecast_hour.")
+
+    params = {}
+    if initialization_time and forecast_hour:
+        params["initialization_time"] = parse_time(initialization_time, init_time_flag=True)
+        params["forecast_hour"] = forecast_hour
+    elif time:
+        params["time"] = parse_time(time)
 
     response = make_api_request(f"{FORECASTS_GRIDDED_URL}/{variable}", params=params, as_json=False)
 
@@ -136,84 +144,59 @@ def get_gridded_forecast(time, variable, output_file=None):
         return None
 
     if output_file:
-        print(f"Output URL found; downloading to {output_file}...")
+        if not silent:
+            print(f"Output URL found; downloading to {output_file}...")
         download_and_save_output(output_file, response)
 
     return response
 
 def get_full_gridded_forecast(time, output_file=None):
-    return get_gridded_forecast(time, "FULL", output_file)
+    return get_gridded_forecast(variable="FULL", time=time, output_file=output_file)
 
 def get_temperature_2m(time, output_file=None):
-    return get_gridded_forecast(time, "temperature_2m", output_file)
+    return get_gridded_forecast(variable="temperature_2m", time=time, output_file=output_file)
 
-# Not yet implemented
-# def get_dewpoint_2m(time, output_file=None):
-#     return get_gridded_forecast(time, "dewpoint_2m", output_file)
+def get_dewpoint_2m(time, output_file=None):
+    return get_gridded_forecast(variable="dewpoint_2m", time=time, output_file=output_file)
 
 def get_wind_u_10m(time, output_file=None):
-    return get_gridded_forecast(time, "wind_u_10m", output_file)
+    return get_gridded_forecast(variable="wind_u_10m", time=time, output_file=output_file)
 
 def get_wind_v_10m(time, output_file=None):
-    return get_gridded_forecast(time, "wind_v_10m", output_file)
+    return get_gridded_forecast(variable="wind_v_10m", time=time, output_file=output_file)
 
 def get_500hpa_wind_u(time, output_file=None):
-    return get_gridded_forecast(time, "500/wind_u", output_file)
+    return get_gridded_forecast(variable="500/wind_u", time=time, output_file=output_file)
 
 def get_500hpa_wind_v(time, output_file=None):
-    return get_gridded_forecast(time, "500/wind_v", output_file)
+    return get_gridded_forecast(variable="500/wind_v", time=time, output_file=output_file)
 
 def get_500hpa_temperature(time, output_file=None):
-    return get_gridded_forecast(time, "500/temperature", output_file)
+    return get_gridded_forecast(variable="500/temperature", time=time, output_file=output_file)
 
 def get_850hpa_temperature(time, output_file=None):
-    return get_gridded_forecast(time, "850/temperature", output_file)
+    return get_gridded_forecast(variable="850/temperature", time=time, output_file=output_file)
 
 def get_pressure_msl(time, output_file=None):
-    return get_gridded_forecast(time, "pressure_msl", output_file)
+    return get_gridded_forecast(variable="pressure_msl", time=time, output_file=output_file)
 
 def get_500hpa_geopotential(time, output_file=None):
-    return get_gridded_forecast(time, "500/geopotential", output_file)
+    return get_gridded_forecast(variable="500/geopotential", time=time, output_file=output_file)
 
 def get_850hpa_geopotential(time, output_file=None):
-    return get_gridded_forecast(time, "850/geopotential", output_file)
-
-
-def get_historical_output(initialization_time, forecast_hour, variable, output_file=None):
-    params = {}
-
-    if not initialization_time or not forecast_hour:
-        print("To get the historical output of global temperature forecasts you need to provide:\n"
-              "- the initialization time of the forecast\n"
-              "- how many hours after the run time the forecast is valid at.\n")
-        return
-    else:
-        params["initialization_time"] = parse_time(initialization_time, init_time_flag=True)
-        params["forecast_hour"] = forecast_hour
-
-    response = make_api_request(f"{FORECASTS_HISTORICAL_URL}/{variable}", params=params, as_json=False)
-
-    if response is None:
-        return None
-
-    if output_file:
-        print(f"Output URL found; downloading to {output_file}...")
-        download_and_save_output(output_file, response)
-
-    return response
-
+    return get_gridded_forecast(variable="850/geopotential", time=time, output_file=output_file)
 
 def get_historical_temperature_2m(initialization_time, forecast_hour, output_file=None):
-    return get_historical_output(initialization_time, forecast_hour, "temperature_2m", output_file)
+    return get_gridded_forecast(variable="temperature_2m", initialization_time=initialization_time, forecast_hour=forecast_hour, output_file=output_file)
 
 def get_historical_500hpa_geopotential(initialization_time, forecast_hour, output_file=None):
-    return get_historical_output(initialization_time, forecast_hour, "500/geopotential", output_file)
+    return get_gridded_forecast(variable="500/geopotential", initialization_time=initialization_time, forecast_hour=forecast_hour, output_file=output_file)
 
 def get_historical_500hpa_wind_u(initialization_time, forecast_hour, output_file=None):
-    return get_historical_output(initialization_time, forecast_hour, "500/wind_u", output_file)
+    return get_gridded_forecast(variable="500/wind_u", initialization_time=initialization_time, forecast_hour=forecast_hour, output_file=output_file)
 
 def get_historical_500hpa_wind_v(initialization_time, forecast_hour, output_file=None):
-    return get_historical_output(initialization_time, forecast_hour, "500/wind_v", output_file)
+    return get_gridded_forecast(variable="500/wind_v", initialization_time=initialization_time, forecast_hour=forecast_hour, output_file=output_file)
 
 
 def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None, print_response=False):
@@ -340,7 +323,7 @@ def print_tc_supported_formats():
         print(f"  - {fmt}")
 
 
-def download_and_save_output(output_file, response):
+def download_and_save_output(output_file, response, silent=False):
     """
     Downloads a forecast output from a presigned S3 url contained in a response and saves it as a .nc file.
 
@@ -360,12 +343,17 @@ def download_and_save_output(output_file, response):
         # Save the content directly to file
         with open(output_file, 'wb') as f:
             f.write(response.content)
-        print(f"Data Successfully saved to {output_file}")
+
+        if not silent:
+            print(f"Data Successfully saved to {output_file}")
+
         return True
 
     except requests.exceptions.RequestException as e:
-        print(f"Error downloading the file: {e}")
+        if not silent:
+            print(f"Error downloading the file: {e}")
         return False
     except Exception as e:
-        print(f"Error processing the file: {e}")
+        if not silent:
+            print(f"Error processing the file: {e}")
         return False
