@@ -19,6 +19,6 @@ def netcdf_meta(output_path)
     initialization_time: initialization_time.utc,
     forecast_hour: forecast_hour,
     valid_at: valid_at.utc,
-    details: details
+    raw: details
   }
 end

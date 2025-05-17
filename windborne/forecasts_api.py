@@ -107,7 +107,7 @@ def get_point_forecasts(coordinates, min_forecast_time=None, max_forecast_time=N
     return response
 
 
-def get_gridded_forecast(variable, time=None, initialization_time=None, forecast_hour=None, output_file=None, silent=False):
+def get_gridded_forecast(variable, time=None, initialization_time=None, forecast_hour=None, output_file=None, silent=False, intracycle=False, ensemble_member=None):
     """
     Get gridded forecast data from the API.
     Note that this is primarily meant to be used internally by the other functions in this module.
@@ -137,6 +137,12 @@ def get_gridded_forecast(variable, time=None, initialization_time=None, forecast
         params["forecast_hour"] = forecast_hour
     elif time:
         params["time"] = parse_time(time)
+
+    if intracycle:
+        params["intracycle"] = intracycle
+
+    if ensemble_member:
+        params["ens_member"] = ensemble_member
 
     response = make_api_request(f"{FORECASTS_GRIDDED_URL}/{variable}", params=params, as_json=False)
 

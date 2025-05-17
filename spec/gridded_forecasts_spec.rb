@@ -1,4 +1,14 @@
 describe 'gridded_forecasts' do
+
+  let(:initialization_time) {
+    initialization_time = (Time.now - 24 * 60 * 60).utc
+    initialization_time = Time.new(initialization_time.year, initialization_time.month, initialization_time.day, initialization_time.hour - (initialization_time.hour % 6), 0, 0, initialization_time.utc_offset)
+    initialization_time
+  }
+
+  let(:forecast_hour) { 24 }
+  let(:variable) { 'temp_2m' }
+
   it 'saves gridded forecasts to netcdf' do
     variables = %w[
       temp_2m
@@ -32,7 +42,7 @@ describe 'gridded_forecasts' do
 
     output_path = 'spec_outputs/gridded_forecast_full.nc'
     File.delete(output_path) if File.exist?(output_path)
-    run('grid_full', valid_at.strftime('%Y%m%d%H'), output_path, print: true)
+    run('grid_full', valid_at.strftime('%Y%m%d%H'), output_path)
     expect(File.exist?(output_path)).to be true
 
     details = netcdf_meta(output_path)
@@ -40,18 +50,10 @@ describe 'gridded_forecasts' do
   end
 
   it 'can get a gridded forecast for a specific initialization time' do
-    variable = 'temp_2m'
-
-    # set initialization time to 24 hours ago
-    # make sure the hour is divisible by 6
-    initialization_time = (Time.now - 24 * 60 * 60).utc
-    initialization_time = Time.new(initialization_time.year, initialization_time.month, initialization_time.day, initialization_time.hour - (initialization_time.hour % 6), 0, 0, initialization_time.utc_offset)
-    forecast_hour = 24
-
     output_path = "spec_outputs/gridded_forecast_#{variable}_#{initialization_time.strftime('%Y%m%d%H')}.nc"
     File.delete(output_path) if File.exist?(output_path)
 
-    run('hist_temp_2m', initialization_time.strftime('%Y%m%d%H'), forecast_hour.to_s, output_path, print: true)
+    run('hist_temp_2m', initialization_time.strftime('%Y%m%d%H'), forecast_hour.to_s, output_path)
     expect(File.exist?(output_path)).to be true
 
     details = netcdf_meta(output_path)
@@ -59,4 +61,34 @@ describe 'gridded_forecasts' do
     expect(details[:forecast_hour]).to eq(forecast_hour)
     expect(details[:valid_at]).to eq(initialization_time.utc + forecast_hour * 60 * 60)
   end
+
+  it 'can get the ensemble mean gridded forecast for a specific initialization time' do
+    output_path = "spec_outputs/gridded_forecast_#{variable}_#{initialization_time.strftime('%Y%m%d%H')}_ens_mean.nc"
+    File.delete(output_path) if File.exist?(output_path)
+
+    run('hist_temp_2m', initialization_time.strftime('%Y%m%d%H'), forecast_hour.to_s, output_path, '--ens-member', 'mean')
+    expect(File.exist?(output_path)).to be true
+
+    details = netcdf_meta(output_path)
+    expect(details[:initialization_time]).to eq(initialization_time.utc)
+    expect(details[:forecast_hour]).to eq(forecast_hour)
+    expect(details[:valid_at]).to eq(initialization_time.utc + forecast_hour * 60 * 60)
+    expect(details[:raw]).to include('WeatherMesh:ens:mean')
+  end
+
+  it 'can get the intracycle gridded forecast for a specific initialization time' do
+    output_path = "spec_outputs/gridded_forecast_#{variable}_#{initialization_time.strftime('%Y%m%d%H')}_intracycle.nc"
+    File.delete(output_path) if File.exist?(output_path)
+
+    run('hist_temp_2m', initialization_time.strftime('%Y%m%d%H'), forecast_hour.to_s, output_path, '--intracycle')
+    expect(File.exist?(output_path)).to be true
+
+    details = netcdf_meta(output_path)
+    expect(details[:initialization_time]).to eq(initialization_time.utc)
+    expect(details[:forecast_hour]).to eq(forecast_hour)
+    expect(details[:valid_at]).to eq(initialization_time.utc + forecast_hour * 60 * 60)
+    expect(details[:raw]).to include('WeatherMesh:intracycle')
+  end
+
+
 end

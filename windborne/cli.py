@@ -194,11 +194,15 @@ def main():
         grid_help = f"Get gridded output of global {config['human_name']} forecasts"
         grid_parser = subparsers.add_parser(f'grid_{cmd_name}', help=grid_help)
         grid_parser.add_argument('args', nargs='*', help='time output_file')
+        grid_parser.add_argument('-i', '--intracycle', action='store_true', help='Use the intracycle forecast')
+        grid_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
         grid_parser.set_defaults(variable=config['variable'])
 
         hist_help = f"Get historical output of global {config['human_name']} forecasts"
         hist_parser = subparsers.add_parser(f'hist_{cmd_name}', help=hist_help)
         hist_parser.add_argument('args', nargs='*', help='initialization_time forecast_hour output_file')
+        hist_parser.add_argument('-i', '--intracycle', action='store_true', help='Use the intracycle forecast')
+        hist_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
         hist_parser.set_defaults(variable=config['variable'])
 
     # OTHER
@@ -213,12 +217,12 @@ def main():
 
     # Initialization Times Command
     initialization_times_parser = subparsers.add_parser('init_times', help='Get available initialization times for point forecasts')
-    initialization_times_parser.add_argument('-i', '--intracycle', action='store_true', help='Include intracycle times')
+    initialization_times_parser.add_argument('-i', '--intracycle', action='store_true', help='Use the intracycle forecast')
     initialization_times_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
 
     # Forecast Hours Command
     forecast_hours_parser = subparsers.add_parser('forecast_hours', help='Get available forecast hours for WeatherMesh')
-    forecast_hours_parser.add_argument('-i', '--intracycle', action='store_true', help='Include intracycle times')
+    forecast_hours_parser.add_argument('-i', '--intracycle', action='store_true', help='Use the intracycle forecast')
     forecast_hours_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
 
     args = parser.parse_args()
@@ -441,7 +445,7 @@ def main():
                 print(f"To get {gridded_forecast_mapping[cmd_name]['human_name']} you need to provide the time for which to get the forecast and an output file.")
                 print(f"\nUsage: windborne {args.command} time output_file")
             elif len(args.args) == 2:
-                get_gridded_forecast(variable=args.variable, time=args.args[0], output_file=args.args[1])
+                get_gridded_forecast(variable=args.variable, time=args.args[0], output_file=args.args[1], ensemble_member=args.ens_member, intracycle=args.intracycle)
             else:
                 print("Too many arguments")
                 print(f"\nUsage: windborne {args.command} time output_file")
@@ -457,7 +461,7 @@ def main():
                       "  - An output file to save the data")
                 print(f"\nUsage: windborne {args.command} initialization_time forecast_hour output_file")
             elif len(args.args) == 3:
-                get_gridded_forecast(variable=args.variable, initialization_time=args.args[0], forecast_hour=args.args[1], output_file=args.args[2])
+                get_gridded_forecast(variable=args.variable, initialization_time=args.args[0], forecast_hour=args.args[1], output_file=args.args[2], ensemble_member=args.ens_member, intracycle=args.intracycle)
             else:
                 print("Too many arguments")
                 print(f"\nUsage: windborne {args.command} initialization_time forecast_hour output_file")
