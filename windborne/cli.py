@@ -19,6 +19,7 @@ from . import (
 
     get_point_forecasts,
     get_initialization_times,
+    get_forecast_hours,
     get_full_gridded_forecast,
     get_temperature_2m,
     # get_dewpoint_2m,
@@ -233,7 +234,13 @@ def main():
 
     # Initialization Times Command
     initialization_times_parser = subparsers.add_parser('init_times', help='Get available initialization times for point forecasts')
+    initialization_times_parser.add_argument('-i', '--intracycle', action='store_true', help='Include intracycle times')
+    initialization_times_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
 
+    # Forecast Hours Command
+    forecast_hours_parser = subparsers.add_parser('forecast_hours', help='Get available forecast hours for WeatherMesh')
+    forecast_hours_parser.add_argument('-i', '--intracycle', action='store_true', help='Include intracycle times')
+    forecast_hours_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
 
     args = parser.parse_args()
 
@@ -432,7 +439,10 @@ def main():
         )
 
     elif args.command == 'init_times':
-        get_initialization_times(print_response=True)
+        get_initialization_times(print_response=True, ensemble_member=args.ens_member, intracycle=args.intracycle)
+
+    elif args.command == 'forecast_hours':
+        get_forecast_hours(print_response=True, ensemble_member=args.ens_member, intracycle=args.intracycle)
 
     elif args.command == 'grid_full':
         # Parse get_full_gridded_forecast arguments

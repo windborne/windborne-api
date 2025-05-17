@@ -22,6 +22,7 @@ from .data_api import (
 from .forecasts_api import (
     get_point_forecasts,
     get_initialization_times,
+    get_forecast_hours,
 
     get_full_gridded_forecast,
     get_temperature_2m,
@@ -58,6 +59,7 @@ __all__ = [
 
     "get_point_forecasts",
     "get_initialization_times",
+    "get_forecast_hours",
 
     "get_full_gridded_forecast",
     "get_temperature_2m",

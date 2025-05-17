@@ -287,20 +287,47 @@ def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None
     return response
 
 
-def get_initialization_times(print_response=False):
+def get_initialization_times(print_response=False, ensemble_member=None, intracycle=False):
     """
     Get available WeatherMesh initialization times (also known as cycle times).
 
-    Returns dict with keys "latest" and "available" (a list)
+    Returns dict with keys "latest" and "available"
     """
 
-    response = make_api_request(f"{FORECASTS_API_BASE_URL}/initialization_times.json")
+    params = {
+        'ens_member': ensemble_member,
+        'intracycle': intracycle
+    }
+    response = make_api_request(f"{FORECASTS_API_BASE_URL}/initialization_times.json", params=params)
 
     if print_response:
         print("Latest initialization time:", response['latest'])
         print("Available initialization times:")
         for time in response['available']:
             print(f" - {time}")
+
+    return response
+
+
+def get_forecast_hours(print_response=False, ensemble_member=None, intracycle=False):
+    """
+    Get available forecast hours for WeatherMesh
+    This may include initialization times that are not included in the initialization times API that represent outputs
+    that are still being generated.
+
+    Returns dict with keys of initialization times and values of available forecast hours
+    """
+
+    params = {
+        'ens_member': ensemble_member,
+        'intracycle': intracycle
+    }
+    response = make_api_request(f"{FORECASTS_API_BASE_URL}/forecast_hours.json", params=params)
+
+    if print_response:
+        print("Available forecast hours:")
+        for time, hours in response.items():
+            print(f" - {time}: {', '.join([str(hour) for hour in hours])}")
 
     return response
 
