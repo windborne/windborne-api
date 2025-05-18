@@ -128,14 +128,14 @@ def get_gridded_forecast(variable, time=None, initialization_time=None, forecast
         variable, time = time, variable
 
     # require either time or initialization_time and forecast_hour
-    if not time and not initialization_time and not forecast_hour:
+    if time is None and (initialization_time is None or forecast_hour is None):
         print("Error: you must provide either time or initialization_time and forecast_hour.")
         return
-    elif time and (initialization_time or forecast_hour):
+    elif time is not None and (initialization_time is not None or forecast_hour is not None):
         print("Warning: time, initialization_time, forecast_hour all provided; using initialization_time and forecast_hour.")
 
     params = {}
-    if initialization_time and forecast_hour:
+    if initialization_time is not None and forecast_hour is not None:
         params["initialization_time"] = parse_time(initialization_time, init_time_flag=True)
         params["forecast_hour"] = forecast_hour
     elif time:
