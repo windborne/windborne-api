@@ -147,6 +147,16 @@ def main():
 
     # GRIDDED FORECASTS
     ####################################################################################################################
+    gridded_parser = subparsers.add_parser('gridded', help='Get gridded forecast for a variable')
+    gridded_parser.add_argument('args', nargs='*', help='variable time output_file')
+    gridded_parser.add_argument('-i', '--intracycle', action='store_true', help='Use the intracycle forecast')
+    gridded_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
+
+    hist_gridded_parser = subparsers.add_parser('hist_gridded', help='Get historical gridded forecast for a variable')
+    hist_gridded_parser.add_argument('args', nargs='*', help='variable initialization_time forecast_hour output_file')
+    hist_gridded_parser.add_argument('-i', '--intracycle', action='store_true', help='Use the intracycle forecast')
+    hist_gridded_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
+
     full_gridded_parser = subparsers.add_parser('grid_full', help='Get full gridded forecast')
     full_gridded_parser.add_argument('args', nargs='*', help='time output_file')
 
@@ -427,6 +437,15 @@ def main():
     elif args.command == 'forecast_hours':
         get_forecast_hours(print_response=True, ensemble_member=args.ens_member, intracycle=args.intracycle)
 
+    elif args.command == 'gridded':
+        if len(args.args) in [0,1,2]:
+            print(f"To get the gridded forecast for a variable you need to provide the variable, time, and an output file.")
+            print(f"\nUsage: windborne gridded variable time output_file")
+        elif len(args.args) == 3:
+            get_gridded_forecast(variable=args.args[0], time=args.args[1], output_file=args.args[2], ensemble_member=args.ens_member, intracycle=args.intracycle)
+        else:
+            print("Too many arguments")
+
     elif args.command == 'grid_full':
         if len(args.args) in [0,1]:
             print("To get the full gridded forecast you need to provide the time for which to get the forecast and an output file.")
@@ -436,6 +455,16 @@ def main():
         else:
             print("Too many arguments")
             print("\nUsage: windborne grid_full time output_file")
+
+    elif args.command == 'hist_gridded':
+        if len(args.args) in [0,1,2,3]:
+            print(f"To get the historical gridded forecast for a variable you need to provide the variable, initialization time, forecast hour, and an output file.")
+            print(f"\nUsage: windborne hist_gridded variable initialization_time forecast_hour output_file")
+        elif len(args.args) == 4:
+            get_gridded_forecast(variable=args.args[0], initialization_time=args.args[1], forecast_hour=args.args[2], output_file=args.args[3], ensemble_member=args.ens_member, intracycle=args.intracycle)
+        else:
+            print("Too many arguments")
+            print(f"\nUsage: windborne hist_gridded variable initialization_time forecast_hour output_file")
 
     # Handle all gridded forecast commands
     elif args.command.startswith('grid_'):
