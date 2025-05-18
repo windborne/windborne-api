@@ -14,3 +14,4 @@ spec_outputs/*
 spec/spec.iml
 
 windborne/windborne.iml
+windborne-api.code-workspace

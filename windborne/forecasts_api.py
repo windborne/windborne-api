@@ -113,8 +113,11 @@ def get_gridded_forecast(variable, time=None, initialization_time=None, forecast
     Note that this is primarily meant to be used internally by the other functions in this module.
 
     Args:
-        time (str): Date in either ISO 8601 format (YYYY-MM-DDTHH:00:00)
-                    or compact format (YYYYMMDDHH)
+        time (str, optional): Date in either ISO 8601 format (YYYY-MM-DDTHH:00:00)
+                    or compact format (YYYYMMDDHH). May be used instead of initialization_time and forecast_hour.
+        initialization_time (str, optional): Date in either ISO 8601 format (YYYY-MM-DDTHH:00:00)
+                    or compact format (YYYYMMDDHH). May be used in conjunction with forecast_hour instead of time.
+        forecast_hour (int, optional): The forecast hour to get the forecast for. May be used in conjunction with initialization_time instead of time.
         variable (str): The variable you want the forecast for
         output_file (str, optional): Path to save the response data
                                       Supported formats: .nc
