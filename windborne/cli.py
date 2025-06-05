@@ -20,6 +20,7 @@ from . import (
     get_point_forecasts,
     get_initialization_times,
     get_forecast_hours,
+    get_generation_times,
     get_full_gridded_forecast,
     get_gridded_forecast,
     get_tropical_cyclones
@@ -235,6 +236,11 @@ def main():
     forecast_hours_parser.add_argument('-i', '--intracycle', action='store_true', help='Use the intracycle forecast')
     forecast_hours_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
 
+    # Output Creation Times Command
+    output_creation_times_parser = subparsers.add_parser('generation_times', help='Get the time at which each forecast hour output file was generated')
+    output_creation_times_parser.add_argument('-i', '--intracycle', action='store_true', help='Use the intracycle forecast')
+    output_creation_times_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
+
     args = parser.parse_args()
 
     ####################################################################################################################
@@ -436,6 +442,9 @@ def main():
 
     elif args.command == 'forecast_hours':
         get_forecast_hours(print_response=True, ensemble_member=args.ens_member, intracycle=args.intracycle)
+
+    elif args.command == 'generation_times':
+        get_generation_times(print_response=True, ensemble_member=args.ens_member, intracycle=args.intracycle)
 
     elif args.command == 'gridded':
         if len(args.args) in [0,1,2]:

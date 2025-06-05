@@ -324,6 +324,29 @@ def get_forecast_hours(print_response=False, ensemble_member=None, intracycle=Fa
     return response
 
 
+def get_generation_times(print_response=False, ensemble_member=None, intracycle=False):
+    """
+    Get the creation time for each forecast hour output file.
+
+    Returns dict with keys of initialization times and values of dicts, each of which has keys of forecast hours and values of creation times (as ISO strings)
+    """
+
+    params = {
+        'ens_member': ensemble_member,
+        'intracycle': intracycle
+    }
+    response = make_api_request(f"{FORECASTS_API_BASE_URL}/generation_times.json", params=params)
+
+    if print_response:
+        print("Generation times:")
+        for time, hours in response.items():
+            print(f" - {time}:")
+            for hour, creation_time in hours.items():
+                print(f"   - {hour}: {creation_time}")
+
+    return response
+
+
 # Tropical cyclones
 def print_tc_supported_formats():
     """Print supported file formats for saving tcs data."""
