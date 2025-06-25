@@ -7,6 +7,31 @@ pip install -e .
 
 You can then `import windborne` and have it refer to the latest version, or use the `windborne` cli for manual testing.
 
+## Project structure
+
+### windborne Package
+
+The `windborne` package is a Python library and CLI tool for accessing WindBorne's weather balloon data and forecast APIs.
+
+#### Core Modules
+
+- **`__init__.py`** - Public API exports from data_api and forecasts_api
+- **`api_request.py`** - Authentication (JWT), request handling, and retry logic
+- **`cli.py`** - Command-line interface implementation using argparse
+- **`data_api.py`** - Balloon observation data access (observations, missions, flight paths)
+- **`forecasts_api.py`** - Weather forecast data access (point/gridded forecasts, tropical cyclones)
+- **`utils.py`** - Date parsing, file saving, and output formatting utilities
+- **`observation_formatting.py`** - Data format conversions (netCDF, little_r)
+- **`track_formatting.py`** - Trajectory format conversions (CSV, GeoJSON, GPX, KML)
+
+#### Key Features
+
+- Authenticates via environment variables (WB_CLIENT_ID, WB_API_KEY)
+- Supports multiple output formats for scientific data
+- Provides both Python API and CLI access
+- Handles large datasets with bucketing and pagination
+- Includes retry logic and comprehensive error messages
+
 ## Pushing a new version
 1. Make sure you've been added to the pypi organization
 2. Increment the version in pyproject.toml
