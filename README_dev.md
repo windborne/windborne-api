@@ -13,7 +13,10 @@ You can then `import windborne` and have it refer to the latest version, or use 
 3. Run `bash deploy.sh` which will push the pip package
 
 ## Unit testing
-TODO: create a folder called `test` which uses pytest and imports the package directly.
+
+`pytest` tests are in the folder `pytest/`. To run, do `pytest pytest/ -v`. Currently just minimal testing is implemented for recent changes.
+
+You may need to run `pip3 install pytest` to install.
 
 ## Integration testing
 These are end-to-end tests, designed primarily to test that the backend gives expected responses when accessed through the cli.

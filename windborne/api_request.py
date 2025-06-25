@@ -21,99 +21,62 @@ def get_api_credentials():
 
 def verify_api_credentials(client_id, api_key):
     if not client_id and not api_key:
-        print("To access the WindBorne API, set your Client ID and API key by setting the environment variables WB_CLIENT_ID and WB_API_KEY.")
-        print("--------------------------------------")
-        print("You may refer to https://windbornesystems.com/docs/api/cli#introduction\n"
-              "for instructions on how to set your credentials as environment variables for CLI and Code usage\n\n"
-              "and to https://windbornesystems.com/docs/api/pip_data#introduction\n"
-              "for instruction on how to set your credentials for code usage.")
-        print("--------------------------------------")
-        print("To get an API key, email data@windbornesystems.com.")
-        exit(80)
+        raise ValueError(
+            "To access the WindBorne API, set your Client ID and API key by setting the environment variables WB_CLIENT_ID and WB_API_KEY. "
+            "For instructions, refer to https://windbornesystems.com/docs/api/cli#introduction or https://windbornesystems.com/docs/api/pip_data#introduction. "
+            "To get an API key, email data@windbornesystems.com."
+        )
 
     if not client_id:
-        print("To access the WindBorne API, you need to set your Client ID by setting the environment variable WB_CLIENT_ID.")
-        print("--------------------------------------")
-        print("You may refer to https://windbornesystems.com/docs/api/cli#introduction\n"
-              "for instructions on how to set your credentials as environment variables for CLI and Code usage\n\n"
-              "and to https://windbornesystems.com/docs/api/pip_data#introduction\n"
-              "for instruction on how to set your credentials for code usage.")
-        print("--------------------------------------")
-        print("To get an API key, email data@windbornesystems.com.")
-        exit(90)
+        raise ValueError(
+            "To access the WindBorne API, you need to set your Client ID by setting the environment variable WB_CLIENT_ID. "
+            "For instructions, refer to https://windbornesystems.com/docs/api/cli#introduction or https://windbornesystems.com/docs/api/pip_data#introduction. "
+            "To get an API key, email data@windbornesystems.com."
+        )
 
     if not api_key:
-        print("To access the WindBorne API, you need to set your API key by setting the environment variable WB_API_KEY.")
-        print("--------------------------------------")
-        print("You may refer to https://windbornesystems.com/docs/api/cli#introduction\n"
-              "for instructions on how to set your credentials as environment variables for CLI and Code usage\n\n"
-              "and to https://windbornesystems.com/docs/api/pip_data#introduction\n"
-              "for instruction on how to set your credentials for code usage.")
-        print("--------------------------------------")
-        print("To get an API key, email data@windbornesystems.com.")
-        exit(91)
+        raise ValueError(
+            "To access the WindBorne API, you need to set your API key by setting the environment variable WB_API_KEY. "
+            "For instructions, refer to https://windbornesystems.com/docs/api/cli#introduction or https://windbornesystems.com/docs/api/pip_data#introduction. "
+            "To get an API key, email data@windbornesystems.com."
+        )
 
     if len(client_id) in [32, 35] and len(api_key) not in [32, 35]:
-        print("Your Client ID and API Key are likely swapped.")
-        print("--------------------------------------")
-        print("Swap them or modify them accordingly to get access to WindBorne API.")
-        print("--------------------------------------")
-        print("You may refer to https://windbornesystems.com/docs/api/cli#introduction\n"
-              "for instructions on how to set your credentials as environment variables for CLI and Code usage\n\n"
-              "and to https://windbornesystems.com/docs/api/pip_data#introduction\n"
-              "for instruction on how to set your credentials for code usage.")
-        print("--------------------------------------")
-        print(f"Current Client ID: {client_id}")
-        print(f"Current API Key: {api_key}")
-        exit(95)
+        raise ValueError(
+            f"Your Client ID and API Key are likely swapped. Current Client ID: {client_id}, Current API Key: {api_key}. "
+            "Swap them or modify them accordingly to get access to WindBorne API. "
+            "For instructions, refer to https://windbornesystems.com/docs/api/cli#introduction or https://windbornesystems.com/docs/api/pip_data#introduction."
+        )
 
     # Validate WB_CLIENT_ID format
     if is_valid_uuid_v4(client_id):
-        print("Personal API tokens are not yet supported.")
-        print("--------------------------------------")
-        print("You will need to get a globally-authorizing API key.")
-        print("For questions, email data@windbornesystems.com.")
-        exit(1)
+        raise NotImplementedError(
+            "Personal API tokens are not yet supported. "
+            "You will need to get a globally-authorizing API key. "
+            "For questions, email data@windbornesystems.com."
+        )
 
     if not (is_valid_uuid_v4(client_id) or is_valid_client_id_format(client_id)):
-        print("Your Client ID is misformatted.")
-        print("--------------------------------------")
-        print("It should either be a valid UUID v4 or consist of only lowercase letters, digits, and underscores ([a-z0-9_]).")
-        print("--------------------------------------")
-        print("You may refer to https://windbornesystems.com/docs/api/cli#introduction\n"
-              "for instructions on how to set your credentials as environment variables for CLI and Code usage\n\n"
-              "and to https://windbornesystems.com/docs/api/pip_data#introduction\n"
-              "for instruction on how to set your credentials for code usage.")
-        print("--------------------------------------")
-        print(f"Current Client ID: {client_id}")
-        exit(92)
+        raise ValueError(
+            f"Your Client ID is misformatted: {client_id}. "
+            "It should either be a valid UUID v4 or consist of only lowercase letters, digits, and underscores ([a-z0-9_]). "
+            "For instructions, refer to https://windbornesystems.com/docs/api/cli#introduction or https://windbornesystems.com/docs/api/pip_data#introduction."
+        )
 
     # Validate WB_API_KEY for both newer and older formats
     if api_key.startswith("wb_"):
         if len(api_key) != 35:
-            print("Your API key is misformatted.")
-            print("--------------------------------------")
-            print("API keys starting with 'wb_' must be 35 characters long (including the 'wb_' prefix).")
-            print("--------------------------------------")
-            print("You may refer to https://windbornesystems.com/docs/api/cli#introduction\n"
-                  "for instructions on how to set your credentials as environment variables for CLI and Code usage\n\n"
-                  "and to https://windbornesystems.com/docs/api/pip_data#introduction\n"
-                  "for instruction on how to set your credentials for code usage.")
-            print("--------------------------------------")
-            print(f"Current API key: {api_key}")
-            exit(93)
+            raise ValueError(
+                f"Your API key is misformatted: {api_key}. "
+                "API keys starting with 'wb_' must be 35 characters long (including the 'wb_' prefix). "
+                "For instructions, refer to https://windbornesystems.com/docs/api/cli#introduction or https://windbornesystems.com/docs/api/pip_data#introduction."
+            )
     elif len(api_key) != 32:  # For early tokens
-        print("Your API key is misformatted.")
-        print("--------------------------------------")
-        print("API keys created in 2023 or earlier must be exactly 32 characters long.")
-        print("--------------------------------------")
-        print("You may refer to https://windbornesystems.com/docs/api/cli#introduction\n"
-              "for instructions on how to set your credentials as environment variables for CLI and Code usage\n\n"
-              "and to https://windbornesystems.com/docs/api/pip_data#introduction\n"
-              "for instruction on how to set your credentials for code usage.")
-        print("--------------------------------------")
-        print(f"Current API key: {api_key}")
-        exit(94)
+        raise ValueError(
+            f"Your API key is misformatted: {api_key}. "
+            "API keys created in 2023 or earlier must be exactly 32 characters long. "
+            "For instructions, refer to https://windbornesystems.com/docs/api/cli#introduction or https://windbornesystems.com/docs/api/pip_data#introduction."
+        )
 
 
 VERIFIED_WB_CLIENT_ID = None
@@ -143,8 +106,7 @@ def make_api_request(url, params=None, as_json=True, retry_counter=0):
     :return:
     """
     if retry_counter >= 5:
-        print("Max retries to API reached. Exiting.")
-        exit(1)
+        raise ConnectionError("Max retries to API reached.")
 
     client_id, api_key = get_verified_api_credentials()
 
@@ -209,12 +171,8 @@ def make_api_request(url, params=None, as_json=True, retry_counter=0):
             time.sleep(2**retry_counter)
             return make_api_request(url, params, as_json, retry_counter + 1)
         else:
-            print(f"Unrecoverable HTTP error occurred \n\n{http_err}")
-            if params:
-                print("\nParameters provided:")
-                for key, value in params.items():
-                    print(f"  {key}: {value}")
-            exit(1)
+            # Re-raise the HTTP error instead of exiting
+            raise http_err
     except requests.exceptions.ConnectionError as conn_err:
         print(f"Temporary connection failure; sleeping for {2**retry_counter}s before retrying")
         print(f"Underlying error: \n\n{conn_err}")
