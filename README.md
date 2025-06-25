@@ -13,3 +13,5 @@ Run `windborne --help` for more information.
 
 ## Further information and help request
 If you encounter issues or have questions, please ask your WindBorne Systems contact or email data@windbornesystems.com.
+
+For development of this package, see [README_dev.md](README_dev.md)
