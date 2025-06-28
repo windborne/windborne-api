@@ -39,7 +39,9 @@ from .forecasts_api import (
     get_historical_500hpa_geopotential,
     get_historical_500hpa_wind_u, get_historical_500hpa_wind_v,
 
-    get_tropical_cyclones
+    get_tropical_cyclones,
+
+    get_population_weighted_hdd
 )
 
 # Define what should be available when users import *
@@ -82,5 +84,7 @@ __all__ = [
     "get_historical_500hpa_geopotential",
     "get_historical_500hpa_wind_u",
     "get_historical_500hpa_wind_v",
-    "get_tropical_cyclones"
+    "get_tropical_cyclones",
+
+    "get_population_weighted_hdd"
 ]

@@ -23,7 +23,8 @@ from . import (
     get_generation_times,
     get_full_gridded_forecast,
     get_gridded_forecast,
-    get_tropical_cyclones
+    get_tropical_cyclones,
+    get_population_weighted_hdd
 
 )
 
@@ -225,6 +226,14 @@ def main():
     tropical_cyclones_parser.add_argument('-b', '--basin',  help='Optional: filter tropical cyclones on basin[ NA, EP, WP, NI, SI, AU, SP]')
     tropical_cyclones_parser.add_argument('args', nargs='*',
                                  help='[optional: initialization time (YYYYMMDDHH, YYYY-MM-DDTHH, or YYYY-MM-DDTHH:mm:ss)] output_file')
+
+    # Population Weighted HDD Command
+    hdd_parser = subparsers.add_parser('hdd', help='Get population weighted heating degree days (HDD) forecasts')
+    hdd_parser.add_argument('initialization_time', help='Initialization time (YYYYMMDDHH, YYYY-MM-DDTHH, or YYYY-MM-DDTHH:mm:ss)')
+    hdd_parser.add_argument('-i', '--intracycle', action='store_true', help='Use the intracycle forecast')
+    hdd_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
+    hdd_parser.add_argument('-m', '--external-model', help='External model (eg gfs, ifs, hrrr, aifs)')
+    hdd_parser.add_argument('-o', '--output', help='Output file (supports .csv and .json formats)')
 
     # Initialization Times Command
     initialization_times_parser = subparsers.add_parser('init_times', help='Get available initialization times for point forecasts')
@@ -526,6 +535,17 @@ def main():
         else:
             print("Error: Too many arguments")
             print("Usage: windborne tropical_cyclones [initialization_time] output_file")
+
+    elif args.command == 'hdd':
+        # Handle population weighted HDD
+        get_population_weighted_hdd(
+            initialization_time=args.initialization_time, 
+            intracycle=args.intracycle,
+            ens_member=args.ens_member,
+            external_model=args.external_model,
+            output_file=args.output,
+            print_response=(not args.output)
+        )
 
     else:
         parser.print_help()
