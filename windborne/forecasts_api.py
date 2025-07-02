@@ -427,3 +427,41 @@ def get_population_weighted_hdd(initialization_time, intracycle=False, ens_membe
                 print(f"  {dates[i]}: {response['hdd'][region][dates[i]]}")
     
     return response
+
+def get_population_weighted_cdd(initialization_time, intracycle=False, ens_member=None, external_model=None, output_file=None, print_response=False):
+    """
+    Get population weighted CDD data from the API.
+    """
+    params = {
+        "initialization_time": initialization_time,
+        "intracycle": intracycle,
+        "ens_member": ens_member,
+        "external_model": external_model
+    }
+    response = make_api_request(f"{FORECASTS_API_BASE_URL}/cdd", params=params, as_json=True)
+    
+    if output_file:
+        if output_file.endswith('.csv'):
+            import csv
+
+            # save as csv, with a row for each region, and a column for each date, sorted alphabetically by region
+            regions = sorted(response['cdd'].keys())
+            dates = response['dates']
+            data = [[response['cdd'][region][dates[i]] for region in regions] for i in range(len(dates))]  
+
+            with open(output_file, 'w') as f:
+                writer = csv.writer(f)
+                writer.writerow(['Region'] + dates)
+
+                for region in regions:
+                    writer.writerow([region] + [response['cdd'][region][date] for date in dates])
+    
+    if print_response:
+        dates = response['dates']
+        print(response['cdd']['Alabama'])
+        for region in sorted(response['cdd'].keys()):
+            print(f"{region}:")
+            for i in range(len(dates)):
+                print(f"  {dates[i]}: {response['cdd'][region][dates[i]]}")
+    
+    return response

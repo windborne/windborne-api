@@ -24,7 +24,8 @@ from . import (
     get_full_gridded_forecast,
     get_gridded_forecast,
     get_tropical_cyclones,
-    get_population_weighted_hdd
+    get_population_weighted_hdd,
+    get_population_weighted_cdd
 
 )
 
@@ -234,6 +235,14 @@ def main():
     hdd_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
     hdd_parser.add_argument('-m', '--external-model', help='External model (eg gfs, ifs, hrrr, aifs)')
     hdd_parser.add_argument('-o', '--output', help='Output file (supports .csv and .json formats)')
+
+    # Population Weighted CDD Command
+    cdd_parser = subparsers.add_parser('cdd', help='Get population weighted cooling degree days (CDD) forecasts')
+    cdd_parser.add_argument('initialization_time', help='Initialization time (YYYYMMDDHH, YYYY-MM-DDTHH, or YYYY-MM-DDTHH:mm:ss)')
+    cdd_parser.add_argument('-i', '--intracycle', action='store_true', help='Use the intracycle forecast')
+    cdd_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
+    cdd_parser.add_argument('-m', '--external-model', help='External model (eg gfs, ifs, hrrr, aifs)')
+    cdd_parser.add_argument('-o', '--output', help='Output file (supports .csv and .json formats)')
 
     # Initialization Times Command
     initialization_times_parser = subparsers.add_parser('init_times', help='Get available initialization times for point forecasts')
@@ -539,6 +548,17 @@ def main():
     elif args.command == 'hdd':
         # Handle population weighted HDD
         get_population_weighted_hdd(
+            initialization_time=args.initialization_time, 
+            intracycle=args.intracycle,
+            ens_member=args.ens_member,
+            external_model=args.external_model,
+            output_file=args.output,
+            print_response=(not args.output)
+        )
+
+    elif args.command == 'cdd':
+        # Handle population weighted CDD
+        get_population_weighted_cdd(
             initialization_time=args.initialization_time, 
             intracycle=args.intracycle,
             ens_member=args.ens_member,
