@@ -15,6 +15,8 @@ describe 'gridded_forecasts' do
       dewpoint_2m
       wind_u_10m
       wind_v_10m
+      wind_u_100m
+      wind_v_100m
       pressure_msl
       500hpa_temperature
       850hpa_temperature

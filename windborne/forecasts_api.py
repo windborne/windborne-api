@@ -301,6 +301,23 @@ def get_initialization_times(print_response=False, ensemble_member=None, intracy
     return response
 
 
+def get_historical_initialization_times(print_response=False, ensemble_member=None, intracycle=False):
+    """
+    Get historical initialization times for forecasts from our archive
+    These may be higher latency to fetch and cannot be used for custom point forecasting
+    """
+    params = {
+        'ens_member': ensemble_member,
+        'intracycle': intracycle
+    }
+    response = make_api_request(f"{FORECASTS_API_BASE_URL}/historical_initialization_times.json", params=params)
+
+    if print_response:
+        print("Available historical initialization times:")
+        for time in response:
+            print(f" - {time}")
+
+
 def get_forecast_hours(print_response=False, ensemble_member=None, intracycle=False):
     """
     Get available forecast hours for WeatherMesh
