@@ -48,14 +48,6 @@ def verify_api_credentials(client_id, api_key):
             "For instructions, refer to https://windbornesystems.com/docs/api/cli#introduction or https://windbornesystems.com/docs/api/pip_data#introduction."
         )
 
-    # Validate WB_CLIENT_ID format
-    if is_valid_uuid_v4(client_id):
-        raise NotImplementedError(
-            "Personal API tokens are not yet supported. "
-            "You will need to get a globally-authorizing API key. "
-            "For questions, email data@windbornesystems.com."
-        )
-
     if not (is_valid_uuid_v4(client_id) or is_valid_client_id_format(client_id)):
         raise ValueError(
             f"Your Client ID is misformatted: {client_id}. "
@@ -110,20 +102,10 @@ def make_api_request(url, params=None, as_json=True, retry_counter=0):
 
     client_id, api_key = get_verified_api_credentials()
 
-    if is_valid_uuid_v4(client_id):
-        token_id = client_id
-        client_id = 'api_token'
-
-        signed_token = jwt.encode({
-            'client_id': client_id,
-            'iat': int(time.time()),
-            'token_id': token_id
-        }, api_key, algorithm='HS256')
-    else:
-        signed_token = jwt.encode({
-            'client_id': client_id,
-            'iat': int(time.time()),
-        }, api_key, algorithm='HS256')
+    signed_token = jwt.encode({
+        'client_id': client_id,
+        'iat': int(time.time()),
+    }, api_key, algorithm='HS256')
 
     try:
         if params:
