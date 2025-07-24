@@ -123,7 +123,7 @@ def get_super_observations_page(since=None, min_time=None, max_time=None, includ
     return response
 
 
-def save_observations_batch(observations, output_file, output_format, output_dir, start_time=None, end_time=None, bucket_hours=6.0, csv_headers=None, custom_save=None, prevent_overwrites=False):
+def save_observations_batch(observations, output_file, output_format, output_dir, start_time=None, end_time=None, bucket_hours=6.0, csv_headers=None, custom_save=None, prevent_overwrites=False, verbose=True):
     filtered_observations = observations
     if start_time is not None:
         filtered_observations = [obs for obs in observations if float(obs['timestamp']) >= start_time]
@@ -138,12 +138,12 @@ def save_observations_batch(observations, output_file, output_format, output_dir
         if custom_save is not None:
             custom_save(sorted_observations, output_file)
         else:
-            save_observations_to_file(sorted_observations, output_file, csv_headers=csv_headers, prevent_overwrites=prevent_overwrites)
+            save_observations_to_file(sorted_observations, output_file, csv_headers=csv_headers, prevent_overwrites=prevent_overwrites, verbose=verbose)
     else:
-        save_observations_batch_in_buckets(sorted_observations, output_format, output_dir, bucket_hours=bucket_hours, csv_headers=csv_headers, custom_save=custom_save, prevent_overwrites=prevent_overwrites)
+        save_observations_batch_in_buckets(sorted_observations, output_format, output_dir, bucket_hours=bucket_hours, csv_headers=csv_headers, custom_save=custom_save, prevent_overwrites=prevent_overwrites, verbose=verbose)
 
 
-def save_observations_to_file(sorted_observations, output_file, csv_headers=None, prevent_overwrites=False):
+def save_observations_to_file(sorted_observations, output_file, csv_headers=None, prevent_overwrites=False, verbose=True):
     if len(sorted_observations) == 0:
         print(f"Skipping empty file {output_file}")
         return
@@ -169,10 +169,11 @@ def save_observations_to_file(sorted_observations, output_file, csv_headers=None
 
         output_file = f"{base}.{i}.{ext}"
 
-    print(f"Saving {len(sorted_observations)} {'observation' if len(sorted_observations) == 1 else 'observations'} to {output_file}")
-    if len(sorted_observations) > 10_000:
-        print("This may take a while...")
-    print("-----------------------------------------------------\n")
+    if verbose: 
+        print("-----------------------------------------------------\n")
+        print(f"Saving {len(sorted_observations)} {'observation' if len(sorted_observations) == 1 else 'observations'} to {output_file}")
+        if len(sorted_observations) > 10_000:
+            print("This may take a while...")
 
     if output_file.endswith('.nc'):
         first_obs_timestamp = float(sorted_observations[0]['timestamp'])
@@ -193,10 +194,11 @@ def save_observations_to_file(sorted_observations, output_file, csv_headers=None
         with open(output_file, 'w') as file:
             file.write('\n'.join(little_r_records))
 
-    print(f"Saved {len(sorted_observations)} {'observation' if len(sorted_observations) == 1 else 'observations'} to {output_file}")
+    if verbose: 
+        print(f"Saved {len(sorted_observations)} {'observation' if len(sorted_observations) == 1 else 'observations'} to {output_file}")
 
 
-def save_observations_batch_in_buckets(sorted_observations, output_format, output_dir, bucket_hours=6.0, csv_headers=None, custom_save=None, prevent_overwrites=False):
+def save_observations_batch_in_buckets(sorted_observations, output_format, output_dir, bucket_hours=6.0, csv_headers=None, custom_save=None, prevent_overwrites=False, verbose=True):
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
         print(f"Files will be saved to {output_dir}")
@@ -245,13 +247,13 @@ def save_observations_batch_in_buckets(sorted_observations, output_format, outpu
             if custom_save is not None:
                 custom_save(segment, output_file)
             else:
-                save_observations_to_file(segment, output_file, csv_headers=csv_headers, prevent_overwrites=prevent_overwrites)
+                save_observations_to_file(segment, output_file, csv_headers=csv_headers, prevent_overwrites=prevent_overwrites, verbose=verbose)
 
             start_index = i
             curtime += timedelta(hours=bucket_hours).seconds
 
 
-def get_observations_core(api_args, csv_headers, get_page, start_time=None, end_time=None, output_file=None, bucket_hours=6.0, output_format=None, output_dir=None, callback=None, custom_save=None, exit_at_end=True):
+def get_observations_core(api_args, csv_headers, get_page, start_time=None, end_time=None, output_file=None, bucket_hours=6.0, output_format=None, output_dir=None, callback=None, custom_save=None, exit_at_end=True, verbose=True):
     """
     Fetches observations or superobservations between a start time and an optional end time and saves to files in specified format.
     Files are broken up into time buckets, with filenames containing the time at the mid-point of the bucket.
@@ -308,7 +310,8 @@ def get_observations_core(api_args, csv_headers, get_page, start_time=None, end_
             bucket_hours=bucket_hours,
             csv_headers=csv_headers,
             custom_save=custom_save,
-            prevent_overwrites=clear_batches
+            prevent_overwrites=clear_batches,
+            verbose=verbose
         )
 
     result = iterate_through_observations(get_page, api_args, callback=callback, batch_callback=save_with_context, exit_at_end=exit_at_end, clear_batches=clear_batches, batch_size=batch_size)
@@ -360,11 +363,12 @@ def iterate_through_observations(get_page, args, callback=None, batch_callback=N
         if callback:
             callback(response)
         else:
-            since_timestamp = since
-            if since_timestamp > 4_000_000_000: # in nanoseconds rather than seconds
-                since_timestamp /= 1_000_000_000
-            since_dt = datetime.fromtimestamp(since_timestamp, timezone.utc)
-            print(f"Fetched page with {len(observations)} observation(s) updated {since_dt} or later")
+            if since is not None:
+                since_timestamp = since
+                if since_timestamp > 4_000_000_000: # in nanoseconds rather than seconds
+                    since_timestamp /= 1_000_000_000
+                since_dt = datetime.fromtimestamp(since_timestamp, timezone.utc)
+                print(f"Fetched page with {len(observations)} observation(s) updated {since_dt} or later")
 
         batched_observations.extend(observations)
 
@@ -407,7 +411,7 @@ def verify_observations_output_format(output_format):
 
     exit(1)
 
-def get_observations(start_time, end_time=None, include_updated_at=None, mission_id=None, min_latitude=None, max_latitude=None, min_longitude=None, max_longitude=None, output_file=None, bucket_hours=6.0, output_format=None, output_dir=None, callback=None, custom_save=None, exit_at_end=True):
+def get_observations(start_time, end_time=None, include_updated_at=None, mission_id=None, min_latitude=None, max_latitude=None, min_longitude=None, max_longitude=None, output_file=None, bucket_hours=6.0, output_format=None, output_dir=None, callback=None, custom_save=None, exit_at_end=True, verbose=True):
     """
     Fetches observations between a start time and an optional end time and saves to files in specified format.
     Files are broken up into time buckets, with filenames containing the time at the mid-point of the bucket.
@@ -435,6 +439,7 @@ def get_observations(start_time, end_time=None, include_updated_at=None, mission
                              This allows custom processing or saving in custom formats.
         custom_save (callable): Optional function to save observations in a custom format.
         exit_at_end (bool): Whether to exit after fetching all observations or keep polling.
+        verbose (bool): Whether to print saving information.
     """
 
     # Headers for CSV files
@@ -456,7 +461,7 @@ def get_observations(start_time, end_time=None, include_updated_at=None, mission
         'include_mission_name': True
     }
 
-    return get_observations_core(api_args, csv_headers, get_page=get_observations_page, start_time=start_time, end_time=end_time, output_file=output_file, bucket_hours=bucket_hours, output_format=output_format, output_dir=output_dir, callback=callback, custom_save=custom_save, exit_at_end=exit_at_end)
+    return get_observations_core(api_args, csv_headers, get_page=get_observations_page, start_time=start_time, end_time=end_time, output_file=output_file, bucket_hours=bucket_hours, output_format=output_format, output_dir=output_dir, callback=callback, custom_save=custom_save, exit_at_end=exit_at_end, verbose=verbose)
 
 def poll_observations(**kwargs):
     """
@@ -475,7 +480,7 @@ def poll_observations(**kwargs):
 
     get_observations(**kwargs, exit_at_end=False)
 
-def get_super_observations(start_time, end_time=None, mission_id=None, include_updated_at=True, output_file=None, bucket_hours=6.0, output_format=None, output_dir=None, callback=None, custom_save=None, exit_at_end=True):
+def get_super_observations(start_time, end_time=None, mission_id=None, include_updated_at=True, output_file=None, bucket_hours=6.0, output_format=None, output_dir=None, callback=None, custom_save=None, exit_at_end=True, verbose=True):
     """
     Fetches super observations between a start time and an optional end time and saves to files in specified format.
     Files are broken up into time buckets, with filenames containing the time at the mid-point of the bucket.
@@ -497,10 +502,12 @@ def get_super_observations(start_time, end_time=None, mission_id=None, include_u
                              This allows custom processing or saving in custom formats.
         custom_save (callable): Optional function to save observations in a custom format.
         exit_at_end (bool): Whether to exit after fetching all observations or keep polling.
+        verbose (bool): Whether to print saving information.
     """
     csv_headers = [
         "timestamp", "id", "time", "latitude", "longitude", "altitude", "humidity",
-        "mission_name", "pressure", "specific_humidity", "speed_u", "speed_v", "temperature"
+        "mission_name", "pressure", "specific_humidity", "speed_u", "speed_v", "temperature",
+        "mission_id", "updated_at"
     ]
 
     api_args = {
@@ -512,7 +519,7 @@ def get_super_observations(start_time, end_time=None, mission_id=None, include_u
         'include_mission_name': True
     }
 
-    return get_observations_core(api_args, csv_headers, get_page=get_super_observations_page, start_time=start_time, end_time=end_time, output_file=output_file, bucket_hours=bucket_hours, output_format=output_format, output_dir=output_dir, callback=callback, custom_save=custom_save, exit_at_end=exit_at_end)
+    return get_observations_core(api_args, csv_headers, get_page=get_super_observations_page, start_time=start_time, end_time=end_time, output_file=output_file, bucket_hours=bucket_hours, output_format=output_format, output_dir=output_dir, callback=callback, custom_save=custom_save, exit_at_end=exit_at_end, verbose=verbose)
 
 def poll_super_observations(**kwargs):
     """
