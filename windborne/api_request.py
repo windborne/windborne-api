@@ -4,6 +4,8 @@ import requests
 import re
 import os
 
+API_BASE_URL = "https://api.windbornesystems.com"
+
 def is_valid_uuid_v4(client_id):
     return re.fullmatch(r"[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}", client_id) is not None
 

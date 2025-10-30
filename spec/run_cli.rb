@@ -10,14 +10,16 @@ def run(*args, wb_client_id: 'global', wb_api_key: nil, print: nil)
     wb_client_id = credentials["#{wb_client_id}_client_id"]
   end
 
+  # WARNING: DO NOT COMMIT THESE CHANGES -- it's just cursor fuckery
   env = {
     'WB_CLIENT_ID' => wb_client_id,
     'WB_API_KEY' => wb_api_key,
-    'PYTHONUNBUFFERED' => '1'
+    'PYTHONUNBUFFERED' => '1',
+    'PYTHONPATH' => File.expand_path('..', __dir__)
   }
 
-  # Convert args array to command string, ensuring proper escaping
-  command = ['windborne', *args]
+  # Run the CLI via Python module so we don't require console-script install
+  command = ['python3', '-m', 'windborne.cli', *args]
 
   output = ''
   status = nil

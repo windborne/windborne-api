@@ -4,12 +4,12 @@ from datetime import datetime, timezone, timedelta
 import csv
 import json
 
-from .api_request import make_api_request
+from .api_request import make_api_request, API_BASE_URL
 from .observation_formatting import format_little_r, convert_to_netcdf
 from .utils import to_unix_timestamp, save_arbitrary_response, print_table
 from .track_formatting import save_track
 
-DATA_API_BASE_URL = "https://sensor-data.windbornesystems.com/api/v1"
+DATA_API_BASE_URL = f"{API_BASE_URL}/data/v1"
 
 # ------------
 # CORE RESOURCES
@@ -563,7 +563,7 @@ def get_flying_missions(output_file=None, print_results=False):
         'page_size': page_size 
     }
 
-    url = f"{DATA_API_BASE_URL}/missions.json"
+    url = f"{DATA_API_BASE_URL}/flying_missions.json"
     flying_missions_response = make_api_request(url, params=query_params)
 
     flying_missions = flying_missions_response.get("missions", [])
@@ -707,21 +707,28 @@ def get_predicted_path(mission_id=None, output_file=None, print_result=False):
 
     mission = get_flying_mission(mission_id)
 
-    url = f"{DATA_API_BASE_URL}/missions/{mission.get('id')}/prediction.json"
+    url = f"{DATA_API_BASE_URL}/missions/{mission.get('id')}/predicted_path.json"
     response = make_api_request(url)
 
     if response is None:
         return
 
+    prediction = response.get('prediction') if isinstance(response, dict) else None
+
     if output_file:
         name = mission.get('name', mission_id)
-        save_track(output_file, {name: response['prediction']}, time_key='time')
+        # Save an empty list if prediction is not available to avoid crashes
+        save_track(output_file, {name: (prediction or [])}, time_key='time')
 
     if print_result:
-        print("Predicted flight path\n")
-        print_table(response['prediction'], keys=['time', 'latitude', 'longitude', 'altitude'], headers=['Time', 'Latitude', 'Longitude', 'Altitude'])
+        if not prediction:
+            print("Predicted flight path\n")
+            print("No predicted path available for this mission.")
+        else:
+            print("Predicted flight path\n")
+            print_table(prediction, keys=['time', 'latitude', 'longitude', 'altitude'], headers=['Time', 'Latitude', 'Longitude', 'Altitude'])
 
-    return response.get('prediction')
+    return prediction
 
 
 def get_current_location(mission_id=None, output_file=None, print_result=False, verify_flying=True):
@@ -776,7 +783,7 @@ def get_flight_path(mission_id=None, output_file=None, print_result=False):
         print("A mission id is required to get a flight path")
         return
 
-    url = f"{DATA_API_BASE_URL}/missions/{mission_id}/flight_data.json"
+    url = f"{DATA_API_BASE_URL}/missions/{mission_id}/flight_path.json"
     response = make_api_request(url)
 
     if response is None:

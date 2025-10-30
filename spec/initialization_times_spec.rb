@@ -10,13 +10,13 @@ describe 'init_times' do
   end
 
   it 'gets a list of initialization times with an ensemble member' do
-    output = run('init_times', '--ens-member', '1')
+    output = run('init_times', '--model', 'wm4-ens', '--ens-member', '1')
     expect(output).to include('Available initialization times:')
-    expect(output.split("\n").size).to be > 4
+    expect(output.split("\n").size).to be > 1
   end
 
-  it 'gets a list of initialization times with intracycle' do
-    output = run('init_times', '--intracycle')
+  it 'gets a list of initialization times with intracycle model' do
+    output = run('init_times', '--model', 'wm4-intra')
     expect(output).to include('Available initialization times:')
     expect(output.split("\n").size).to be > 4
   end

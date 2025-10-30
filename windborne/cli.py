@@ -18,11 +18,11 @@ from . import (
     get_flight_path,
 
     get_point_forecasts,
+    get_point_forecasts_interpolated,
     get_initialization_times,
-    get_historical_initialization_times,
-    get_forecast_hours,
-    get_generation_times,
-    get_full_gridded_forecast,
+    get_archived_initialization_times,
+    get_run_information,
+    get_variables,
     get_gridded_forecast,
     get_tropical_cyclones,
     get_population_weighted_hdd,
@@ -136,6 +136,7 @@ def main():
     ####################################################################################################################
     # FORECASTS API FUNCTIONS
     ####################################################################################################################
+   
     # Points Forecast Command
     # We have quite a few quite a few optional query parameters here
     # so we set coordinates and output_file to required instead of
@@ -147,79 +148,27 @@ def main():
     points_parser.add_argument('-mh','--min-hour', type=int, help='Minimum forecast hour')
     points_parser.add_argument('-xh','--max-hour', type=int, help='Maximum forecast hour')
     points_parser.add_argument('-i', '--init-time', help='Initialization time')
+    points_parser.add_argument('--model', default='wm', help='Forecast model (e.g., wm, wm4)')
     points_parser.add_argument('output_file', nargs='?', help='Output file')
+
+    # Interpolated Points Forecast Command
+    points_interpolated_parser = subparsers.add_parser('points_interpolated', help='Get interpolated forecast at given point(s)')
+    points_interpolated_parser.add_argument('coordinates', help='Coordinate pairs in format "latitudeA,longitudeA; latitudeB,longitudeB"')
+    points_interpolated_parser.add_argument('-mt','--min-time', help='Minimum forecast time')
+    points_interpolated_parser.add_argument('-xt','--max-time', help='Maximum forecast time')
+    points_interpolated_parser.add_argument('-mh','--min-hour', type=int, help='Minimum forecast hour')
+    points_interpolated_parser.add_argument('-xh','--max-hour', type=int, help='Maximum forecast hour')
+    points_interpolated_parser.add_argument('-i', '--init-time', help='Initialization time')
+    points_interpolated_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
+    points_interpolated_parser.add_argument('--model', default='wm', help='Forecast model (e.g., wm, wm4)')
+    points_interpolated_parser.add_argument('output_file', nargs='?', help='Output file (.csv or .json)')
 
     # GRIDDED FORECASTS
     ####################################################################################################################
     gridded_parser = subparsers.add_parser('gridded', help='Get gridded forecast for a variable')
     gridded_parser.add_argument('args', nargs='*', help='variable time output_file')
-    gridded_parser.add_argument('-i', '--intracycle', action='store_true', help='Use the intracycle forecast')
     gridded_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
-
-    hist_gridded_parser = subparsers.add_parser('hist_gridded', help='Get historical gridded forecast for a variable')
-    hist_gridded_parser.add_argument('args', nargs='*', help='variable initialization_time forecast_hour output_file')
-    hist_gridded_parser.add_argument('-i', '--intracycle', action='store_true', help='Use the intracycle forecast')
-    hist_gridded_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
-
-    full_gridded_parser = subparsers.add_parser('grid_full', help='Get full gridded forecast')
-    full_gridded_parser.add_argument('args', nargs='*', help='time output_file')
-
-    # Define variables for gridded forecasts - the command name will be derived from the variable name
-    # except for special cases like temperature_2m -> temp_2m
-    gridded_variables = [
-        'temperature_2m',
-        'dewpoint_2m',
-        'wind_u_10m',
-        'wind_v_10m',
-        'wind_u_100m',
-        'wind_v_100m',
-        'pressure_msl',
-        '500/temperature',
-        '500/wind_u',
-        '500/wind_v',
-        '500/geopotential',
-        '850/temperature',
-        '850/geopotential'
-    ]
-
-    gridded_human_names = {
-        'temperature_2m': '2m temperature',
-        'dewpoint_2m': '2m dewpoint',
-        'wind_u_10m': '10m u-component of wind',
-        'wind_v_10m': '10m v-component of wind',
-    }
-
-    gridded_forecast_mapping = {}
-    for var in gridded_variables:
-        cmd_name = var.replace('/', 'hpa_')
-        if var == 'temperature_2m':
-            cmd_name = 'temp_2m'
-
-        human_name = gridded_human_names.get(var, var)
-        if '/' in var:
-            level, real_var = var.split('/')
-            human_name = f"{level}hPa {real_var}"
-
-        gridded_forecast_mapping[cmd_name] = {
-            'variable': var,
-            'human_name': human_name
-        }
-
-    # Dynamically create parsers for gridded forecasts
-    for cmd_name, config in gridded_forecast_mapping.items():
-        grid_help = f"Get gridded output of global {config['human_name']} forecasts"
-        grid_parser = subparsers.add_parser(f'grid_{cmd_name}', help=grid_help)
-        grid_parser.add_argument('args', nargs='*', help='time output_file')
-        grid_parser.add_argument('-i', '--intracycle', action='store_true', help='Use the intracycle forecast')
-        grid_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
-        grid_parser.set_defaults(variable=config['variable'])
-
-        hist_help = f"Get historical output of global {config['human_name']} forecasts"
-        hist_parser = subparsers.add_parser(f'hist_{cmd_name}', help=hist_help)
-        hist_parser.add_argument('args', nargs='*', help='initialization_time forecast_hour output_file')
-        hist_parser.add_argument('-i', '--intracycle', action='store_true', help='Use the intracycle forecast')
-        hist_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
-        hist_parser.set_defaults(variable=config['variable'])
+    gridded_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm4-intra, ecmwf-det)')
 
     # OTHER
     # TCS
@@ -228,44 +177,44 @@ def main():
     # Tropical Cyclones Command
     tropical_cyclones_parser = subparsers.add_parser('tropical_cyclones', help='Get tropical cyclone forecasts')
     tropical_cyclones_parser.add_argument('-b', '--basin',  help='Optional: filter tropical cyclones on basin[ NA, EP, WP, NI, SI, AU, SP]')
+    tropical_cyclones_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm4-intra, ecmwf-det)')
     tropical_cyclones_parser.add_argument('args', nargs='*',
                                  help='[optional: initialization time (YYYYMMDDHH, YYYY-MM-DDTHH, or YYYY-MM-DDTHH:mm:ss)] output_file')
 
     # Population Weighted HDD Command
     hdd_parser = subparsers.add_parser('hdd', help='Get population weighted heating degree days (HDD) forecasts')
     hdd_parser.add_argument('initialization_time', help='Initialization time (YYYYMMDDHH, YYYY-MM-DDTHH, or YYYY-MM-DDTHH:mm:ss)')
-    hdd_parser.add_argument('-i', '--intracycle', action='store_true', help='Use the intracycle forecast')
     hdd_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
-    hdd_parser.add_argument('-m', '--external-model', help='External model (eg gfs, ifs, hrrr, aifs)')
+    hdd_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm4-intra, ecmwf-det)')
     hdd_parser.add_argument('-o', '--output', help='Output file (supports .csv and .json formats)')
 
     # Population Weighted CDD Command
     cdd_parser = subparsers.add_parser('cdd', help='Get population weighted cooling degree days (CDD) forecasts')
     cdd_parser.add_argument('initialization_time', help='Initialization time (YYYYMMDDHH, YYYY-MM-DDTHH, or YYYY-MM-DDTHH:mm:ss)')
-    cdd_parser.add_argument('-i', '--intracycle', action='store_true', help='Use the intracycle forecast')
     cdd_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
-    cdd_parser.add_argument('-m', '--external-model', help='External model (eg gfs, ifs, hrrr, aifs)')
+    cdd_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm4-intra, ecmwf-det)')
     cdd_parser.add_argument('-o', '--output', help='Output file (supports .csv and .json formats)')
 
     # Initialization Times Command
     initialization_times_parser = subparsers.add_parser('init_times', help='Get available initialization times for point forecasts')
-    initialization_times_parser.add_argument('-i', '--intracycle', action='store_true', help='Use the intracycle forecast')
     initialization_times_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
+    initialization_times_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm4-intra, ecmwf-det)')
 
-    # Historical Initialization Times Command
-    hist_initialization_times_parser = subparsers.add_parser('hist_init_times', help='Get available historical initialization times')
-    hist_initialization_times_parser.add_argument('-i', '--intracycle', action='store_true', help='Use the intracycle forecast')
-    hist_initialization_times_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
+    # Archived Initialization Times Command
+    archived_initialization_times_parser = subparsers.add_parser('archived_init_times', help='Get available archived initialization times')
+    archived_initialization_times_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
+    archived_initialization_times_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm4-intra, ecmwf-det)')
+    archived_initialization_times_parser.add_argument('-p', '--page-end', help='End of page window (ISO 8601). Lists times back 7 days.')
 
-    # Forecast Hours Command
-    forecast_hours_parser = subparsers.add_parser('forecast_hours', help='Get available forecast hours for WeatherMesh')
-    forecast_hours_parser.add_argument('-i', '--intracycle', action='store_true', help='Use the intracycle forecast')
-    forecast_hours_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
+    # Run Information Command
+    run_information_parser = subparsers.add_parser('run_information', help='Get run information for a model run')
+    run_information_parser.add_argument('initialization_time', help='Initialization time (ISO 8601)')
+    run_information_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
+    run_information_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm4-intra, ecmwf-det)')
 
-    # Output Creation Times Command
-    output_creation_times_parser = subparsers.add_parser('generation_times', help='Get the time at which each forecast hour output file was generated')
-    output_creation_times_parser.add_argument('-i', '--intracycle', action='store_true', help='Use the intracycle forecast')
-    output_creation_times_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
+    # Variables Command
+    variables_parser = subparsers.add_parser('variables', help='Get available variables for a model')
+    variables_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm4-intra, ecmwf-det)')
 
     args = parser.parse_args()
 
@@ -460,78 +409,88 @@ def main():
             max_forecast_hour=max_forecast_hour,
             initialization_time=initialization_time,
             output_file=args.output_file,
+            model=args.model,
+            print_response=(not args.output_file)
+        )
+
+    elif args.command == 'points_interpolated':
+        min_forecast_time = args.min_time if args.min_time else None
+        max_forecast_time = args.max_time if args.max_time else None
+        min_forecast_hour = args.min_hour if args.min_hour else None
+        max_forecast_hour = args.max_hour if args.max_hour else None
+        initialization_time = args.init_time if args.init_time else None
+
+        get_point_forecasts_interpolated(
+            coordinates=args.coordinates,
+            min_forecast_time=min_forecast_time,
+            max_forecast_time=max_forecast_time,
+            min_forecast_hour=min_forecast_hour,
+            max_forecast_hour=max_forecast_hour,
+            initialization_time=initialization_time,
+            ensemble_member=getattr(args, 'ens_member', None),
+            output_file=args.output_file,
+            model=args.model,
             print_response=(not args.output_file)
         )
 
     elif args.command == 'init_times':
-        get_initialization_times(print_response=True, ensemble_member=args.ens_member, intracycle=args.intracycle)
+        get_initialization_times(print_response=True, ensemble_member=args.ens_member, model=args.model)
 
-    elif args.command == 'hist_init_times':
-        get_historical_initialization_times(print_response=True, ensemble_member=args.ens_member, intracycle=args.intracycle)
+    elif args.command == 'archived_init_times':
+        get_archived_initialization_times(print_response=True, ensemble_member=args.ens_member, model=args.model, page_end=getattr(args, 'page_end', None))
 
-    elif args.command == 'forecast_hours':
-        get_forecast_hours(print_response=True, ensemble_member=args.ens_member, intracycle=args.intracycle)
+    elif args.command == 'run_information':
+        get_run_information(initialization_time=args.initialization_time, ensemble_member=getattr(args, 'ens_member', None), model=args.model, print_response=True)
 
-    elif args.command == 'generation_times':
-        get_generation_times(print_response=True, ensemble_member=args.ens_member, intracycle=args.intracycle)
+    elif args.command == 'variables':
+        get_variables(print_response=True, model=args.model)
 
     elif args.command == 'gridded':
         if len(args.args) in [0,1,2]:
-            print(f"To get the gridded forecast for a variable you need to provide the variable, time, and an output file.")
-            print(f"\nUsage: windborne gridded variable time output_file")
+            print(f"To get the gridded forecast for a variable you need to provide the variable, time (or initialization time and forecast hour), and an output file.")
+            print(f"\nUsage: windborne gridded variable time output_file or")
+            print(f"\n       windborne gridded variable initialization_time forecast_hour output_file")
+            print(f"\n       windborne gridded variable level time output_file")
+            print(f"\n       windborne gridded variable level initialization_time forecast_hour output_file")
         elif len(args.args) == 3:
-            get_gridded_forecast(variable=args.args[0], time=args.args[1], output_file=args.args[2], ensemble_member=args.ens_member, intracycle=args.intracycle)
-        else:
-            print("Too many arguments")
-
-    elif args.command == 'grid_full':
-        if len(args.args) in [0,1]:
-            print("To get the full gridded forecast you need to provide the time for which to get the forecast and an output file.")
-            print("\nUsage: windborne grid_full time output_file")
-        elif len(args.args) == 2:
-            get_full_gridded_forecast(time=args.args[0], output_file=args.args[1])
-        else:
-            print("Too many arguments")
-            print("\nUsage: windborne grid_full time output_file")
-
-    elif args.command == 'hist_gridded':
-        if len(args.args) in [0,1,2,3]:
-            print(f"To get the historical gridded forecast for a variable you need to provide the variable, initialization time, forecast hour, and an output file.")
-            print(f"\nUsage: windborne hist_gridded variable initialization_time forecast_hour output_file")
+            get_gridded_forecast(variable=args.args[0], time=args.args[1], output_file=args.args[2], ensemble_member=args.ens_member, model=args.model)
         elif len(args.args) == 4:
-            get_gridded_forecast(variable=args.args[0], initialization_time=args.args[1], forecast_hour=args.args[2], output_file=args.args[3], ensemble_member=args.ens_member, intracycle=args.intracycle)
+            # Support both historical form: variable initialization_time forecast_hour output
+            # and alternate "variable level time output" form by detecting numeric level
+            a0, a1, a2, a3 = args.args
+            is_level = False
+            try:
+                # Simple numeric check; levels are integers like 500, 850, 1000
+                int(a1)
+                is_level = True
+            except Exception:
+                is_level = False
+
+            # Basic heuristic to detect time-like strings for a2
+            def looks_like_time(s: str) -> bool:
+                return (
+                    (len(s) == 10 and s.isdigit()) or  # YYYYMMDDHH
+                    ('T' in s and '-' in s)            # ISO-like
+                )
+
+            if is_level and looks_like_time(a2):
+                # Map to level/variable with time
+                get_gridded_forecast(variable=f"{a1}/{a0}", time=a2, output_file=a3, ensemble_member=args.ens_member, model=args.model)
+            else:
+                get_gridded_forecast(variable=a0, initialization_time=a1, forecast_hour=a2, output_file=a3, ensemble_member=args.ens_member, model=args.model)
+        elif len(args.args) == 5:
+            # Support historical variable level syntax:
+            #   windborne gridded variable level initialization_time forecast_hour output_file
+            a0, a1, a2, a3, a4 = args.args
+            try:
+                int(a1)
+                # Treat a1 as level
+                get_gridded_forecast(variable=f"{a1}/{a0}", initialization_time=a2, forecast_hour=a3, output_file=a4, ensemble_member=args.ens_member, model=args.model)
+            except Exception:
+                # Fallback: treat like variable initialization_time forecast_hour output_file (ignore a1)
+                get_gridded_forecast(variable=a0, initialization_time=a2, forecast_hour=a3, output_file=a4, ensemble_member=args.ens_member, model=args.model)
         else:
             print("Too many arguments")
-            print(f"\nUsage: windborne hist_gridded variable initialization_time forecast_hour output_file")
-
-    # Handle all gridded forecast commands
-    elif args.command.startswith('grid_'):
-        cmd_name = args.command[5:]  # Remove 'grid_' prefix
-        if cmd_name in gridded_forecast_mapping:
-            if len(args.args) in [0,1]:
-                print(f"To get {gridded_forecast_mapping[cmd_name]['human_name']} you need to provide the time for which to get the forecast and an output file.")
-                print(f"\nUsage: windborne {args.command} time output_file")
-            elif len(args.args) == 2:
-                get_gridded_forecast(variable=args.variable, time=args.args[0], output_file=args.args[1], ensemble_member=args.ens_member, intracycle=args.intracycle)
-            else:
-                print("Too many arguments")
-                print(f"\nUsage: windborne {args.command} time output_file")
-
-    # Handle all historical forecast commands
-    elif args.command.startswith('hist_'):
-        cmd_name = args.command[5:]  # Remove 'hist_' prefix
-        if cmd_name in gridded_forecast_mapping:
-            if len(args.args) in [0,1,2]:
-                print(f"To get {gridded_forecast_mapping[cmd_name]['human_name']} you need to provide\n"
-                      "  - initialization time of the forecast\n"
-                      "  - How many hours after the initialization time the forecast is valid at\n"
-                      "  - An output file to save the data")
-                print(f"\nUsage: windborne {args.command} initialization_time forecast_hour output_file")
-            elif len(args.args) == 3:
-                get_gridded_forecast(variable=args.variable, initialization_time=args.args[0], forecast_hour=args.args[1], output_file=args.args[2], ensemble_member=args.ens_member, intracycle=args.intracycle)
-            else:
-                print("Too many arguments")
-                print(f"\nUsage: windborne {args.command} initialization_time forecast_hour output_file")
 
     elif args.command == 'tropical_cyclones':
         # Parse cyclones arguments
@@ -540,18 +499,18 @@ def main():
             basin_name = f"{args.basin} basin"
 
         if len(args.args) == 0:
-            get_tropical_cyclones(basin=args.basin, print_response=True)
+            get_tropical_cyclones(basin=args.basin, print_response=True, model=args.model)
             return
         elif len(args.args) == 1:
             if '.' in args.args[0]:
                 # Save tcs with the latest available initialization time in filename
-                get_tropical_cyclones(basin=args.basin, output_file=args.args[0])
+                get_tropical_cyclones(basin=args.basin, output_file=args.args[0], model=args.model)
             else:
                 # Display tcs for selected initialization time
-                get_tropical_cyclones(initialization_time=args.args[0], basin=args.basin, print_response=True)
+                get_tropical_cyclones(initialization_time=args.args[0], basin=args.basin, print_response=True, model=args.model)
         elif len(args.args) == 2:
             print(f"Saving tropical cyclones for initialization time {args.args[0]} and {basin_name}\n")
-            get_tropical_cyclones(initialization_time=args.args[0], basin=args.basin, output_file=args.args[1])
+            get_tropical_cyclones(initialization_time=args.args[0], basin=args.basin, output_file=args.args[1], model=args.model)
         else:
             print("Error: Too many arguments")
             print("Usage: windborne tropical_cyclones [initialization_time] output_file")
@@ -559,22 +518,20 @@ def main():
     elif args.command == 'hdd':
         # Handle population weighted HDD
         get_population_weighted_hdd(
-            initialization_time=args.initialization_time, 
-            intracycle=args.intracycle,
+            initialization_time=args.initialization_time,
             ens_member=args.ens_member,
-            external_model=args.external_model,
             output_file=args.output,
+            model=args.model,
             print_response=(not args.output)
         )
 
     elif args.command == 'cdd':
         # Handle population weighted CDD
         get_population_weighted_cdd(
-            initialization_time=args.initialization_time, 
-            intracycle=args.intracycle,
+            initialization_time=args.initialization_time,
             ens_member=args.ens_member,
-            external_model=args.external_model,
             output_file=args.output,
+            model=args.model,
             print_response=(not args.output)
         )
 

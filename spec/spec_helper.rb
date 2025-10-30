@@ -1,6 +1,7 @@
 require 'fileutils'
 require 'time'
 require_relative 'run_cli'
+require_relative 'mission_helpers'
 require_relative 'inspect_netcdf'
 
 
