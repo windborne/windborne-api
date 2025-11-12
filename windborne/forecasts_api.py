@@ -198,7 +198,7 @@ def get_point_forecasts(coordinates, min_forecast_time=None, max_forecast_time=N
     return response
 
 
-def get_gridded_forecast(variable, time=None, initialization_time=None, forecast_hour=None, output_file=None, silent=False, ensemble_member=None, model='wm'):
+def get_gridded_forecast(variable, time=None, initialization_time=None, forecast_hour=None, output_file=None, silent=False, ensemble_member=None, model='wm', level=None):
     """
     Get gridded forecast data from the API.
     Note that this is primarily meant to be used internally by the other functions in this module.
@@ -210,6 +210,7 @@ def get_gridded_forecast(variable, time=None, initialization_time=None, forecast
                     or compact format (YYYYMMDDHH). May be used in conjunction with forecast_hour instead of time.
         forecast_hour (int, optional): The forecast hour to get the forecast for. May be used in conjunction with initialization_time instead of time.
         variable (str): The variable you want the forecast for
+        level (int, optional): The level you want the forecast for
         output_file (str, optional): Path to save the response data
                                       Supported formats: .nc
     """
@@ -243,6 +244,9 @@ def get_gridded_forecast(variable, time=None, initialization_time=None, forecast
         request_params['level'] = int(level_str)
     else:
         request_params['variable'] = variable
+
+    if level is not None:
+        request_params['level'] = level
 
     response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/gridded", params=request_params, as_json=False)
 
