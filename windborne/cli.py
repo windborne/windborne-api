@@ -148,7 +148,7 @@ def main():
     points_parser.add_argument('-mh','--min-hour', type=int, help='Minimum forecast hour')
     points_parser.add_argument('-xh','--max-hour', type=int, help='Maximum forecast hour')
     points_parser.add_argument('-i', '--init-time', help='Initialization time')
-    points_parser.add_argument('--model', default='wm', help='Forecast model (e.g., wm, wm4)')
+    points_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4)')
     points_parser.add_argument('output_file', nargs='?', help='Output file')
 
     # Interpolated Points Forecast Command
@@ -160,7 +160,7 @@ def main():
     points_interpolated_parser.add_argument('-xh','--max-hour', type=int, help='Maximum forecast hour')
     points_interpolated_parser.add_argument('-i', '--init-time', help='Initialization time')
     points_interpolated_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
-    points_interpolated_parser.add_argument('--model', default='wm', help='Forecast model (e.g., wm, wm4)')
+    points_interpolated_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4)')
     points_interpolated_parser.add_argument('output_file', nargs='?', help='Output file (.csv or .json)')
 
     # GRIDDED FORECASTS
