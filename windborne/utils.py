@@ -74,7 +74,7 @@ def parse_time(time, init_time_flag=None, require_past=False):
                 print(f"Invalid date format: {time}\n")
                 print("Please use one of these formats:")
                 print("  - Compact: 'YYYYMMDDHH' (e.g., 2024073112)")
-                print("  - ISO: 'YYYY-MM-DDTHH' or 'YYYY-MM-DDTHH:00:00'")
+                print("  - ISO: 'YYYY-MM-DDTHH' or 'YYYY-MM-DDTHH:MM:00'")
                 print("  - Initialization time hour must be 00, 06, 12, or 18")
                 exit(2)
 
@@ -82,7 +82,7 @@ def parse_time(time, init_time_flag=None, require_past=False):
             print(f"Invalid date: {time} -- cannot be in the future")
             exit(2)
 
-        return parsed_date.strftime('%Y-%m-%dT%H:00:00')
+        return parsed_date.strftime('%Y-%m-%dT%H:%M:00')
 
     except Exception:
         print(f"Invalid date format: {time}")
