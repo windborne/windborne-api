@@ -2,7 +2,7 @@ describe 'gridded_forecasts' do
 
   let(:initialization_time) {
     init = (Time.now - 24 * 60 * 60)
-    Time.new(init.year, init.month, init.day, init.hour - (init.hour % 6), 0, 0, init.utc_offset)
+    Time.new(init.year, init.month, init.day, init.hour - (init.hour % 6), 0, 0, 0)
   }
 
   let(:forecast_hour) { 24 }
