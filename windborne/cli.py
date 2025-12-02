@@ -1,5 +1,6 @@
 import argparse
 import json
+import sys
 
 from . import (
     get_super_observations,
@@ -33,6 +34,10 @@ from . import (
 from pprint import pprint
 
 def main():
+    # Normalize command to use underscores before parsing (supports both dashes and underscores)
+    if len(sys.argv) > 1 and not sys.argv[1].startswith('-'):
+        sys.argv[1] = sys.argv[1].replace('-', '_')
+
     parser = argparse.ArgumentParser(description='WindBorne API Command Line Interface')
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
 
@@ -40,7 +45,7 @@ def main():
     # DATA API FUNCTIONS
     ####################################################################################################################
     # Super Observations Command
-    super_obs_parser = subparsers.add_parser('super-observations', help='Poll super observations within a time range')
+    super_obs_parser = subparsers.add_parser('super_observations', help='Poll super observations within a time range')
     super_obs_parser.add_argument('start_time', help='Starting time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
     super_obs_parser.add_argument('end_time', help='End time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)', nargs='?', default=None)
     super_obs_parser.add_argument('-b', '--bucket-hours', type=float, default=6.0, help='Hours per bucket')
@@ -64,7 +69,7 @@ def main():
 
 
     # Get Observations Page Command
-    obs_page_parser = subparsers.add_parser('observations-page', help='Get observations page with filters')
+    obs_page_parser = subparsers.add_parser('observations_page', help='Get observations page with filters')
     obs_page_parser.add_argument('since', help='Get observations since this time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
     obs_page_parser.add_argument('-mt', '--min-time', help='Minimum time filter (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
     obs_page_parser.add_argument('-xt', '--max-time', help='Maximum time filter (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
@@ -79,7 +84,7 @@ def main():
     obs_page_parser.add_argument('output', nargs='?', help='Output file')
 
     # Get Super Observations Command
-    super_obs_page_parser = subparsers.add_parser('super-observations-page', help='Get super observations page with filters')
+    super_obs_page_parser = subparsers.add_parser('super_observations_page', help='Get super observations page with filters')
     super_obs_page_parser.add_argument('since', help='Get super observations page since this time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
     super_obs_page_parser.add_argument('-mt', '--min-time', help='Minimum time filter (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
     super_obs_page_parser.add_argument('-xt', '--max-time', help='Maximum time filter (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
@@ -89,7 +94,7 @@ def main():
     super_obs_page_parser.add_argument('output', nargs='?', help='Output file')
 
     # Poll Super Observations Command
-    poll_super_obs_parser = subparsers.add_parser('poll-super-observations', help='Continuously polls for super observations and saves to files in specified format.')
+    poll_super_obs_parser = subparsers.add_parser('poll_super_observations', help='Continuously polls for super observations and saves to files in specified format.')
     poll_super_obs_parser.add_argument('start_time', help='Starting time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
     poll_super_obs_parser.add_argument('-b', '--bucket-hours', type=float, default=6.0, help='Hours per bucket')
     poll_super_obs_parser.add_argument('-d', '--output-dir', help='Directory path where the separate files should be saved. If not provided, files will be saved in current directory.')
@@ -97,7 +102,7 @@ def main():
     poll_super_obs_parser.add_argument('output', help='Save output to multiple files (csv, json, netcdf or little_r)')
 
     # Poll Observations Command
-    poll_obs_parser = subparsers.add_parser('poll-observations', help='Continuously polls for observations and saves to files in specified format.')
+    poll_obs_parser = subparsers.add_parser('poll_observations', help='Continuously polls for observations and saves to files in specified format.')
     poll_obs_parser.add_argument('start_time', help='Starting time (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
     poll_obs_parser.add_argument('-m', '--mission-id', help='Filter observations by mission ID')
     poll_obs_parser.add_argument('-ml', '--min-latitude', type=float, help='Minimum latitude filter')
@@ -110,26 +115,26 @@ def main():
     poll_obs_parser.add_argument('output', help='Save output to multiple files (csv, json, netcdf or little_r)')
 
     # Get Flying Missions Command
-    flying_parser = subparsers.add_parser('flying-missions', help='Get currently flying missions')
+    flying_parser = subparsers.add_parser('flying_missions', help='Get currently flying missions')
     flying_parser.add_argument('output', nargs='?', help='Output file')
 
     # Get Mission Launch Site Command
-    launch_site_parser = subparsers.add_parser('launch-site', help='Get mission launch site')
+    launch_site_parser = subparsers.add_parser('launch_site', help='Get mission launch site')
     launch_site_parser.add_argument('mission_id', help='Mission ID')
     launch_site_parser.add_argument('output', nargs='?', help='Output file')
 
     # Get Current Location Command
-    current_location_parser = subparsers.add_parser('current-location', help='Get current location')
+    current_location_parser = subparsers.add_parser('current_location', help='Get current location')
     current_location_parser.add_argument('mission_id', help='Mission ID')
     current_location_parser.add_argument('output', nargs='?', help='Output file')
 
     # Get Predicted Path Command
-    prediction_parser = subparsers.add_parser('predict-path', help='Get predicted flight path')
+    prediction_parser = subparsers.add_parser('predict_path', help='Get predicted flight path')
     prediction_parser.add_argument('mission_id', help='Mission ID')
     prediction_parser.add_argument('output', nargs='?', help='Output file')
 
     # Get Flight Path Command
-    flight_path_parser = subparsers.add_parser('flight-path', help='Get traveled flight path')
+    flight_path_parser = subparsers.add_parser('flight_path', help='Get traveled flight path')
     flight_path_parser.add_argument('mission_id', help='Mission ID')
     flight_path_parser.add_argument('output', nargs='?', help='Output file')
 
@@ -221,7 +226,7 @@ def main():
     ####################################################################################################################
     # DATA API FUNCTIONS CALLED
     ####################################################################################################################
-    if args.command == 'super-observations':
+    if args.command == 'super_observations':
         # Error handling is performed within super_observations
         # and we display the appropriate error messages
         # No need to implement them here
@@ -247,7 +252,7 @@ def main():
             output_format=output_format
         )
 
-    elif args.command == 'poll-super-observations':
+    elif args.command == 'poll_super_observations':
         output_format = args.output
         output_dir = args.output_dir
 
@@ -259,7 +264,7 @@ def main():
             output_format=output_format
         )
 
-    elif args.command == 'poll-observations':
+    elif args.command == 'poll_observations':
         output_format = args.output
         output_dir = args.output_dir
 
@@ -307,7 +312,7 @@ def main():
             output_format=output_format
         )
 
-    elif args.command == 'observations-page':
+    elif args.command == 'observations_page':
         if not args.output:
             print(json.dumps(get_observations_page(
                 since=args.since,
@@ -338,7 +343,7 @@ def main():
                 output_file=args.output
             )
 
-    elif args.command == 'super-observations-page':
+    elif args.command == 'super_observations_page':
         if not args.output:
             print(json.dumps(get_super_observations_page(
                 since=args.since,
@@ -361,29 +366,29 @@ def main():
                 output_file=args.output
             )
 
-    elif args.command == 'flying-missions':
+    elif args.command == 'flying_missions':
         get_flying_missions(output_file=args.output, print_results=(not args.output))
 
-    elif args.command == 'launch-site':
+    elif args.command == 'launch_site':
         get_mission_launch_site(
             mission_id=args.mission_id,
             output_file=args.output,
             print_result=(not args.output)
         )
-    elif args.command == 'current-location':
+    elif args.command == 'current_location':
         get_current_location(
             mission_id=args.mission_id,
             output_file=args.output,
             print_result=(not args.output)
         )
-    elif args.command == 'predict-path':
+    elif args.command == 'predict_path':
         get_predicted_path(
             mission_id=args.mission_id,
             output_file=args.output,
             print_result=(not args.output)
         )
 
-    elif args.command == 'flight-path':
+    elif args.command == 'flight_path':
         get_flight_path(
             mission_id=args.mission_id,
             output_file=args.output,
