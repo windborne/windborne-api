@@ -26,8 +26,8 @@ from . import (
     get_variables,
     get_gridded_forecast,
     get_tropical_cyclones,
-    get_population_weighted_hdd,
-    get_population_weighted_cdd
+    get_population_weighted_hdds,
+    get_population_weighted_cdds
 
 )
 
@@ -187,14 +187,14 @@ def main():
                                  help='[optional: initialization time (YYYYMMDDHH, YYYY-MM-DDTHH, or YYYY-MM-DDTHH:mm:ss)] output_file')
 
     # Population Weighted HDD Command
-    hdd_parser = subparsers.add_parser('hdd', help='Get population weighted heating degree days (HDD) forecasts')
+    hdd_parser = subparsers.add_parser('hdds', help='Get forecasted population-weighted heating degree days (HDDs)')
     hdd_parser.add_argument('initialization_time', help='Initialization time (YYYYMMDDHH, YYYY-MM-DDTHH, or YYYY-MM-DDTHH:mm:ss)')
     hdd_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
     hdd_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm4-intra, ecmwf-det)')
     hdd_parser.add_argument('-o', '--output', help='Output file (supports .csv and .json formats)')
 
     # Population Weighted CDD Command
-    cdd_parser = subparsers.add_parser('cdd', help='Get population weighted cooling degree days (CDD) forecasts')
+    cdd_parser = subparsers.add_parser('cdds', help='Get forecasted population-weighted cooling degree days (CDDs)')
     cdd_parser.add_argument('initialization_time', help='Initialization time (YYYYMMDDHH, YYYY-MM-DDTHH, or YYYY-MM-DDTHH:mm:ss)')
     cdd_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
     cdd_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm4-intra, ecmwf-det)')
@@ -520,9 +520,9 @@ def main():
             print("Error: Too many arguments")
             print("Usage: windborne tropical_cyclones [initialization_time] output_file")
 
-    elif args.command == 'hdd':
+    elif args.command == 'hdds':
         # Handle population weighted HDD
-        get_population_weighted_hdd(
+        get_population_weighted_hdds(
             initialization_time=args.initialization_time,
             ens_member=args.ens_member,
             output_file=args.output,
@@ -530,9 +530,9 @@ def main():
             print_response=(not args.output)
         )
 
-    elif args.command == 'cdd':
+    elif args.command == 'cdds':
         # Handle population weighted CDD
-        get_population_weighted_cdd(
+        get_population_weighted_cdds(
             initialization_time=args.initialization_time,
             ens_member=args.ens_member,
             output_file=args.output,

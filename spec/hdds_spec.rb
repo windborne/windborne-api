@@ -7,7 +7,7 @@ describe 'hdds' do
 
   it 'prints HDDs to stdout' do
     init_time = latest_init_time_for('wm4')
-    output = run('hdd', init_time, '--model', 'wm4')
+    output = run('hdds', init_time, '--model', 'wm4')
     # Expect at least one region header and a date line with a value
     expect(output.split("\n").size).to be > 10
     # region header like "Alabama:" (non-date, non-indented)
@@ -23,7 +23,7 @@ describe 'hdds' do
     path = 'spec_outputs/hdd.csv'
     File.delete(path) if File.exist?(path)
 
-    run('hdd', init_time, '--model', 'wm4', '-o', path)
+    run('hdds', init_time, '--model', 'wm4', '-o', path)
 
     expect(File.exist?(path)).to be true
     csv = CSV.read(path, headers: true)

@@ -35,8 +35,8 @@ from .forecasts_api import (
 
     get_tropical_cyclones,
 
-    get_population_weighted_hdd,
-    get_population_weighted_cdd
+    get_population_weighted_hdds,
+    get_population_weighted_cdds
 )
 
 # Define what should be available when users import *
@@ -68,8 +68,8 @@ __all__ = [
     
     "get_tropical_cyclones",
 
-    "get_population_weighted_hdd",
-    "get_population_weighted_cdd",
+    "get_population_weighted_hdds",
+    "get_population_weighted_cdds",
 
     # API helpers
     "API_BASE_URL",

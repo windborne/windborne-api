@@ -7,7 +7,7 @@ describe 'cdds' do
 
   it 'prints CDDs to stdout' do
     init_time = latest_init_time_for('wm4')
-    output = run('cdd', init_time, '--model', 'wm4')
+    output = run('cdds', init_time, '--model', 'wm4')
     # Expect at least one region header and a date line with a value
     expect(output.split("\n").size).to be > 10
     expect(output).to match(/\n[A-Za-z].+:\n/)
@@ -21,7 +21,7 @@ describe 'cdds' do
     path = 'spec_outputs/cdd.csv'
     File.delete(path) if File.exist?(path)
 
-    run('cdd', init_time, '--model', 'wm4', '-o', path)
+    run('cdds', init_time, '--model', 'wm4', '-o', path)
 
     expect(File.exist?(path)).to be true
     csv = CSV.read(path, headers: true)

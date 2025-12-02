@@ -440,9 +440,9 @@ def download_and_save_output(output_file, response, silent=False):
             print(f"Error processing the file: {e}")
         return False
 
-def get_population_weighted_hdd(initialization_time, ens_member=None, output_file=None, print_response=False, model='wm'):
+def get_population_weighted_hdds(initialization_time, ens_member=None, output_file=None, print_response=False, model='wm'):
     """
-    Get population weighted HDD data from the API.
+    Get forecasted population-weighted HDDs from the API.
     """
     params = {
         "initialization_time": initialization_time,
@@ -516,9 +516,9 @@ def get_population_weighted_hdd(initialization_time, ens_member=None, output_fil
     
     return response
 
-def get_population_weighted_cdd(initialization_time, ens_member=None, output_file=None, print_response=False, model='wm'):
+def get_population_weighted_cdds(initialization_time, ens_member=None, output_file=None, print_response=False, model='wm'):
     """
-    Get population weighted CDD data from the API.
+    Get forecasted population-weighted CDDs from the API.
     """
     params = {
         "initialization_time": initialization_time,
