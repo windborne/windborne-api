@@ -3,8 +3,8 @@
 # Import API request helpers
 from .api_request import API_BASE_URL, make_api_request
 
-# Import Data API functions
-from .data_api import (
+# Import Observations API functions
+from .observations_api import (
     get_observations_page,
     get_observations,
 

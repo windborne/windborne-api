@@ -15,10 +15,10 @@ The `windborne` package is a Python library and CLI tool for accessing WindBorne
 
 #### Core Modules
 
-- **`__init__.py`** - Public API exports from data_api and forecasts_api
+- **`__init__.py`** - Public API exports from observations_api and forecasts_api
 - **`api_request.py`** - Authentication (JWT), request handling, and retry logic
 - **`cli.py`** - Command-line interface implementation using argparse
-- **`data_api.py`** - Balloon observation data access (observations, missions, flight paths)
+- **`observations_api.py`** - Balloon observation data access (observations, missions, flight paths)
 - **`forecasts_api.py`** - Weather forecast data access (point/gridded forecasts, tropical cyclones)
 - **`utils.py`** - Date parsing, file saving, and output formatting utilities
 - **`observation_formatting.py`** - Data format conversions (netCDF, little_r)
