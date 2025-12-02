@@ -9,7 +9,7 @@ from .observation_formatting import format_little_r, convert_to_netcdf
 from .utils import to_unix_timestamp, save_arbitrary_response, print_table
 from .track_formatting import save_track
 
-DATA_API_BASE_URL = f"{API_BASE_URL}/data/v1"
+DATA_API_BASE_URL = f"{API_BASE_URL}/observations/v1"
 
 # ------------
 # CORE RESOURCES
