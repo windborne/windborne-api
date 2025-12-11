@@ -593,6 +593,28 @@ def get_population_weighted_cdds(initialization_time, ens_member=None, output_fi
     return response
 
 
+def get_dd_metadata(initialization_time, ens_member=None, print_response=False, model='wm'):
+    """
+    Get degree day metadata, specifically created_at timestamp.
+    """
+    
+    params = {
+        "initialization_time": initialization_time,
+        "ens_member": ens_member,
+    }
+    response = make_api_request(f"{API_BASE_URL}/insights/v1/{model}/dd_metadata", params=params, as_json=True)
+
+    if print_response and response is not None:
+        error = response.get('error')
+        if error:
+            print(error)
+        created_at = response.get('created_at')
+        if created_at:
+            print(f"Created at {created_at}")
+
+    return response
+
+
 def get_point_forecasts_interpolated(coordinates, min_forecast_time=None, max_forecast_time=None, min_forecast_hour=None, max_forecast_hour=None, initialization_time=None, ensemble_member=None, output_file=None, print_response=False, model='wm'):
     """
     Get interpolated point forecasts from the API.
