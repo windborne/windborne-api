@@ -595,7 +595,7 @@ def get_population_weighted_cdds(initialization_time, ens_member=None, output_fi
 
 def get_dd_metadata(initialization_time, ens_member=None, print_response=False, model='wm'):
     """
-    Get degree day metadata, specifically created_at timestamp.
+    Get degree day metadata, specifically calculated_at timestamp.
     """
     
     params = {
@@ -608,9 +608,9 @@ def get_dd_metadata(initialization_time, ens_member=None, print_response=False, 
         error = response.get('error')
         if error:
             print(error)
-        created_at = response.get('created_at')
-        if created_at:
-            print(f"Created at {created_at}")
+        calculated_at = response.get('calculated_at')
+        if calculated_at:
+            print(f"Calculated at {calculated_at}")
 
     return response
 
