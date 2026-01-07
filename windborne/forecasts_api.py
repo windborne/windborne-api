@@ -198,7 +198,7 @@ def get_point_forecasts(coordinates, min_forecast_time=None, max_forecast_time=N
     return response
 
 
-def get_gridded_forecast(variable, time=None, initialization_time=None, forecast_hour=None, output_file=None, silent=False, ensemble_member=None, model='wm', level=None):
+def get_gridded_forecast(variable, time=None, initialization_time=None, forecast_hour=None, output_file=None, silent=False, ens_member=None, model='wm', level=None):
     """
     Get gridded forecast data from the API.
     Note that this is primarily meant to be used internally by the other functions in this module.
@@ -233,8 +233,8 @@ def get_gridded_forecast(variable, time=None, initialization_time=None, forecast
     elif time:
         params["time"] = parse_time(time)
 
-    if ensemble_member:
-        params["ens_member"] = ensemble_member
+    if ens_member:
+        params["ens_member"] = ens_member
 
     # Map variable strings like "500/temperature" to query params variable=temperature, level=500
     request_params = dict(params)
@@ -277,7 +277,7 @@ def get_full_gridded_forecast(time=None, initialization_time=None, forecast_hour
         model (str, optional): The model to get the forecast for
     """
 
-    return get_gridded_forecast(variable="all", time=time, initialization_time=initialization_time, forecast_hour=forecast_hour, output_file=output_file, silent=silent, ensemble_member=ensemble_member, model=model)
+    return get_gridded_forecast(variable="all", time=time, initialization_time=initialization_time, forecast_hour=forecast_hour, output_file=output_file, silent=silent, ens_member=ensemble_member, model=model)
 
 
 def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None, print_response=False, model='wm'):

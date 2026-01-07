@@ -464,7 +464,7 @@ def main():
             print(f"\n       windborne gridded variable level time output_file")
             print(f"\n       windborne gridded variable level initialization_time forecast_hour output_file")
         elif len(args.args) == 3:
-            get_gridded_forecast(variable=args.args[0], time=args.args[1], output_file=args.args[2], ensemble_member=args.ens_member, model=args.model)
+            get_gridded_forecast(variable=args.args[0], time=args.args[1], output_file=args.args[2], ens_member=args.ens_member, model=args.model)
         elif len(args.args) == 4:
             # Support both historical form: variable initialization_time forecast_hour output
             # and alternate "variable level time output" form by detecting numeric level
@@ -486,9 +486,9 @@ def main():
 
             if is_level and looks_like_time(a2):
                 # Map to level/variable with time
-                get_gridded_forecast(variable=f"{a1}/{a0}", time=a2, output_file=a3, ensemble_member=args.ens_member, model=args.model)
+                get_gridded_forecast(variable=f"{a1}/{a0}", time=a2, output_file=a3, ens_member=args.ens_member, model=args.model)
             else:
-                get_gridded_forecast(variable=a0, initialization_time=a1, forecast_hour=a2, output_file=a3, ensemble_member=args.ens_member, model=args.model)
+                get_gridded_forecast(variable=a0, initialization_time=a1, forecast_hour=a2, output_file=a3, ens_member=args.ens_member, model=args.model)
         elif len(args.args) == 5:
             # Support historical variable level syntax:
             #   windborne gridded variable level initialization_time forecast_hour output_file
@@ -496,10 +496,10 @@ def main():
             try:
                 int(a1)
                 # Treat a1 as level
-                get_gridded_forecast(variable=f"{a1}/{a0}", initialization_time=a2, forecast_hour=a3, output_file=a4, ensemble_member=args.ens_member, model=args.model)
+                get_gridded_forecast(variable=f"{a1}/{a0}", initialization_time=a2, forecast_hour=a3, output_file=a4, ens_member=args.ens_member, model=args.model)
             except Exception:
                 # Fallback: treat like variable initialization_time forecast_hour output_file (ignore a1)
-                get_gridded_forecast(variable=a0, initialization_time=a2, forecast_hour=a3, output_file=a4, ensemble_member=args.ens_member, model=args.model)
+                get_gridded_forecast(variable=a0, initialization_time=a2, forecast_hour=a3, output_file=a4, ens_member=args.ens_member, model=args.model)
         else:
             print("Too many arguments")
 
