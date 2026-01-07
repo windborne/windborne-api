@@ -14,13 +14,13 @@ TCS_SUPPORTED_FORMATS = ('.csv', '.json', '.geojson', '.gpx', '.kml', '.little_r
 
 
 # Run information
-def get_run_information(initialization_time=None, ensemble_member=None, print_response=False, model='wm'):
+def get_run_information(initialization_time=None, ens_member=None, print_response=False, model='wm'):
     """
     Get run information for a given model initialization.
 
     Args:
         initialization_time (str, optional): Initialization time (ISO 8601). If omitted, latest is used.
-        ensemble_member (str|int, optional): Ensemble member (e.g., "mean" or member number as string/int)
+        ens_member (str|int, optional): Ensemble member (e.g., "mean" or member number as string/int)
         print_response (bool, optional): Whether to print a formatted summary
         model (str, optional): Forecast model (e.g., wm, wm4, wm4-intra, ecmwf-det)
 
@@ -31,8 +31,8 @@ def get_run_information(initialization_time=None, ensemble_member=None, print_re
     params = {}
     if initialization_time:
         params['initialization_time'] = parse_time(initialization_time, init_time_flag=True)
-    if ensemble_member:
-        params['ens_member'] = ensemble_member
+    if ens_member:
+        params['ens_member'] = ens_member
 
     response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/run_information", params=params)
 
@@ -198,7 +198,7 @@ def get_point_forecasts(coordinates, min_forecast_time=None, max_forecast_time=N
     return response
 
 
-def get_gridded_forecast(variable, time=None, initialization_time=None, forecast_hour=None, output_file=None, silent=False, ensemble_member=None, model='wm', level=None):
+def get_gridded_forecast(variable, time=None, initialization_time=None, forecast_hour=None, output_file=None, silent=False, ens_member=None, model='wm', level=None):
     """
     Get gridded forecast data from the API.
     Note that this is primarily meant to be used internally by the other functions in this module.
@@ -233,8 +233,8 @@ def get_gridded_forecast(variable, time=None, initialization_time=None, forecast
     elif time:
         params["time"] = parse_time(time)
 
-    if ensemble_member:
-        params["ens_member"] = ensemble_member
+    if ens_member:
+        params["ens_member"] = ens_member
 
     # Map variable strings like "500/temperature" to query params variable=temperature, level=500
     request_params = dict(params)
@@ -260,7 +260,7 @@ def get_gridded_forecast(variable, time=None, initialization_time=None, forecast
 
     return response
 
-def get_full_gridded_forecast(time=None, initialization_time=None, forecast_hour=None, output_file=None, silent=False, ensemble_member=None, model='wm'):
+def get_full_gridded_forecast(time=None, initialization_time=None, forecast_hour=None, output_file=None, silent=False, ens_member=None, model='wm'):
     """
     Get gridded forecast data for all variables from the API.
 
@@ -273,11 +273,11 @@ def get_full_gridded_forecast(time=None, initialization_time=None, forecast_hour
         output_file (str, optional): Path to save the response data
                                       Supported formats: .nc
         silent (bool, optional): Whether to print output
-        ensemble_member (int, optional): The ensemble member to get the forecast for
+        ens_member (int, optional): The ensemble member to get the forecast for
         model (str, optional): The model to get the forecast for
     """
 
-    return get_gridded_forecast(variable="all", time=time, initialization_time=initialization_time, forecast_hour=forecast_hour, output_file=output_file, silent=silent, ensemble_member=ensemble_member, model=model)
+    return get_gridded_forecast(variable="all", time=time, initialization_time=initialization_time, forecast_hour=forecast_hour, output_file=output_file, silent=silent, ens_member=ens_member, model=model)
 
 
 def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None, print_response=False, model='wm'):
@@ -353,7 +353,7 @@ def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None
     return response
 
 
-def get_initialization_times(print_response=False, ensemble_member=None, model='wm'):
+def get_initialization_times(print_response=False, ens_member=None, model='wm'):
     """
     Get available WeatherMesh initialization times (also known as cycle times).
 
@@ -361,7 +361,7 @@ def get_initialization_times(print_response=False, ensemble_member=None, model='
     """
 
     params = {
-        'ens_member': ensemble_member,
+        'ens_member': ens_member,
     }
     response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/initialization_times", params=params)
 
@@ -378,13 +378,13 @@ def get_initialization_times(print_response=False, ensemble_member=None, model='
     return response
 
 
-def get_archived_initialization_times(print_response=False, ensemble_member=None, model='wm', page_end=None):
+def get_archived_initialization_times(print_response=False, ens_member=None, model='wm', page_end=None):
     """
     Get archived initialization times for forecasts from our archive.
     These may be higher latency to fetch and cannot be used for custom point forecasting.
     """
     params = {
-        'ens_member': ensemble_member,
+        'ens_member': ens_member,
     }
     if page_end:
         params['page_end'] = parse_time(page_end)
@@ -615,7 +615,7 @@ def get_dd_metadata(initialization_time, ens_member=None, print_response=False, 
     return response
 
 
-def get_point_forecasts_interpolated(coordinates, min_forecast_time=None, max_forecast_time=None, min_forecast_hour=None, max_forecast_hour=None, initialization_time=None, ensemble_member=None, output_file=None, print_response=False, model='wm'):
+def get_point_forecasts_interpolated(coordinates, min_forecast_time=None, max_forecast_time=None, min_forecast_hour=None, max_forecast_hour=None, initialization_time=None, ens_member=None, output_file=None, print_response=False, model='wm'):
     """
     Get interpolated point forecasts from the API.
 
@@ -626,7 +626,7 @@ def get_point_forecasts_interpolated(coordinates, min_forecast_time=None, max_fo
         min_forecast_hour (int, optional): Minimum forecast hour
         max_forecast_hour (int, optional): Maximum forecast hour
         initialization_time (str, optional): Initialization time (ISO 8601). If omitted, latest is used
-        ensemble_member (str | int, optional): Ensemble member (e.g., "mean" or 0-23)
+        ens_member (str | int, optional): Ensemble member (e.g., "mean" or 0-23)
         output_file (str, optional): Save response to .json or .csv (csv_data_key='forecasts')
         print_response (bool, optional): Print response summary to stdout
         model (str, optional): Forecast model (e.g., wm, wm4, wm4-intra, ecmwf-det)
@@ -675,8 +675,8 @@ def get_point_forecasts_interpolated(coordinates, min_forecast_time=None, max_fo
         params["max_forecast_hour"] = int(max_forecast_hour)
     if initialization_time:
         params["initialization_time"] = parse_time(initialization_time, init_time_flag=True)
-    if ensemble_member is not None:
-        params["ens_member"] = ensemble_member
+    if ens_member is not None:
+        params["ens_member"] = ens_member
 
     if print_response:
         print("Generating interpolated point forecast...")
