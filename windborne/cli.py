@@ -438,20 +438,20 @@ def main():
             min_forecast_hour=min_forecast_hour,
             max_forecast_hour=max_forecast_hour,
             initialization_time=initialization_time,
-            ensemble_member=getattr(args, 'ens_member', None),
+            ens_member=getattr(args, 'ens_member', None),
             output_file=args.output_file,
             model=args.model,
             print_response=(not args.output_file)
         )
 
     elif args.command == 'init_times':
-        get_initialization_times(print_response=True, ensemble_member=args.ens_member, model=args.model)
+        get_initialization_times(print_response=True, ens_member=args.ens_member, model=args.model)
 
     elif args.command == 'archived_init_times':
-        get_archived_initialization_times(print_response=True, ensemble_member=args.ens_member, model=args.model, page_end=getattr(args, 'page_end', None))
+        get_archived_initialization_times(print_response=True, ens_member=args.ens_member, model=args.model, page_end=getattr(args, 'page_end', None))
 
     elif args.command == 'run_information':
-        get_run_information(initialization_time=args.initialization_time, ensemble_member=getattr(args, 'ens_member', None), model=args.model, print_response=True)
+        get_run_information(initialization_time=args.initialization_time, ens_member=getattr(args, 'ens_member', None), model=args.model, print_response=True)
 
     elif args.command == 'variables':
         get_variables(print_response=True, model=args.model)
