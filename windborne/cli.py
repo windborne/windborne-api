@@ -17,6 +17,7 @@ from . import (
     get_predicted_path,
     get_current_location,
     get_flight_path,
+    get_constellation_status,
 
     get_point_forecasts,
     get_point_forecasts_interpolated,
@@ -137,6 +138,10 @@ def main():
     flight_path_parser = subparsers.add_parser('flight_path', help='Get traveled flight path')
     flight_path_parser.add_argument('mission_id', help='Mission ID')
     flight_path_parser.add_argument('output', nargs='?', help='Output file')
+
+    # Get Constellation Status Command
+    constellation_parser = subparsers.add_parser('constellation_status', help='Get current constellation status with locations')
+    constellation_parser.add_argument('output', nargs='?', help='Output file (.csv or .json)')
 
     ####################################################################################################################
     # FORECASTS API FUNCTIONS
@@ -399,6 +404,11 @@ def main():
             mission_id=args.mission_id,
             output_file=args.output,
             print_result=(not args.output)
+        )
+    elif args.command == 'constellation_status':
+        get_constellation_status(
+            output_file=args.output,
+            print_results=(not args.output)
         )
 
 

@@ -18,7 +18,8 @@ from .observations_api import (
     get_mission_launch_site,
     get_predicted_path,
     get_current_location,
-    get_flight_path
+    get_flight_path,
+    get_constellation_status
 )
 
 # Import Forecasts API functions
@@ -56,6 +57,7 @@ __all__ = [
     "get_predicted_path",
     "get_current_location",
     "get_flight_path",
+    "get_constellation_status",
 
     "get_point_forecasts",
     "get_point_forecasts_interpolated",

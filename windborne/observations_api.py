@@ -797,3 +797,90 @@ def get_flight_path(mission_id=None, output_file=None, print_result=False):
         print_table(response['flight_data'], keys=['transmit_time', 'latitude', 'longitude', 'altitude'], headers=['Time', 'Latitude', 'Longitude', 'Altitude'])
 
     return response.get('flight_data')
+
+def get_constellation_status(output_file=None, print_results=False):
+    """
+    Retrieves the current constellation status with location information for all flying missions.
+    Automatically fetches all pages to return the complete list of missions.
+
+    Args:
+        output_file (str): Optional path to save the response data.
+                           If provided, saves the data in CSV or JSON format.
+        print_results (bool): Whether to print the results in the CLI.
+
+    Returns:
+        list: List of all flying missions with their current position and status.
+              Each mission contains: id, name, number, launch_time, landing_time,
+              latitude, longitude, altitude, ascent_rate.
+    """
+    page_size = 64
+
+    # Initial query to get first page
+    query_params = {
+        'page': 0,
+        'page_size': page_size
+    }
+
+    url = f"{DATA_API_BASE_URL}/constellation_status.json"
+    constellation_response = make_api_request(url, params=query_params)
+
+    if not constellation_response:
+        if print_results:
+            print("Failed to retrieve constellation status.")
+        return []
+
+    missions = constellation_response.get('missions', [])
+    num_fetched_missions = len(missions)
+
+    # Fetch remaining pages if there are more missions
+    while num_fetched_missions == page_size:
+        query_params['page'] += 1
+
+        page_response = make_api_request(url, params=query_params)
+        if not page_response:
+            break
+
+        new_missions = page_response.get('missions', [])
+        num_fetched_missions = len(new_missions)
+
+        missions += new_missions
+
+    # Display constellation status only if we are in cli and we don't save info in file
+    if print_results:
+        if missions:
+            print(f"Constellation Status ({len(missions)} missions)\n")
+
+            # Define headers and data - show key fields for terminal readability
+            headers = ["Index", "Name", "Latitude", "Longitude", "Altitude", "Ascent Rate"]
+            rows = []
+            for i, mission in enumerate(missions, start=1):
+                lat = mission.get('latitude')
+                lon = mission.get('longitude')
+                alt = mission.get('altitude')
+                asc = mission.get('ascent_rate')
+
+                rows.append([
+                    str(i),
+                    str(mission.get('name', 'N/A')),
+                    f"{lat:.4f}" if lat is not None else 'N/A',
+                    f"{lon:.4f}" if lon is not None else 'N/A',
+                    f"{alt:.1f}" if alt is not None else 'N/A',
+                    f"{asc:.2f}" if asc is not None else 'N/A'
+                ])
+
+            # Calculate column widths
+            col_widths = [max(len(cell) for cell in col) + 2 for col in zip(headers, *rows)]
+
+            # Display table
+            print("".join(f"{headers[i]:<{col_widths[i]}}" for i in range(len(headers))))
+            print("".join("-" * col_width for col_width in col_widths))
+            for row in rows:
+                print("".join(f"{row[i]:<{col_widths[i]}}" for i in range(len(row))))
+        else:
+            print("No missions currently in the constellation.")
+
+    if output_file:
+        # Save all missions (not just first page) to file
+        save_arbitrary_response(output_file, {'missions': missions}, csv_data_key='missions')
+
+    return missions
