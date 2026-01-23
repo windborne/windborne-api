@@ -29,7 +29,7 @@ from . import (
     get_tropical_cyclones,
     get_population_weighted_hdds,
     get_population_weighted_cdds,
-    get_dd_metadata
+    get_calculation_times_degree_days
 )
 
 from pprint import pprint
@@ -205,11 +205,12 @@ def main():
     cdd_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm4-intra, ecmwf-det)')
     cdd_parser.add_argument('-o', '--output', help='Output file (supports .csv and .json formats)')
 
-    # DD Metadata Command
-    dd_metadata_parser = subparsers.add_parser('dd_metadata', help='Get degree day metadata, specifically calculated_at')
-    dd_metadata_parser.add_argument('initialization_time', help='Initialization time (YYYYMMDDHH, YYYY-MM-DDTHH, or YYYY-MM-DDTHH:mm:ss)')
-    dd_metadata_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
-    dd_metadata_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm4-intra, ecmwf-det)')
+    # Calculation Times Command (with subcommand for degree_days)
+    calculation_times_parser = subparsers.add_parser('calculation_times', help='Get available calculation times')
+    calculation_times_subparsers = calculation_times_parser.add_subparsers(dest='calculation_times_type', help='Calculation type')
+    degree_days_parser = calculation_times_subparsers.add_parser('degree_days', help='Get available calculation times for degree days forecasts')
+    degree_days_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
+    degree_days_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm4-intra, ecmwf-det)')
 
     # Initialization Times Command
     initialization_times_parser = subparsers.add_parser('init_times', help='Get available initialization times for point forecasts')
@@ -556,14 +557,15 @@ def main():
             print_response=(not args.output)
         )
     
-    elif args.command == 'dd_metadata':
-        # Handle degree day metadata
-        get_dd_metadata(
-            initialization_time=args.initialization_time,
-            ens_member=args.ens_member,
-            model=args.model,
-            print_response=True
-        )
+    elif args.command == 'calculation_times':
+        if args.calculation_times_type == 'degree_days':
+            get_calculation_times_degree_days(
+                ens_member=args.ens_member,
+                model=args.model,
+                print_response=True
+            )
+        else:
+            calculation_times_parser.print_help()
 
     else:
         parser.print_help()

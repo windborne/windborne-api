@@ -38,7 +38,7 @@ from .forecasts_api import (
 
     get_population_weighted_hdds,
     get_population_weighted_cdds,
-    get_dd_metadata
+    get_calculation_times_degree_days
 )
 
 # Define what should be available when users import *
@@ -73,7 +73,7 @@ __all__ = [
 
     "get_population_weighted_hdds",
     "get_population_weighted_cdds",
-    "get_dd_metadata",
+    "get_calculation_times_degree_days",
 
     # API helpers
     "API_BASE_URL",
