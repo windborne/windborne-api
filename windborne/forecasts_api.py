@@ -593,24 +593,32 @@ def get_population_weighted_cdds(initialization_time, ens_member=None, output_fi
     return response
 
 
-def get_dd_metadata(initialization_time, ens_member=None, print_response=False, model='wm'):
+def get_calculation_times_degree_days(ens_member=None, print_response=False, model='wm'):
     """
-    Get degree day metadata, specifically calculated_at timestamp.
+    Get available calculation times for degree days forecasts.
+
+    Returns dict with keys "available", "in_progress", "incomplete", and "latest".
     """
-    
-    params = {
-        "initialization_time": initialization_time,
-        "ens_member": ens_member,
-    }
-    response = make_api_request(f"{API_BASE_URL}/insights/v1/{model}/dd_metadata", params=params, as_json=True)
+
+    params = {}
+    if ens_member:
+        params["ens_member"] = ens_member
+
+    response = make_api_request(f"{API_BASE_URL}/insights/v1/{model}/calculation_times/degree_days", params=params, as_json=True)
 
     if print_response and response is not None:
-        error = response.get('error')
-        if error:
-            print(error)
-        calculated_at = response.get('calculated_at')
-        if calculated_at:
-            print(f"Calculated at {calculated_at}")
+        print("Latest calculation time:", response.get('latest'))
+        print("Available calculation times:")
+        for time in response.get('available', []):
+            print(f" - {time}")
+
+        print("In progress calculation times:")
+        for time in response.get('in_progress', []):
+            print(f" - {time}")
+
+        print("Incomplete calculation times:")
+        for time in response.get('incomplete', []):
+            print(f" - {time}")
 
     return response
 
