@@ -52,13 +52,13 @@ def get_observations_page(since=None, min_time=None, max_time=None, include_ids=
         params["max_time"] = to_unix_timestamp(max_time)
     if mission_id:
         params["mission_id"] = mission_id
-    if min_latitude:
+    if min_latitude is not None:
         params["min_latitude"] = min_latitude
-    if max_latitude:
+    if max_latitude is not None:
         params["max_latitude"] = max_latitude
-    if min_longitude:
+    if min_longitude is not None:
         params["min_longitude"] = min_longitude
-    if max_longitude:
+    if max_longitude is not None:
         params["max_longitude"] = max_longitude
     if include_ids:
         params["include_ids"] = True
@@ -66,7 +66,7 @@ def get_observations_page(since=None, min_time=None, max_time=None, include_ids=
         params["include_mission_name"] = True
     if include_updated_at:
         params["include_updated_at"] = True
-    
+
     params = {k: v for k, v in params.items() if v is not None}
     
     response = make_api_request(url, params=params)
@@ -111,13 +111,13 @@ def get_super_observations_page(since=None, min_time=None, max_time=None, includ
         params["max_time"] = to_unix_timestamp(max_time)
     if mission_id:
         params["mission_id"] = mission_id
-    if min_latitude:
+    if min_latitude is not None:
         params["min_latitude"] = min_latitude
-    if max_latitude:
+    if max_latitude is not None:
         params["max_latitude"] = max_latitude
-    if min_longitude:
+    if min_longitude is not None:
         params["min_longitude"] = min_longitude
-    if max_longitude:
+    if max_longitude is not None:
         params["max_longitude"] = max_longitude
     if include_ids:
         params["include_ids"] = True

@@ -223,7 +223,7 @@ def get_gridded_forecast(variable, time=None, initialization_time=None, forecast
     if time is None and (initialization_time is None or forecast_hour is None):
         print("Error: you must provide either time or initialization_time and forecast_hour.")
         return
-    elif time is not None and (initialization_time is not None or forecast_hour is not None):
+    elif time is not None and initialization_time is not None and forecast_hour is not None:
         print("Warning: time, initialization_time, forecast_hour all provided; using initialization_time and forecast_hour.")
 
     params = {}
@@ -716,7 +716,7 @@ def get_interpolated_sounding(coordinates, time=None, initialization_time=None, 
     if time is None and (initialization_time is None or forecast_hour is None):
         print("Error: you must provide either time or initialization_time and forecast_hour.")
         return
-    elif time is not None and (initialization_time is not None or forecast_hour is not None):
+    elif time is not None and initialization_time is not None and forecast_hour is not None:
         print("Warning: time, initialization_time, forecast_hour all provided; using initialization_time and forecast_hour.")
 
     if initialization_time is not None and forecast_hour is not None:
