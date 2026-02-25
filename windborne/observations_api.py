@@ -889,7 +889,14 @@ def get_constellation_status(output_file=None, print_results=False):
 # ------------
 # SOUNDINGS
 # ------------
-def get_soundings(mission_id=None, min_time=None, max_time=None, min_altitude=None, max_altitude=None, min_latitude=None, max_latitude=None, min_longitude=None, max_longitude=None, page=None, page_size=None, output_file=None, print_response=False):
+def get_soundings(
+    mission_id=None, min_time=None, max_time=None,
+    min_altitude=None, max_altitude=None,
+    min_latitude=None, max_latitude=None,
+    min_longitude=None, max_longitude=None,
+    page=None, page_size=None,
+    output_file=None, print_results=False
+):
     """
     Retrieves a list of atmospheric soundings with optional filtering.
 
@@ -906,7 +913,7 @@ def get_soundings(mission_id=None, min_time=None, max_time=None, min_altitude=No
         page (int): Page number (default 0).
         page_size (int): Results per page (default 64, max 200).
         output_file (str): Optional path to save response (.csv or .json).
-        print_response (bool): Whether to print results.
+        print_results (bool): Whether to print results.
 
     Returns:
         list: List of sounding metadata dicts.
@@ -914,7 +921,7 @@ def get_soundings(mission_id=None, min_time=None, max_time=None, min_altitude=No
     url = f"{DATA_API_BASE_URL}/soundings"
 
     params = {}
-    if mission_id:
+    if mission_id is not None:
         params["mission_id"] = mission_id
     if min_time:
         params["min_time"] = to_unix_timestamp(min_time)
@@ -944,7 +951,7 @@ def get_soundings(mission_id=None, min_time=None, max_time=None, min_altitude=No
 
     soundings = response.get('soundings', [])
 
-    if print_response:
+    if print_results:
         if soundings:
             print(f"Soundings (page {response.get('page', 0)}, {len(soundings)} results)\n")
             print_table(
@@ -961,29 +968,29 @@ def get_soundings(mission_id=None, min_time=None, max_time=None, min_altitude=No
     return soundings
 
 
-def get_sounding(sounding_id, output_file=None, print_response=False):
+def get_sounding(sounding_id, output_file=None, print_result=False):
     """
     Retrieves full atmospheric sounding data for a specific sounding ID.
 
     Args:
         sounding_id (str): The unique identifier of the sounding.
         output_file (str): Optional path to save response (.csv or .json).
-        print_response (bool): Whether to print results.
+        print_result (bool): Whether to print results.
 
     Returns:
-        dict: Sounding data including metadata and data points.
+        dict | None: Sounding data including metadata and data points, or None on error.
     """
     if not sounding_id:
         print("Must provide a sounding ID.")
-        return
+        return {}
 
     url = f"{DATA_API_BASE_URL}/soundings/{sounding_id}"
     response = make_api_request(url)
 
     if response is None:
-        return
+        return {}
 
-    if print_response:
+    if print_result:
         data_points = response.get('data', [])
         print(f"Sounding {response.get('sounding_id', sounding_id)}")
         print(f"Mission: {response.get('mission_id', 'N/A')}")

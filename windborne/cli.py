@@ -156,6 +156,8 @@ def main():
     soundings_parser.add_argument('-xl', '--max-lat', type=float, help='Maximum latitude')
     soundings_parser.add_argument('-mg', '--min-lon', type=float, help='Minimum longitude')
     soundings_parser.add_argument('-xg', '--max-lon', type=float, help='Maximum longitude')
+    soundings_parser.add_argument('-p', '--page', type=int, help='Page number (default 0)')
+    soundings_parser.add_argument('-ps', '--page-size', type=int, help='Results per page (default 64, max 200)')
     soundings_parser.add_argument('output', nargs='?', help='Output file (.csv or .json)')
 
     # Sounding by ID Command
@@ -443,15 +445,17 @@ def main():
             max_latitude=args.max_lat,
             min_longitude=args.min_lon,
             max_longitude=args.max_lon,
+            page=args.page,
+            page_size=args.page_size,
             output_file=args.output,
-            print_response=(not args.output)
+            print_results=(not args.output)
         )
 
     elif args.command == 'sounding':
         get_sounding(
             sounding_id=args.sounding_id,
             output_file=args.output,
-            print_response=(not args.output)
+            print_result=(not args.output)
         )
 
     ####################################################################################################################
