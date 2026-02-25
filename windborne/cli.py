@@ -29,7 +29,11 @@ from . import (
     get_tropical_cyclones,
     get_population_weighted_hdds,
     get_population_weighted_cdds,
-    get_calculation_times_degree_days
+    get_calculation_times_degree_days,
+
+    get_available_stations,
+    get_station_forecast,
+    get_interpolated_sounding
 )
 
 from pprint import pprint
@@ -52,6 +56,10 @@ def main():
     super_obs_parser.add_argument('-b', '--bucket-hours', type=float, default=6.0, help='Hours per bucket')
     super_obs_parser.add_argument('-d', '--output-dir', help='Directory path where the separate files should be saved. If not provided, files will be saved in current directory.')
     super_obs_parser.add_argument('-m', '--mission-id', help='Filter by mission ID')
+    super_obs_parser.add_argument('-ml', '--min-latitude', type=float, help='Minimum latitude filter')
+    super_obs_parser.add_argument('-xl', '--max-latitude', type=float, help='Maximum latitude filter')
+    super_obs_parser.add_argument('-mg', '--min-longitude', type=float, help='Minimum longitude filter')
+    super_obs_parser.add_argument('-xg', '--max-longitude', type=float, help='Maximum longitude filter')
     super_obs_parser.add_argument('output', help='Save output to a single file (filename.csv, filename.json or filename.little_r) or to or to multiple files (csv, json, netcdf or little_r)')
 
     # Observations Command
@@ -90,6 +98,11 @@ def main():
     super_obs_page_parser.add_argument('-mt', '--min-time', help='Minimum time filter (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
     super_obs_page_parser.add_argument('-xt', '--max-time', help='Maximum time filter (YYYY-MM-DD_HH:MM, "YYYY-MM-DD HH:MM:SS" or YYYY-MM-DDTHH:MM:SS.fffZ)')
     super_obs_page_parser.add_argument('-m', '--mission-id', help='Filter by mission ID')
+    super_obs_page_parser.add_argument('-ml', '--min-latitude', type=float, help='Minimum latitude filter')
+    super_obs_page_parser.add_argument('-xl', '--max-latitude', type=float, help='Maximum latitude filter')
+    super_obs_page_parser.add_argument('-mg', '--min-longitude', type=float, help='Minimum longitude filter')
+    super_obs_page_parser.add_argument('-xg', '--max-longitude', type=float, help='Maximum longitude filter')
+    super_obs_page_parser.add_argument('-id', '--include-ids', action='store_true', help='Include observation IDs')
     super_obs_page_parser.add_argument('-mn', '--include-mission-name', action='store_true', help='Include mission names')
     super_obs_page_parser.add_argument('-u', '--include-updated-at', action='store_true', help='Include update timestamps')
     super_obs_page_parser.add_argument('output', nargs='?', help='Output file')
@@ -172,6 +185,29 @@ def main():
     points_interpolated_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
     points_interpolated_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4)')
     points_interpolated_parser.add_argument('output_file', nargs='?', help='Output file (.csv or .json)')
+
+    # Station Forecasts
+    ####################################################################################################################
+
+    # Available Stations Command
+    available_stations_parser = subparsers.add_parser('available_stations', help='List all weather stations with station-specific forecasts')
+    available_stations_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4)')
+    available_stations_parser.add_argument('output_file', nargs='?', help='Output file (.csv or .json)')
+
+    # Station Forecast Command
+    station_forecast_parser = subparsers.add_parser('station_forecast', help='Get weather forecast for a specific station')
+    station_forecast_parser.add_argument('station_id', help='ICAO station identifier (e.g., PANC, KJFK, SFO)')
+    station_forecast_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4)')
+    station_forecast_parser.add_argument('output_file', nargs='?', help='Output file (.csv or .json)')
+
+    # Interpolated Sounding Command
+    interpolated_sounding_parser = subparsers.add_parser('interpolated_sounding', help='Get interpolated forecast sounding for a coordinate')
+    interpolated_sounding_parser.add_argument('coordinates', help='Coordinates as "latitude,longitude"')
+    interpolated_sounding_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm-5c)')
+    interpolated_sounding_parser.add_argument('-t', '--time', help='Forecast valid time (ISO 8601)')
+    interpolated_sounding_parser.add_argument('-i', '--init-time', help='Initialization time (ISO 8601)')
+    interpolated_sounding_parser.add_argument('-fh', '--forecast-hour', type=int, help='Forecast hour offset')
+    interpolated_sounding_parser.add_argument('output_file', nargs='?', help='Output file (.csv or .json)')
 
     # GRIDDED FORECASTS
     ####################################################################################################################
@@ -259,6 +295,10 @@ def main():
             end_time=args.end_time,
             output_file=output_file,
             mission_id=args.mission_id,
+            min_latitude=args.min_latitude,
+            max_latitude=args.max_latitude,
+            min_longitude=args.min_longitude,
+            max_longitude=args.max_longitude,
             bucket_hours=args.bucket_hours,
             output_dir=output_dir,
             output_format=output_format
@@ -364,7 +404,11 @@ def main():
                 include_ids=args.include_ids,
                 include_mission_name=args.include_mission_name,
                 include_updated_at=args.include_updated_at,
-                mission_id=args.mission_id
+                mission_id=args.mission_id,
+                min_latitude=args.min_latitude,
+                max_latitude=args.max_latitude,
+                min_longitude=args.min_longitude,
+                max_longitude=args.max_longitude
             ), indent=4))
         else:
             get_super_observations_page(
@@ -375,6 +419,10 @@ def main():
                 include_mission_name=args.include_mission_name,
                 include_updated_at=args.include_updated_at,
                 mission_id=args.mission_id,
+                min_latitude=args.min_latitude,
+                max_latitude=args.max_latitude,
+                min_longitude=args.min_longitude,
+                max_longitude=args.max_longitude,
                 output_file=args.output
             )
 
@@ -450,6 +498,32 @@ def main():
             max_forecast_hour=max_forecast_hour,
             initialization_time=initialization_time,
             ens_member=getattr(args, 'ens_member', None),
+            output_file=args.output_file,
+            model=args.model,
+            print_response=(not args.output_file)
+        )
+
+    elif args.command == 'available_stations':
+        get_available_stations(
+            output_file=args.output_file,
+            model=args.model,
+            print_response=(not args.output_file)
+        )
+
+    elif args.command == 'station_forecast':
+        get_station_forecast(
+            station_id=args.station_id,
+            output_file=args.output_file,
+            model=args.model,
+            print_response=(not args.output_file)
+        )
+
+    elif args.command == 'interpolated_sounding':
+        get_interpolated_sounding(
+            coordinates=args.coordinates,
+            time=args.time,
+            initialization_time=args.init_time,
+            forecast_hour=args.forecast_hour,
             output_file=args.output_file,
             model=args.model,
             print_response=(not args.output_file)

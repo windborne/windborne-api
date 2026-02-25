@@ -52,13 +52,13 @@ def get_observations_page(since=None, min_time=None, max_time=None, include_ids=
         params["max_time"] = to_unix_timestamp(max_time)
     if mission_id:
         params["mission_id"] = mission_id
-    if min_latitude:
+    if min_latitude is not None:
         params["min_latitude"] = min_latitude
-    if max_latitude:
+    if max_latitude is not None:
         params["max_latitude"] = max_latitude
-    if min_longitude:
+    if min_longitude is not None:
         params["min_longitude"] = min_longitude
-    if max_longitude:
+    if max_longitude is not None:
         params["max_longitude"] = max_longitude
     if include_ids:
         params["include_ids"] = True
@@ -66,7 +66,7 @@ def get_observations_page(since=None, min_time=None, max_time=None, include_ids=
         params["include_mission_name"] = True
     if include_updated_at:
         params["include_updated_at"] = True
-    
+
     params = {k: v for k, v in params.items() if v is not None}
     
     response = make_api_request(url, params=params)
@@ -77,9 +77,9 @@ def get_observations_page(since=None, min_time=None, max_time=None, include_ids=
     return response
 
 
-def get_super_observations_page(since=None, min_time=None, max_time=None, include_ids=None, include_mission_name=None, include_updated_at=None, mission_id=None, output_file=None):
+def get_super_observations_page(since=None, min_time=None, max_time=None, include_ids=None, include_mission_name=None, include_updated_at=None, mission_id=None, min_latitude=None, max_latitude=None, min_longitude=None, max_longitude=None, output_file=None):
     """
-    Retrieves super observations page based on specified filters.
+    Retrieves super observations page based on specified filters including geographical bounds.
 
     Args:
         since (str): Filter observations after this timestamp.
@@ -89,6 +89,10 @@ def get_super_observations_page(since=None, min_time=None, max_time=None, includ
         include_mission_name (bool): Include mission names in response.
         include_updated_at (bool): Include update timestamps in response.
         mission_id (str): Filter observations by mission ID.
+        min_latitude (float): Minimum latitude boundary.
+        max_latitude (float): Maximum latitude boundary.
+        min_longitude (float): Minimum longitude boundary.
+        max_longitude (float): Maximum longitude boundary.
         output_file (str): Optional path to save the response data.
                            If provided, saves the data in CSV format.
 
@@ -107,6 +111,14 @@ def get_super_observations_page(since=None, min_time=None, max_time=None, includ
         params["max_time"] = to_unix_timestamp(max_time)
     if mission_id:
         params["mission_id"] = mission_id
+    if min_latitude is not None:
+        params["min_latitude"] = min_latitude
+    if max_latitude is not None:
+        params["max_latitude"] = max_latitude
+    if min_longitude is not None:
+        params["min_longitude"] = min_longitude
+    if max_longitude is not None:
+        params["max_longitude"] = max_longitude
     if include_ids:
         params["include_ids"] = True
     if include_mission_name:
@@ -480,7 +492,7 @@ def poll_observations(**kwargs):
 
     get_observations(**kwargs, exit_at_end=False)
 
-def get_super_observations(start_time, end_time=None, mission_id=None, include_updated_at=True, output_file=None, bucket_hours=6.0, output_format=None, output_dir=None, callback=None, custom_save=None, exit_at_end=True, verbose=True):
+def get_super_observations(start_time, end_time=None, mission_id=None, min_latitude=None, max_latitude=None, min_longitude=None, max_longitude=None, include_updated_at=True, output_file=None, bucket_hours=6.0, output_format=None, output_dir=None, callback=None, custom_save=None, exit_at_end=True, verbose=True):
     """
     Fetches super observations between a start time and an optional end time and saves to files in specified format.
     Files are broken up into time buckets, with filenames containing the time at the mid-point of the bucket.
@@ -492,6 +504,10 @@ def get_super_observations(start_time, end_time=None, mission_id=None, include_u
         end_time (str): Optional. A date string, supporting formats YYYY-MM-DD HH:MM:SS, YYYY-MM-DD_HH:MM and ISO strings,
                         representing the end time of fetching data. If not provided, current time is used as end time.
         mission_id (str): Filter observations by mission ID.
+        min_latitude (float): Minimum latitude boundary.
+        max_latitude (float): Maximum latitude boundary.
+        min_longitude (float): Minimum longitude boundary.
+        max_longitude (float): Maximum longitude boundary.
         include_updated_at (bool): Include update timestamps in response.
         output_file (str): Saves all data to a single file instead of bucketing.
                             Supported formats are '.csv', '.json', '.little_r' and '.nc'
@@ -514,6 +530,10 @@ def get_super_observations(start_time, end_time=None, mission_id=None, include_u
         'min_time': start_time,
         'max_time': end_time,
         'mission_id': mission_id,
+        'min_latitude': min_latitude,
+        'max_latitude': max_latitude,
+        'min_longitude': min_longitude,
+        'max_longitude': max_longitude,
         'include_updated_at': include_updated_at,
         'include_ids': True,
         'include_mission_name': True

@@ -223,7 +223,7 @@ def get_gridded_forecast(variable, time=None, initialization_time=None, forecast
     if time is None and (initialization_time is None or forecast_hour is None):
         print("Error: you must provide either time or initialization_time and forecast_hour.")
         return
-    elif time is not None and (initialization_time is not None or forecast_hour is not None):
+    elif time is not None and initialization_time is not None and forecast_hour is not None:
         print("Warning: time, initialization_time, forecast_hour all provided; using initialization_time and forecast_hour.")
 
     params = {}
@@ -619,6 +619,127 @@ def get_calculation_times_degree_days(ens_member=None, print_response=False, mod
         print("Incomplete calculation times:")
         for time in response.get('incomplete', []):
             print(f" - {time}")
+
+    return response
+
+
+# Station forecasts
+def get_available_stations(output_file=None, print_response=False, model='wm'):
+    """
+    Get the list of ASOS weather stations with station-specific forecasts.
+
+    Args:
+        output_file (str, optional): Path to save the response data (.json or .csv)
+        print_response (bool, optional): Whether to print a formatted table
+        model (str, optional): Forecast model (e.g., wm, wm4)
+
+    Returns:
+        list: Array of station objects with station_id, station_name, latitude, longitude
+    """
+    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/point_forecast/stations")
+
+    if output_file:
+        save_arbitrary_response(output_file, response)
+
+    if print_response and response is not None:
+        stations = response if isinstance(response, list) else response.get('stations', response)
+        print(f"Available stations ({len(stations)}):\n")
+        print_table(stations, keys=['station_id', 'station_name', 'latitude', 'longitude'],
+                    headers=['Station ID', 'Station Name', 'Latitude', 'Longitude'])
+
+    return response
+
+
+def get_station_forecast(station_id, output_file=None, print_response=False, model='wm'):
+    """
+    Get the weather forecast for a specific ASOS station.
+
+    Args:
+        station_id (str): ICAO station identifier (e.g., PANC, KJFK, SFO)
+        output_file (str, optional): Path to save the response data (.json or .csv)
+        print_response (bool, optional): Whether to print a formatted table
+        model (str, optional): Forecast model (e.g., wm, wm4)
+
+    Returns:
+        dict: Forecast data including station_id, latitude, longitude, model,
+              initialization_time, forecast_zero, and forecast array
+    """
+    if not station_id:
+        print("To get a station forecast you must provide a station_id.")
+        return
+
+    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/point_forecast/stations/{station_id}")
+
+    if output_file:
+        save_arbitrary_response(output_file, response, csv_data_key='forecast')
+
+    if print_response and response is not None:
+        print(f"Station: {response.get('station_id')}")
+        print(f"Location: ({response.get('latitude')}, {response.get('longitude')})")
+        print(f"Model: {response.get('model')}")
+        print(f"Initialization time: {response.get('initialization_time')}")
+        print(f"Forecast zero: {response.get('forecast_zero')}\n")
+
+        keys = ['time', 'temperature_2m', 'dewpoint_2m', 'wind_u_10m', 'wind_v_10m', 'precipitation', 'pressure_msl']
+        headers = ['Time', '2m Temp (°C)', '2m Dewpoint (°C)', 'Wind U (m/s)', 'Wind V (m/s)', 'Precip (mm)', 'MSL Pressure (hPa)']
+        print_table(response.get('forecast', []), keys=keys, headers=headers)
+
+    return response
+
+
+# Interpolated sounding
+def get_interpolated_sounding(coordinates, time=None, initialization_time=None, forecast_hour=None, output_file=None, print_response=False, model='wm'):
+    """
+    Get an interpolated forecast sounding (vertical atmospheric profile) for a coordinate.
+
+    Args:
+        coordinates (str): Coordinates as "latitude,longitude"
+        time (str, optional): Forecast valid time (ISO 8601). Use instead of initialization_time + forecast_hour.
+        initialization_time (str, optional): Model initialization time (ISO 8601). Use with forecast_hour.
+        forecast_hour (int, optional): Forecast hour offset from initialization_time.
+        output_file (str, optional): Path to save the response data (.json or .csv)
+        print_response (bool, optional): Whether to print a formatted table
+        model (str, optional): Forecast model (e.g., wm, wm-5c)
+
+    Returns:
+        dict: Sounding data including initialization_time, forecast_zero, time,
+              forecast_hour, latitude, longitude, and data array of vertical levels
+    """
+    if not coordinates:
+        print("To get an interpolated sounding you must provide coordinates.")
+        return
+
+    formatted_coordinates = coordinates.replace(" ", "")
+
+    params = {"coordinates": formatted_coordinates}
+
+    if time is None and (initialization_time is None or forecast_hour is None):
+        print("Error: you must provide either time or initialization_time and forecast_hour.")
+        return
+    elif time is not None and initialization_time is not None and forecast_hour is not None:
+        print("Warning: time, initialization_time, forecast_hour all provided; using initialization_time and forecast_hour.")
+
+    if initialization_time is not None and forecast_hour is not None:
+        params["initialization_time"] = parse_time(initialization_time, init_time_flag=True)
+        params["forecast_hour"] = forecast_hour
+    elif time:
+        params["time"] = parse_time(time)
+
+    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/point_forecast/interpolated_sounding", params=params)
+
+    if output_file:
+        save_arbitrary_response(output_file, response, csv_data_key='data')
+
+    if print_response and response is not None:
+        print(f"Initialization time: {response.get('initialization_time')}")
+        print(f"Forecast zero: {response.get('forecast_zero')}")
+        print(f"Time: {response.get('time')}")
+        print(f"Forecast hour: {response.get('forecast_hour')}")
+        print(f"Location: ({response.get('latitude')}, {response.get('longitude')})\n")
+
+        keys = ['pressure_hpa', 'altitude_m', 'temperature_c', 'dewpoint_c', 'specific_humidity_kg_kg', 'wind_u_ms', 'wind_v_ms']
+        headers = ['Pressure (hPa)', 'Altitude (m)', 'Temp (°C)', 'Dewpoint (°C)', 'Spec. Humidity (kg/kg)', 'Wind U (m/s)', 'Wind V (m/s)']
+        print_table(response.get('data', []), keys=keys, headers=headers)
 
     return response
 
