@@ -18,6 +18,8 @@ from . import (
     get_current_location,
     get_flight_path,
     get_constellation_status,
+    get_soundings,
+    get_sounding,
 
     get_point_forecasts,
     get_point_forecasts_interpolated,
@@ -142,6 +144,24 @@ def main():
     # Get Constellation Status Command
     constellation_parser = subparsers.add_parser('constellation_status', help='Get current constellation status with locations')
     constellation_parser.add_argument('output', nargs='?', help='Output file (.csv or .json)')
+
+    # Soundings Command
+    soundings_parser = subparsers.add_parser('soundings', help='List/search atmospheric soundings')
+    soundings_parser.add_argument('-m', '--mission-id', help='Filter by mission ID')
+    soundings_parser.add_argument('-mt', '--min-time', help='Filter soundings starting at or after this time')
+    soundings_parser.add_argument('-xt', '--max-time', help='Filter soundings ending at or before this time')
+    soundings_parser.add_argument('-ma', '--min-altitude', type=float, help='Exclude soundings below this altitude (meters)')
+    soundings_parser.add_argument('-xa', '--max-altitude', type=float, help='Exclude soundings above this altitude (meters)')
+    soundings_parser.add_argument('-ml', '--min-lat', type=float, help='Minimum latitude')
+    soundings_parser.add_argument('-xl', '--max-lat', type=float, help='Maximum latitude')
+    soundings_parser.add_argument('-mg', '--min-lon', type=float, help='Minimum longitude')
+    soundings_parser.add_argument('-xg', '--max-lon', type=float, help='Maximum longitude')
+    soundings_parser.add_argument('output', nargs='?', help='Output file (.csv or .json)')
+
+    # Sounding by ID Command
+    sounding_parser = subparsers.add_parser('sounding', help='Get full sounding data by ID')
+    sounding_parser.add_argument('sounding_id', help='Sounding ID (UUID)')
+    sounding_parser.add_argument('output', nargs='?', help='Output file (.csv or .json)')
 
     ####################################################################################################################
     # FORECASTS API FUNCTIONS
@@ -410,6 +430,28 @@ def main():
         get_constellation_status(
             output_file=args.output,
             print_results=(not args.output)
+        )
+
+    elif args.command == 'soundings':
+        get_soundings(
+            mission_id=args.mission_id,
+            min_time=args.min_time,
+            max_time=args.max_time,
+            min_altitude=args.min_altitude,
+            max_altitude=args.max_altitude,
+            min_latitude=args.min_lat,
+            max_latitude=args.max_lat,
+            min_longitude=args.min_lon,
+            max_longitude=args.max_lon,
+            output_file=args.output,
+            print_response=(not args.output)
+        )
+
+    elif args.command == 'sounding':
+        get_sounding(
+            sounding_id=args.sounding_id,
+            output_file=args.output,
+            print_response=(not args.output)
         )
 
 

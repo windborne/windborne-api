@@ -884,3 +884,118 @@ def get_constellation_status(output_file=None, print_results=False):
         save_arbitrary_response(output_file, {'missions': missions}, csv_data_key='missions')
 
     return missions
+
+
+# ------------
+# SOUNDINGS
+# ------------
+def get_soundings(mission_id=None, min_time=None, max_time=None, min_altitude=None, max_altitude=None, min_latitude=None, max_latitude=None, min_longitude=None, max_longitude=None, page=None, page_size=None, output_file=None, print_response=False):
+    """
+    Retrieves a list of atmospheric soundings with optional filtering.
+
+    Args:
+        mission_id (str): Filter by mission ID.
+        min_time (str): Filter soundings starting at or after this time (ISO 8601 or unix timestamp).
+        max_time (str): Filter soundings ending at or before this time (ISO 8601 or unix timestamp).
+        min_altitude (float): Exclude soundings with data only below this altitude (meters).
+        max_altitude (float): Exclude soundings with data only above this altitude (meters).
+        min_latitude (float): Minimum latitude boundary.
+        max_latitude (float): Maximum latitude boundary.
+        min_longitude (float): Minimum longitude boundary.
+        max_longitude (float): Maximum longitude boundary.
+        page (int): Page number (default 0).
+        page_size (int): Results per page (default 64, max 200).
+        output_file (str): Optional path to save response (.csv or .json).
+        print_response (bool): Whether to print results.
+
+    Returns:
+        list: List of sounding metadata dicts.
+    """
+    url = f"{DATA_API_BASE_URL}/soundings"
+
+    params = {}
+    if mission_id:
+        params["mission_id"] = mission_id
+    if min_time:
+        params["min_time"] = to_unix_timestamp(min_time)
+    if max_time:
+        params["max_time"] = to_unix_timestamp(max_time)
+    if min_altitude is not None:
+        params["min_altitude"] = min_altitude
+    if max_altitude is not None:
+        params["max_altitude"] = max_altitude
+    if min_latitude is not None:
+        params["min_latitude"] = min_latitude
+    if max_latitude is not None:
+        params["max_latitude"] = max_latitude
+    if min_longitude is not None:
+        params["min_longitude"] = min_longitude
+    if max_longitude is not None:
+        params["max_longitude"] = max_longitude
+    if page is not None:
+        params["page"] = page
+    if page_size is not None:
+        params["page_size"] = page_size
+
+    response = make_api_request(url, params=params)
+
+    if response is None:
+        return []
+
+    soundings = response.get('soundings', [])
+
+    if print_response:
+        if soundings:
+            print(f"Soundings (page {response.get('page', 0)}, {len(soundings)} results)\n")
+            print_table(
+                soundings,
+                keys=['id', 'mission_id', 'start_time', 'end_time', 'min_altitude_m', 'max_altitude_m'],
+                headers=['Sounding ID', 'Mission ID', 'Start Time', 'End Time', 'Min Alt (m)', 'Max Alt (m)']
+            )
+        else:
+            print("No soundings found matching the given filters.")
+
+    if output_file:
+        save_arbitrary_response(output_file, response, csv_data_key='soundings')
+
+    return soundings
+
+
+def get_sounding(sounding_id, output_file=None, print_response=False):
+    """
+    Retrieves full atmospheric sounding data for a specific sounding ID.
+
+    Args:
+        sounding_id (str): The unique identifier of the sounding.
+        output_file (str): Optional path to save response (.csv or .json).
+        print_response (bool): Whether to print results.
+
+    Returns:
+        dict: Sounding data including metadata and data points.
+    """
+    if not sounding_id:
+        print("Must provide a sounding ID.")
+        return
+
+    url = f"{DATA_API_BASE_URL}/soundings/{sounding_id}"
+    response = make_api_request(url)
+
+    if response is None:
+        return
+
+    if print_response:
+        data_points = response.get('data', [])
+        print(f"Sounding {response.get('sounding_id', sounding_id)}")
+        print(f"Mission: {response.get('mission_id', 'N/A')}")
+        print(f"Data points: {len(data_points)}\n")
+        if data_points:
+            print_table(
+                data_points,
+                keys=['altitude_m', 'pressure_hpa', 'temperature_c', 'dewpoint_c', 'wind_u_ms', 'wind_v_ms', 'time'],
+                headers=['Alt (m)', 'P (hPa)', 'Temp (C)', 'Dewpt (C)', 'U (m/s)', 'V (m/s)', 'Time']
+            )
+
+    if output_file:
+        save_arbitrary_response(output_file, response, csv_data_key='data')
+
+    return response
