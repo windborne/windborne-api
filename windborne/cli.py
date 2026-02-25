@@ -102,6 +102,7 @@ def main():
     super_obs_page_parser.add_argument('-xl', '--max-latitude', type=float, help='Maximum latitude filter')
     super_obs_page_parser.add_argument('-mg', '--min-longitude', type=float, help='Minimum longitude filter')
     super_obs_page_parser.add_argument('-xg', '--max-longitude', type=float, help='Maximum longitude filter')
+    super_obs_page_parser.add_argument('-id', '--include-ids', action='store_true', help='Include observation IDs')
     super_obs_page_parser.add_argument('-mn', '--include-mission-name', action='store_true', help='Include mission names')
     super_obs_page_parser.add_argument('-u', '--include-updated-at', action='store_true', help='Include update timestamps')
     super_obs_page_parser.add_argument('output', nargs='?', help='Output file')
