@@ -82,6 +82,9 @@ def parse_time(time, init_time_flag=None, require_past=False):
             print(f"Invalid date: {time} -- cannot be in the future")
             exit(2)
 
+        if parsed_date.tzinfo is not None:
+            parsed_date = parsed_date.astimezone(timezone.utc)
+            return parsed_date.strftime('%Y-%m-%dT%H:%M:00Z')
         return parsed_date.strftime('%Y-%m-%dT%H:%M:00')
 
     except Exception:
