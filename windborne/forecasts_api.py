@@ -709,13 +709,13 @@ def get_interpolated_analysis(source='ecmwf_det_anl', coordinates=None, time=Non
     response = make_api_request(f"{FORECASTS_API_BASE_URL}/{source}/analysis/interpolated", params=params)
 
     if output_file:
-        save_arbitrary_response(output_file, response, csv_data_key='analysis')
+        save_arbitrary_response(output_file, response, csv_data_key='forecasts')
 
     if print_response and response is not None:
         print(f"Source: {response.get('source')}")
         print(f"Time: {response.get('time')}")
 
-        analysis = response.get('analysis', [])
+        analysis = response.get('forecasts', [])
         keys = ['time', 'temperature_2m', 'dewpoint_2m', 'wind_u_10m', 'wind_v_10m', 'precipitation', 'pressure_msl', 'latitude', 'longitude']
         headers = ['Time', '2m Temp (°C)', '2m Dewpoint (°C)', 'Wind U (m/s)', 'Wind V (m/s)', 'Precip (mm)', 'MSL Pressure (hPa)', 'Latitude', 'Longitude']
 
