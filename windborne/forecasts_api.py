@@ -686,6 +686,10 @@ def get_interpolated_analysis(source='ecmwf_det_anl', coordinates=None, time=Non
                     coordinate_items.append(f"{coordinate['latitude']},{coordinate['longitude']}")
                 elif 'lat' in coordinate and 'lon' in coordinate:
                     coordinate_items.append(f"{coordinate['lat']},{coordinate['lon']}")
+                elif 'lat' in coordinate and 'long' in coordinate:
+                    coordinate_items.append(f"{coordinate['lat']},{coordinate['long']}")
+                elif 'lat' in coordinate and 'lng' in coordinate:
+                    coordinate_items.append(f"{coordinate['lat']},{coordinate['lng']}")
                 else:
                     print("Coordinates should be dictionaries with keys 'latitude' and 'longitude'.")
                     return
@@ -726,7 +730,7 @@ def get_interpolated_analysis(source='ecmwf_det_anl', coordinates=None, time=Non
     return response
 
 
-def get_gridded_analysis(source='ecmwf_det_anl', variable=None, time=None, output_file=None, format=None):
+def get_gridded_analysis(source='ecmwf_det_anl', variable=None, time=None, output_file=None, output_format=None):
     """
     Get gridded analysis data for a variable.
 
@@ -735,7 +739,7 @@ def get_gridded_analysis(source='ecmwf_det_anl', variable=None, time=None, outpu
         variable (str): Variable to download (e.g., temperature_2m)
         time (str): Time to retrieve data for (ISO 8601)
         output_file (str): Path to save output file (.nc or .zarr)
-        format (str, optional): Output format (zarr or netcdf)
+        output_format (str, optional): Output format (zarr or netcdf)
 
     Returns:
         Response object or None
@@ -751,8 +755,8 @@ def get_gridded_analysis(source='ecmwf_det_anl', variable=None, time=None, outpu
         "variable": variable,
         "time": parse_time(time),
     }
-    if format:
-        params["format"] = format
+    if output_format:
+        params["format"] = output_format
 
     response = make_api_request(f"{FORECASTS_API_BASE_URL}/{source}/analysis/gridded", params=params, as_json=False)
 
@@ -760,7 +764,12 @@ def get_gridded_analysis(source='ecmwf_det_anl', variable=None, time=None, outpu
         return None
 
     if output_file:
-        download_and_save_output(output_file, response)
+        if output_format == 'zarr' or output_file.endswith('.zarr'):
+            with open(output_file, 'wb') as f:
+                f.write(response.content)
+            print(f"Data Successfully saved to {output_file}")
+        else:
+            download_and_save_output(output_file, response)
 
     return response
 

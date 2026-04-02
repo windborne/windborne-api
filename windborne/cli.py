@@ -744,7 +744,7 @@ def main():
             variable=args.variable,
             time=args.time,
             output_file=args.output_file,
-            format=args.format
+            output_format=args.format
         )
 
     else:
