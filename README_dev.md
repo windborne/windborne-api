@@ -26,7 +26,7 @@ The `windborne` package is a Python library and CLI tool for accessing WindBorne
 
 #### Key Features
 
-- Authenticates via environment variables (WB_CLIENT_ID, WB_API_KEY)
+- Authenticates via either `WB_CLIENT_ID` + `WB_API_KEY` or a single combined `WB_API_KEY`
 - Supports multiple output formats for scientific data
 - Provides both Python API and CLI access
 - Handles large datasets with bucketing and pagination

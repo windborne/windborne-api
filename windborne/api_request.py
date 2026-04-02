@@ -3,8 +3,11 @@ import time
 import requests
 import re
 import os
+import base64
 
 API_BASE_URL = "https://api.windbornesystems.com"
+AUTH_DOCS_URL = "https://api.windbornesystems.com/technical-guides/authentication/basic-auth/"
+
 
 def is_valid_uuid_v4(client_id):
     return re.fullmatch(r"[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}", client_id) is not None
@@ -14,62 +17,87 @@ def is_valid_client_id_format(client_id):
     return re.fullmatch(r"[a-z0-9_]+", client_id) is not None
 
 
+def parse_combined_api_key(api_key):
+    if not api_key or not api_key.startswith("wb_"):
+        return None
+
+    encoded_credentials = api_key[3:]
+    padded_encoded_credentials = encoded_credentials + ("=" * (-len(encoded_credentials) % 4))
+
+    try:
+        decoded_credentials = base64.b64decode(padded_encoded_credentials, validate=True).decode("utf-8")
+    except Exception:
+        return None
+
+    if ":" not in decoded_credentials:
+        return None
+
+    client_id, password = decoded_credentials.split(":", 1)
+
+    if not client_id or not password:
+        return None
+
+    return client_id, password
+
+
 def get_api_credentials():
     client_id = os.getenv('WB_CLIENT_ID')
     api_key = os.getenv('WB_API_KEY')
-    
+
+    combined_credentials = parse_combined_api_key(api_key)
+    if combined_credentials is not None:
+        return combined_credentials
+
     return client_id, api_key
 
 
 def verify_api_credentials(client_id, api_key):
     if not client_id and not api_key:
         raise ValueError(
-            "To access the WindBorne API, set your Client ID and API key by setting the environment variables WB_CLIENT_ID and WB_API_KEY. "
-            "For instructions, refer to https://windbornesystems.com/docs/api/cli#introduction or https://windbornesystems.com/docs/api/pip_data#introduction. "
-            "To get an API key, email data@windbornesystems.com."
+            "To access the WindBorne API, set the environment variable WB_API_KEY. "
+            f"For instructions, refer to {AUTH_DOCS_URL}"
         )
 
     if not client_id:
         raise ValueError(
-            "To access the WindBorne API, you need to set your Client ID by setting the environment variable WB_CLIENT_ID. "
-            "For instructions, refer to https://windbornesystems.com/docs/api/cli#introduction or https://windbornesystems.com/docs/api/pip_data#introduction. "
-            "To get an API key, email data@windbornesystems.com."
+            "Your WB_API_KEY doesn't look valid (or you meant to set WB_CLIENT_ID and WB_API_KEY separately, but didn't). "
+            "Check that you copied it exactly as provided and try again. "
+            f"For instructions, refer to {AUTH_DOCS_URL}"
         )
 
     if not api_key:
         raise ValueError(
-            "To access the WindBorne API, you need to set your API key by setting the environment variable WB_API_KEY. "
-            "For instructions, refer to https://windbornesystems.com/docs/api/cli#introduction or https://windbornesystems.com/docs/api/pip_data#introduction. "
-            "To get an API key, email data@windbornesystems.com."
+            "To access the WindBorne API, set the environment variable WB_API_KEY. "
+            f"For instructions, refer to {AUTH_DOCS_URL}"
         )
 
     if len(client_id) in [32, 35] and len(api_key) not in [32, 35]:
         raise ValueError(
-            f"Your Client ID and API Key are likely swapped. Current Client ID: {client_id}, Current API Key: {api_key}. "
-            "Swap them or modify them accordingly to get access to WindBorne API. "
-            "For instructions, refer to https://windbornesystems.com/docs/api/cli#introduction or https://windbornesystems.com/docs/api/pip_data#introduction."
+            "Your credentials don't look right. "
+            "Check that WB_CLIENT_ID contains your client ID and WB_API_KEY contains your API key, then try again. "
+            f"For instructions, refer to {AUTH_DOCS_URL}"
         )
 
     if not (is_valid_uuid_v4(client_id) or is_valid_client_id_format(client_id)):
         raise ValueError(
-            f"Your Client ID is misformatted: {client_id}. "
-            "It should either be a valid UUID v4 or consist of only lowercase letters, digits, and underscores ([a-z0-9_]). "
-            "For instructions, refer to https://windbornesystems.com/docs/api/cli#introduction or https://windbornesystems.com/docs/api/pip_data#introduction."
+            "Your WB_CLIENT_ID doesn't look valid. "
+            "Check that you copied it exactly as provided and try again. "
+            f"For instructions, refer to {AUTH_DOCS_URL}"
         )
 
     # Validate WB_API_KEY for both newer and older formats
     if api_key.startswith("wb_"):
         if len(api_key) != 35:
             raise ValueError(
-                f"Your API key is misformatted: {api_key}. "
-                "API keys starting with 'wb_' must be 35 characters long (including the 'wb_' prefix). "
-                "For instructions, refer to https://windbornesystems.com/docs/api/cli#introduction or https://windbornesystems.com/docs/api/pip_data#introduction."
+                f"Your API key is misformatted. "
+                "Check that you copied it exactly as provided and try again. "
+                "For instructions, refer to {AUTH_DOCS_URL}"
             )
     elif len(api_key) != 32:  # For early tokens
         raise ValueError(
-            f"Your API key is misformatted: {api_key}. "
-            "API keys created in 2023 or earlier must be exactly 32 characters long. "
-            "For instructions, refer to https://windbornesystems.com/docs/api/cli#introduction or https://windbornesystems.com/docs/api/pip_data#introduction."
+            f"Your API key is misformatted. "
+            "Check that you copied it exactly as provided and try again. "
+            "For instructions, refer to {AUTH_DOCS_URL}"
         )
 
 
