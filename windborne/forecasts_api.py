@@ -822,12 +822,14 @@ def get_available_stations(output_file=None, print_response=False, model='wm'):
     return response
 
 
-def get_station_forecast(station_id, output_file=None, print_response=False, model='wm'):
+def get_station_forecast(station_id, initialization_time=None, output_file=None, print_response=False, model='wm'):
     """
     Get the weather forecast for a specific ASOS station.
 
     Args:
         station_id (str): ICAO station identifier (e.g., PANC, KJFK, SFO)
+        initialization_time (str, optional): Initialization time in ISO 8601 format (YYYY-MM-DDTHH:00:00).
+                                              If omitted, latest is used.
         output_file (str, optional): Path to save the response data (.json or .csv)
         print_response (bool, optional): Whether to print a formatted table
         model (str, optional): Forecast model (e.g., wm, wm4)
@@ -840,7 +842,11 @@ def get_station_forecast(station_id, output_file=None, print_response=False, mod
         print("To get a station forecast you must provide a station_id.")
         return
 
-    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/point_forecast/stations/{station_id}")
+    params = {}
+    if initialization_time:
+        params['initialization_time'] = parse_time(initialization_time, init_time_flag=True)
+
+    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/point_forecast/stations/{station_id}", params=params)
 
     if output_file:
         save_arbitrary_response(output_file, response, csv_data_key='forecast')

@@ -224,6 +224,7 @@ def main():
     # Station Forecast Command
     station_forecast_parser = subparsers.add_parser('station_forecast', help='Get weather forecast for a specific station')
     station_forecast_parser.add_argument('station_id', help='ICAO station identifier (e.g., PANC, KJFK, SFO)')
+    station_forecast_parser.add_argument('-i', '--init-time', help='Initialization time (ISO 8601)')
     station_forecast_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm-4.5-ens)')
     station_forecast_parser.add_argument('output_file', nargs='?', help='Output file (.csv or .json)')
 
@@ -590,6 +591,7 @@ def main():
     elif args.command == 'station_forecast':
         get_station_forecast(
             station_id=args.station_id,
+            initialization_time=args.init_time,
             output_file=args.output_file,
             model=args.model,
             print_response=(not args.output_file)
