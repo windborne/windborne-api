@@ -44,7 +44,12 @@ from .forecasts_api import (
 
     get_population_weighted_hdds,
     get_population_weighted_cdds,
-    get_calculation_times_degree_days
+    get_calculation_times_degree_days,
+
+    get_analysis_available_times,
+    get_analysis_variables,
+    get_interpolated_analysis,
+    get_gridded_analysis
 )
 
 # Define what should be available when users import *
@@ -86,6 +91,11 @@ __all__ = [
     "get_population_weighted_hdds",
     "get_population_weighted_cdds",
     "get_calculation_times_degree_days",
+
+    "get_analysis_available_times",
+    "get_analysis_variables",
+    "get_interpolated_analysis",
+    "get_gridded_analysis",
 
     # API helpers
     "API_BASE_URL",

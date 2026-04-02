@@ -593,6 +593,187 @@ def get_population_weighted_cdds(initialization_time, ens_member=None, output_fi
     return response
 
 
+def get_analysis_available_times(source='ecmwf_det_anl', print_response=False):
+    """
+    Get available analysis times for a given source.
+
+    Args:
+        source (str): Analysis source (ecmwf_det_anl, ecmwf_ens_anl, era5)
+        print_response (bool, optional): Whether to print formatted output
+
+    Returns:
+        dict: API response with available times, latest, and source
+    """
+    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{source}/analysis/available_times")
+
+    if print_response and response is not None:
+        print("Source:", response.get('source'))
+        print("Latest:", response.get('latest'))
+        print("Available times:")
+        for t in response.get('available', []):
+            print(f" - {t}")
+
+    return response
+
+
+def get_analysis_variables(source='ecmwf_det_anl', print_response=False):
+    """
+    Get available variables for a given analysis source.
+
+    Args:
+        source (str): Analysis source (ecmwf_det_anl, ecmwf_ens_anl, era5)
+        print_response (bool, optional): Whether to print formatted output
+
+    Returns:
+        dict: API response with analysis variables, levels
+    """
+    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{source}/variables")
+
+    if print_response and response is not None:
+        analysis = response.get('analysis', response)
+        sfc = analysis.get('sfc_variables', [])
+        upper = analysis.get('upper_variables', [])
+        levels = analysis.get('levels', [])
+
+        print("Surface variables:")
+        for v in sfc:
+            print(f" - {v}")
+
+        if upper:
+            print("Upper variables:")
+            for v in upper:
+                print(f" - {v}")
+
+        if levels:
+            print("Levels:")
+            for lvl in levels:
+                print(f" - {lvl}")
+
+    return response
+
+
+def get_interpolated_analysis(source='ecmwf_det_anl', coordinates=None, time=None, output_file=None, print_response=False):
+    """
+    Get analysis data interpolated to specific coordinates.
+
+    Args:
+        source (str): Analysis source (ecmwf_det_anl, ecmwf_ens_anl, era5)
+        coordinates (str|list): Coordinates as "lat,lon;lat,lon" or list of tuples/dicts
+        time (str): Time to retrieve data for (ISO 8601)
+        output_file (str, optional): Path to save response (.json or .csv)
+        print_response (bool, optional): Whether to print formatted output
+
+    Returns:
+        dict: API response with analysis data
+    """
+    if not coordinates:
+        print("To get interpolated analysis you must provide coordinates.")
+        return
+
+    formatted_coordinates = coordinates
+    if isinstance(coordinates, list):
+        coordinate_items = []
+        for coordinate in coordinates:
+            if isinstance(coordinate, (tuple, list)):
+                if len(coordinate) != 2:
+                    print("Coordinates should be tuples or lists with two elements: latitude and longitude.")
+                    return
+                coordinate_items.append(f"{coordinate[0]},{coordinate[1]}")
+            elif isinstance(coordinate, str):
+                coordinate_items.append(coordinate)
+            elif isinstance(coordinate, dict):
+                if 'latitude' in coordinate and 'longitude' in coordinate:
+                    coordinate_items.append(f"{coordinate['latitude']},{coordinate['longitude']}")
+                elif 'lat' in coordinate and 'lon' in coordinate:
+                    coordinate_items.append(f"{coordinate['lat']},{coordinate['lon']}")
+                elif 'lat' in coordinate and 'long' in coordinate:
+                    coordinate_items.append(f"{coordinate['lat']},{coordinate['long']}")
+                elif 'lat' in coordinate and 'lng' in coordinate:
+                    coordinate_items.append(f"{coordinate['lat']},{coordinate['lng']}")
+                else:
+                    print("Coordinates should be dictionaries with keys 'latitude' and 'longitude'.")
+                    return
+        formatted_coordinates = ";".join(coordinate_items)
+
+    formatted_coordinates = formatted_coordinates.replace(" ", "")
+
+    if not time:
+        print("To get interpolated analysis you must provide a time.")
+        return
+
+    params = {
+        "coordinates": formatted_coordinates,
+        "time": parse_time(time),
+    }
+
+    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{source}/analysis/interpolated", params=params)
+
+    if output_file:
+        save_arbitrary_response(output_file, response, csv_data_key='forecasts')
+
+    if print_response and response is not None:
+        print(f"Source: {response.get('source')}")
+        print(f"Time: {response.get('time')}")
+
+        analysis = response.get('forecasts', [])
+        keys = ['time', 'temperature_2m', 'dewpoint_2m', 'wind_u_10m', 'wind_v_10m', 'precipitation', 'pressure_msl', 'latitude', 'longitude']
+        headers = ['Time', '2m Temp (°C)', '2m Dewpoint (°C)', 'Wind U (m/s)', 'Wind V (m/s)', 'Precip (mm)', 'MSL Pressure (hPa)', 'Latitude', 'Longitude']
+
+        for i, point_data in enumerate(analysis):
+            if isinstance(point_data, list):
+                print(f"\nPoint {i+1}:")
+                print_table(point_data, keys=keys, headers=headers)
+            elif isinstance(point_data, dict):
+                print(f"\nPoint {i+1}:")
+                print_table([point_data], keys=keys, headers=headers)
+
+    return response
+
+
+def get_gridded_analysis(source='ecmwf_det_anl', variable=None, time=None, output_file=None, output_format=None):
+    """
+    Get gridded analysis data for a variable.
+
+    Args:
+        source (str): Analysis source (ecmwf_det_anl, ecmwf_ens_anl, era5)
+        variable (str): Variable to download (e.g., temperature_2m)
+        time (str): Time to retrieve data for (ISO 8601)
+        output_file (str): Path to save output file (.nc or .zarr)
+        output_format (str, optional): Output format (zarr or netcdf)
+
+    Returns:
+        Response object or None
+    """
+    if not variable:
+        print("To get gridded analysis you must provide a variable.")
+        return
+    if not time:
+        print("To get gridded analysis you must provide a time.")
+        return
+
+    params = {
+        "variable": variable,
+        "time": parse_time(time),
+    }
+    if output_format:
+        params["format"] = output_format
+
+    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{source}/analysis/gridded", params=params, as_json=False)
+
+    if response is None:
+        return None
+
+    if output_file:
+        if output_format == 'zarr' or output_file.endswith('.zarr'):
+            with open(output_file, 'wb') as f:
+                f.write(response.content)
+            print(f"Data Successfully saved to {output_file}")
+        else:
+            download_and_save_output(output_file, response)
+
+    return response
+
+
 def get_calculation_times_degree_days(ens_member=None, print_response=False, model='wm'):
     """
     Get available calculation times for degree days forecasts.

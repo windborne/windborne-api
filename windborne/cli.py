@@ -35,7 +35,12 @@ from . import (
 
     get_available_stations,
     get_station_forecast,
-    get_interpolated_sounding
+    get_interpolated_sounding,
+
+    get_analysis_available_times,
+    get_analysis_variables,
+    get_interpolated_analysis,
+    get_gridded_analysis
 )
 
 from pprint import pprint
@@ -193,7 +198,7 @@ def main():
     points_parser.add_argument('-mh','--min-hour', type=int, help='Minimum forecast hour')
     points_parser.add_argument('-xh','--max-hour', type=int, help='Maximum forecast hour')
     points_parser.add_argument('-i', '--init-time', help='Initialization time')
-    points_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4)')
+    points_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm-4.5-ens)')
     points_parser.add_argument('output_file', nargs='?', help='Output file')
 
     # Interpolated Points Forecast Command
@@ -205,7 +210,7 @@ def main():
     points_interpolated_parser.add_argument('-xh','--max-hour', type=int, help='Maximum forecast hour')
     points_interpolated_parser.add_argument('-i', '--init-time', help='Initialization time')
     points_interpolated_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
-    points_interpolated_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4)')
+    points_interpolated_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm-4.5-ens)')
     points_interpolated_parser.add_argument('output_file', nargs='?', help='Output file (.csv or .json)')
 
     # Station Forecasts
@@ -213,14 +218,14 @@ def main():
 
     # Available Stations Command
     available_stations_parser = subparsers.add_parser('available_stations', help='List all weather stations with station-specific forecasts')
-    available_stations_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4)')
+    available_stations_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm-4.5-ens)')
     available_stations_parser.add_argument('output_file', nargs='?', help='Output file (.csv or .json)')
 
     # Station Forecast Command
     station_forecast_parser = subparsers.add_parser('station_forecast', help='Get weather forecast for a specific station')
     station_forecast_parser.add_argument('station_id', help='ICAO station identifier (e.g., PANC, KJFK, SFO)')
     station_forecast_parser.add_argument('-i', '--init-time', help='Initialization time (ISO 8601)')
-    station_forecast_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4)')
+    station_forecast_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm-4.5-ens)')
     station_forecast_parser.add_argument('output_file', nargs='?', help='Output file (.csv or .json)')
 
     # Interpolated Sounding Command
@@ -237,7 +242,7 @@ def main():
     gridded_parser = subparsers.add_parser('gridded', help='Get gridded forecast for a variable')
     gridded_parser.add_argument('args', nargs='*', help='variable time output_file')
     gridded_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
-    gridded_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm4-intra, ecmwf-det)')
+    gridded_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm-4.5-ens, ecmwf-det)')
 
     # OTHER
     # TCS
@@ -246,7 +251,7 @@ def main():
     # Tropical Cyclones Command
     tropical_cyclones_parser = subparsers.add_parser('tropical_cyclones', help='Get tropical cyclone forecasts')
     tropical_cyclones_parser.add_argument('-b', '--basin',  help='Optional: filter tropical cyclones on basin[ NA, EP, WP, NI, SI, AU, SP]')
-    tropical_cyclones_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm4-intra, ecmwf-det)')
+    tropical_cyclones_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm-4.5-ens, ecmwf-det)')
     tropical_cyclones_parser.add_argument('args', nargs='*',
                                  help='[optional: initialization time (YYYYMMDDHH, YYYY-MM-DDTHH, or YYYY-MM-DDTHH:mm:ss)] output_file')
 
@@ -254,14 +259,14 @@ def main():
     hdd_parser = subparsers.add_parser('hdds', help='Get forecasted population-weighted heating degree days (HDDs)')
     hdd_parser.add_argument('initialization_time', help='Initialization time (YYYYMMDDHH, YYYY-MM-DDTHH, or YYYY-MM-DDTHH:mm:ss)')
     hdd_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
-    hdd_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm4-intra, ecmwf-det)')
+    hdd_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm-4.5-ens, ecmwf-det)')
     hdd_parser.add_argument('-o', '--output', help='Output file (supports .csv and .json formats)')
 
     # Population Weighted CDD Command
     cdd_parser = subparsers.add_parser('cdds', help='Get forecasted population-weighted cooling degree days (CDDs)')
     cdd_parser.add_argument('initialization_time', help='Initialization time (YYYYMMDDHH, YYYY-MM-DDTHH, or YYYY-MM-DDTHH:mm:ss)')
     cdd_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
-    cdd_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm4-intra, ecmwf-det)')
+    cdd_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm-4.5-ens, ecmwf-det)')
     cdd_parser.add_argument('-o', '--output', help='Output file (supports .csv and .json formats)')
 
     # Calculation Times Command (with subcommand for degree_days)
@@ -269,28 +274,55 @@ def main():
     calculation_times_subparsers = calculation_times_parser.add_subparsers(dest='calculation_times_type', help='Calculation type')
     degree_days_parser = calculation_times_subparsers.add_parser('degree_days', help='Get available calculation times for degree days forecasts')
     degree_days_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
-    degree_days_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm4-intra, ecmwf-det)')
+    degree_days_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm-4.5-ens, ecmwf-det)')
 
     # Initialization Times Command
     initialization_times_parser = subparsers.add_parser('init_times', help='Get available initialization times for point forecasts')
     initialization_times_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
-    initialization_times_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm4-intra, ecmwf-det)')
+    initialization_times_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm-4.5-ens, ecmwf-det)')
 
     # Archived Initialization Times Command
     archived_initialization_times_parser = subparsers.add_parser('archived_init_times', help='Get available archived initialization times')
     archived_initialization_times_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
-    archived_initialization_times_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm4-intra, ecmwf-det)')
+    archived_initialization_times_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm-4.5-ens, ecmwf-det)')
     archived_initialization_times_parser.add_argument('-p', '--page-end', help='End of page window (ISO 8601). Lists times back 7 days.')
 
     # Run Information Command
     run_information_parser = subparsers.add_parser('run_information', help='Get run information for a model run')
     run_information_parser.add_argument('initialization_time', help='Initialization time (ISO 8601)')
     run_information_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
-    run_information_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm4-intra, ecmwf-det)')
+    run_information_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm-4.5-ens, ecmwf-det)')
 
     # Variables Command
     variables_parser = subparsers.add_parser('variables', help='Get available variables for a model')
-    variables_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm4-intra, ecmwf-det)')
+    variables_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm-4.5-ens, ecmwf-det)')
+
+    ####################################################################################################################
+    # ANALYSIS API FUNCTIONS
+    ####################################################################################################################
+
+    # Analysis Available Times Command
+    analysis_times_parser = subparsers.add_parser('analysis_available_times', help='Get available analysis times for a source')
+    analysis_times_parser.add_argument('-s', '--source', default='ecmwf_det_anl', help='Analysis source (ecmwf_det_anl, ecmwf_ens_anl, era5)')
+
+    # Analysis Variables Command
+    analysis_variables_parser = subparsers.add_parser('analysis_variables', help='Get available variables for an analysis source')
+    analysis_variables_parser.add_argument('-s', '--source', default='ecmwf_det_anl', help='Analysis source (ecmwf_det_anl, ecmwf_ens_anl, era5)')
+
+    # Analysis Interpolated Command
+    analysis_interpolated_parser = subparsers.add_parser('analysis_interpolated', help='Get analysis data interpolated to specific coordinates')
+    analysis_interpolated_parser.add_argument('coordinates', help='Coordinate pairs in format "latitudeA,longitudeA; latitudeB,longitudeB"')
+    analysis_interpolated_parser.add_argument('time', help='Time to retrieve data for (ISO 8601)')
+    analysis_interpolated_parser.add_argument('-s', '--source', default='ecmwf_det_anl', help='Analysis source (ecmwf_det_anl, ecmwf_ens_anl, era5)')
+    analysis_interpolated_parser.add_argument('output_file', nargs='?', help='Output file (.csv or .json)')
+
+    # Analysis Gridded Command
+    analysis_gridded_parser = subparsers.add_parser('analysis_gridded', help='Get gridded analysis data for a variable')
+    analysis_gridded_parser.add_argument('variable', help='Variable to download (e.g., temperature_2m)')
+    analysis_gridded_parser.add_argument('time', help='Time to retrieve data for (ISO 8601)')
+    analysis_gridded_parser.add_argument('output_file', help='Output file path')
+    analysis_gridded_parser.add_argument('-s', '--source', default='ecmwf_det_anl', help='Analysis source (ecmwf_det_anl, ecmwf_ens_anl, era5)')
+    analysis_gridded_parser.add_argument('-f', '--format', help='Output format (zarr or netcdf)')
 
     args = parser.parse_args()
 
@@ -687,6 +719,33 @@ def main():
             )
         else:
             calculation_times_parser.print_help()
+
+    ####################################################################################################################
+    # ANALYSIS API FUNCTIONS CALLED
+    ####################################################################################################################
+    elif args.command == 'analysis_available_times':
+        get_analysis_available_times(source=args.source, print_response=True)
+
+    elif args.command == 'analysis_variables':
+        get_analysis_variables(source=args.source, print_response=True)
+
+    elif args.command == 'analysis_interpolated':
+        get_interpolated_analysis(
+            source=args.source,
+            coordinates=args.coordinates,
+            time=args.time,
+            output_file=args.output_file,
+            print_response=(not args.output_file)
+        )
+
+    elif args.command == 'analysis_gridded':
+        get_gridded_analysis(
+            source=args.source,
+            variable=args.variable,
+            time=args.time,
+            output_file=args.output_file,
+            output_format=args.format
+        )
 
     else:
         parser.print_help()
