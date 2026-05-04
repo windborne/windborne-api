@@ -548,12 +548,9 @@ def main():
         min_forecast_hour = args.min_hour if args.min_hour else None
         max_forecast_hour = args.max_hour if args.max_hour else None
         initialization_time = args.init_time if args.init_time else None
-        coordinates = args.coordinates if ',' in args.coordinates else None
-        stations = args.coordinates if coordinates is None else None
 
         get_point_forecasts(
-            coordinates=coordinates,
-            stations=stations,
+            coordinates=args.coordinates,
             min_forecast_time=min_forecast_time,
             max_forecast_time=max_forecast_time,
             min_forecast_hour=min_forecast_hour,

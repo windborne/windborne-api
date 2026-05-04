@@ -163,11 +163,26 @@ def _format_point_forecast_stations(stations):
 
 
 def _looks_like_station_query(query):
-    return isinstance(query, str) and query.strip() != "" and "," not in query
+    if isinstance(query, str):
+        cleaned = query.strip()
+        return cleaned != "" and "," not in cleaned and any(ch.isalpha() for ch in cleaned)
+
+    if isinstance(query, list):
+        if len(query) == 0:
+            return False
+        return all(
+            isinstance(item, str)
+            and item.strip() != ""
+            and "," not in item
+            and any(ch.isalpha() for ch in item)
+            for item in query
+        )
+
+    return False
 
 
 # Point forecasts
-def get_point_forecasts(coordinates=None, stations=None, min_forecast_time=None, max_forecast_time=None, min_forecast_hour=None, max_forecast_hour=None, initialization_time=None, output_file=None, print_response=False, model='wm'):
+def get_point_forecasts(coordinates=None, min_forecast_time=None, max_forecast_time=None, min_forecast_hour=None, max_forecast_hour=None, initialization_time=None, output_file=None, print_response=False, model='wm', stations=None):
     """
     Get point forecasts from the API.
 
