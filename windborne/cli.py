@@ -191,8 +191,8 @@ def main():
     # We have quite a few quite a few optional query parameters here
     # so we set coordinates and output_file to required instead of
     # setting all args into a parser arg (add_argument('args', nargs='*', ...)
-    points_parser = subparsers.add_parser('points', help='Get the forecast at a given point or set of points')
-    points_parser.add_argument('coordinates', help='Coordinate pairs in format "latitudeA,longitudeA; latitudeB,longitudeB"')
+    points_parser = subparsers.add_parser('points', help='Get the forecast at given point(s) or station(s)')
+    points_parser.add_argument('coordinates', help='Coordinate pairs in format "latitudeA,longitudeA; latitudeB,longitudeB" or station IDs like "PANC;KJFK"')
     points_parser.add_argument('-mt','--min-time', help='Minimum forecast time')
     points_parser.add_argument('-xt','--max-time', help='Maximum forecast time')
     points_parser.add_argument('-mh','--min-hour', type=int, help='Minimum forecast hour')
