@@ -111,9 +111,9 @@ def _format_point_forecast_coordinates(coordinates):
     if coordinates is None:
         return None
 
-    formatted_coordinates = coordinates
-
-    if isinstance(coordinates, list):
+    if isinstance(coordinates, str):
+        formatted_coordinates = coordinates
+    elif isinstance(coordinates, list):
         coordinate_items = []
         for coordinate in coordinates:
             if isinstance(coordinate, tuple) or isinstance(coordinate, list):
@@ -138,8 +138,11 @@ def _format_point_forecast_coordinates(coordinates):
                     return None
 
         formatted_coordinates = ";".join(coordinate_items)
+    else:
+        print("Coordinates should be a string like '37,-121' or a list of coordinate entries.")
+        return None
 
-    formatted_coordinates = str(formatted_coordinates).replace(" ", "")
+    formatted_coordinates = formatted_coordinates.replace(" ", "")
     return formatted_coordinates or None
 
 
@@ -147,7 +150,9 @@ def _format_point_forecast_stations(stations):
     if stations is None:
         return None
 
-    if isinstance(stations, list):
+    if isinstance(stations, str):
+        formatted_stations = stations
+    elif isinstance(stations, list):
         station_items = []
         for station in stations:
             if not isinstance(station, str):
@@ -156,7 +161,8 @@ def _format_point_forecast_stations(stations):
             station_items.append(station)
         formatted_stations = ";".join(station_items)
     else:
-        formatted_stations = str(stations)
+        print("Stations should be a string like 'PANC;KJFK' or a list of station IDs.")
+        return None
 
     formatted_stations = formatted_stations.replace(" ", "").upper()
     return formatted_stations or None
