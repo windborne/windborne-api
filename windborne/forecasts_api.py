@@ -107,25 +107,10 @@ def get_variables(print_response=False, model='wm'):
 
     return response
 
-# Point forecasts
-def get_point_forecasts(coordinates, min_forecast_time=None, max_forecast_time=None, min_forecast_hour=None, max_forecast_hour=None, initialization_time=None, output_file=None, print_response=False, model='wm'):
-    """
-    Get point forecasts from the API.
+def _format_point_forecast_coordinates(coordinates):
+    if coordinates is None:
+        return None
 
-    Args:
-        coordinates (str, list): Coordinates in the format "latitude,longitude"
-                                  or a list of tuples, lists, or dictionaries with keys 'latitude' and 'longitude'
-        min_forecast_time (str, optional): Minimum forecast time in ISO 8601 format (YYYY-MM-DDTHH:00:00)
-        max_forecast_time (str, optional): Maximum forecast time in ISO 8601 format (YYYY-MM-DDTHH:00:00)
-        min_forecast_hour (int, optional): Minimum forecast hour
-        max_forecast_hour (int, optional): Maximum forecast hour
-        initialization_time (str, optional): Initialization time in ISO 8601 format (YYYY-MM-DDTHH:00:00)
-        output_file (str, optional): Path to save the response data
-                                      Supported formats: .json, .csv
-        print_response (bool, optional): Whether to print the response data
-    """
-
-    # coordinates should be formatted as a semi-colon separated list of latitude,longitude tuples, eg 37,-121;40.3,-100
     formatted_coordinates = coordinates
 
     if isinstance(coordinates, list):
@@ -134,7 +119,7 @@ def get_point_forecasts(coordinates, min_forecast_time=None, max_forecast_time=N
             if isinstance(coordinate, tuple) or isinstance(coordinate, list):
                 if len(coordinate) != 2:
                     print("Coordinates should be tuples or lists with two elements: latitude and longitude.")
-                    return
+                    return None
 
                 coordinate_items.append(f"{coordinate[0]},{coordinate[1]}")
             elif isinstance(coordinate, str):
@@ -150,19 +135,83 @@ def get_point_forecasts(coordinates, min_forecast_time=None, max_forecast_time=N
                     coordinate_items.append(f"{coordinate['lat']},{coordinate['lng']}")
                 else:
                     print("Coordinates should be dictionaries with keys 'latitude' and 'longitude'.")
-                    return
+                    return None
 
         formatted_coordinates = ";".join(coordinate_items)
 
-    formatted_coordinates = formatted_coordinates.replace(" ", "")
+    formatted_coordinates = str(formatted_coordinates).replace(" ", "")
+    return formatted_coordinates or None
 
-    if not formatted_coordinates or formatted_coordinates == "":
-        print("To get points forecasts you must provide coordinates.")
+
+def _format_point_forecast_stations(stations):
+    if stations is None:
+        return None
+
+    if isinstance(stations, list):
+        station_items = []
+        for station in stations:
+            if not isinstance(station, str):
+                print("Stations should be strings like 'PANC' or 'KJFK'.")
+                return None
+            station_items.append(station)
+        formatted_stations = ";".join(station_items)
+    else:
+        formatted_stations = str(stations)
+
+    formatted_stations = formatted_stations.replace(" ", "").upper()
+    return formatted_stations or None
+
+
+def _looks_like_station_query(query):
+    return isinstance(query, str) and query.strip() != "" and "," not in query
+
+
+# Point forecasts
+def get_point_forecasts(coordinates=None, stations=None, min_forecast_time=None, max_forecast_time=None, min_forecast_hour=None, max_forecast_hour=None, initialization_time=None, output_file=None, print_response=False, model='wm'):
+    """
+    Get point forecasts from the API.
+
+    Args:
+        coordinates (str, list, optional): Coordinates in the format "latitude,longitude"
+                                           or a list of tuples, lists, or dictionaries with keys 'latitude' and 'longitude'
+        stations (str, list, optional): ICAO station IDs as a semicolon-delimited string
+                                        (e.g. "PANC;KJFK") or a list of station IDs
+        min_forecast_time (str, optional): Minimum forecast time in ISO 8601 format (YYYY-MM-DDTHH:00:00)
+        max_forecast_time (str, optional): Maximum forecast time in ISO 8601 format (YYYY-MM-DDTHH:00:00)
+        min_forecast_hour (int, optional): Minimum forecast hour
+        max_forecast_hour (int, optional): Maximum forecast hour
+        initialization_time (str, optional): Initialization time in ISO 8601 format (YYYY-MM-DDTHH:00:00)
+        output_file (str, optional): Path to save the response data
+                                      Supported formats: .json, .csv
+        print_response (bool, optional): Whether to print the response data
+    """
+
+    raw_coordinates = coordinates
+    raw_stations = stations
+
+    # Preserve the existing CLI shape where the first positional argument may
+    # be a semicolon-delimited station list instead of coordinates.
+    if raw_stations is None and _looks_like_station_query(raw_coordinates):
+        raw_stations = raw_coordinates
+        raw_coordinates = None
+
+    formatted_coordinates = _format_point_forecast_coordinates(raw_coordinates)
+    if raw_coordinates is not None and formatted_coordinates is None:
         return
 
-    params = {
-        "coordinates": formatted_coordinates
-    }
+    formatted_stations = _format_point_forecast_stations(raw_stations)
+    if raw_stations is not None and formatted_stations is None:
+        return
+
+    if not formatted_coordinates and not formatted_stations:
+        print("To get point forecasts you must provide coordinates or stations.")
+        return
+
+    params = {}
+    if formatted_coordinates:
+        params["coordinates"] = formatted_coordinates
+    if formatted_stations:
+        params["stations"] = formatted_stations
 
     if min_forecast_time:
         params["min_forecast_time"] = parse_time(min_forecast_time)
@@ -185,14 +234,22 @@ def get_point_forecasts(coordinates, min_forecast_time=None, max_forecast_time=N
         save_arbitrary_response(output_file, response, csv_data_key='forecasts')
 
     if print_response:
-        unformatted_coordinates = formatted_coordinates.split(';')
+        query_labels = []
+        if formatted_coordinates:
+            query_labels.extend(("coordinate", coordinate) for coordinate in formatted_coordinates.split(';'))
+        if formatted_stations:
+            query_labels.extend(("station", station_id) for station_id in formatted_stations.split(';'))
 
         keys = ['time', 'temperature_2m', 'dewpoint_2m', 'wind_u_10m', 'wind_v_10m', 'precipitation', 'pressure_msl']
         headers = ['Time', '2m Temperature (°C)', '2m Dewpoint (°C)', 'Wind U (m/s)', 'Wind V (m/s)', 'Precipitation (mm)', 'MSL Pressure (hPa)']
 
         for i in range(len(response['forecasts'])):
-            latitude, longitude = unformatted_coordinates[i].split(',')
-            print(f"\nForecast for ({latitude}, {longitude})")
+            query_kind, query_value = query_labels[i]
+            if query_kind == "coordinate":
+                latitude, longitude = query_value.split(',')
+                print(f"\nForecast for ({latitude}, {longitude})")
+            else:
+                print(f"\nForecast for station {query_value}")
             print_table(response['forecasts'][i], keys=keys, headers=headers)
 
     return response

@@ -191,8 +191,8 @@ def main():
     # We have quite a few quite a few optional query parameters here
     # so we set coordinates and output_file to required instead of
     # setting all args into a parser arg (add_argument('args', nargs='*', ...)
-    points_parser = subparsers.add_parser('points', help='Get the forecast at a given point or set of points')
-    points_parser.add_argument('coordinates', help='Coordinate pairs in format "latitudeA,longitudeA; latitudeB,longitudeB"')
+    points_parser = subparsers.add_parser('points', help='Get the forecast at given point(s) or station(s)')
+    points_parser.add_argument('coordinates', help='Coordinate pairs in format "latitudeA,longitudeA; latitudeB,longitudeB" or station IDs like "PANC;KJFK"')
     points_parser.add_argument('-mt','--min-time', help='Minimum forecast time')
     points_parser.add_argument('-xt','--max-time', help='Maximum forecast time')
     points_parser.add_argument('-mh','--min-hour', type=int, help='Minimum forecast hour')
@@ -548,9 +548,12 @@ def main():
         min_forecast_hour = args.min_hour if args.min_hour else None
         max_forecast_hour = args.max_hour if args.max_hour else None
         initialization_time = args.init_time if args.init_time else None
+        coordinates = args.coordinates if ',' in args.coordinates else None
+        stations = args.coordinates if coordinates is None else None
 
         get_point_forecasts(
-            coordinates=args.coordinates,
+            coordinates=coordinates,
+            stations=stations,
             min_forecast_time=min_forecast_time,
             max_forecast_time=max_forecast_time,
             min_forecast_hour=min_forecast_hour,

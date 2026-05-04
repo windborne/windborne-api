@@ -17,6 +17,12 @@ describe 'point_forecasts' do
     end
   end
 
+  it 'generates forecasts for stations' do
+    output = run('points', 'panc;kjfk', '--model', 'mm')
+    expect(output).to include('Forecast for station PANC')
+    expect(output).to include('Forecast for station KJFK')
+  end
+
   it 'can save to csv' do
     require 'csv'
 
