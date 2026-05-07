@@ -18,8 +18,12 @@ def run(*args, wb_client_id: 'global', wb_api_key: nil, print: nil)
     'PYTHONPATH' => File.expand_path('..', __dir__)
   }
 
-  # Run the CLI via Python module so we don't require console-script install
-  command = ['python3', '-m', 'windborne.cli', *args]
+  # Run the CLI via Python module so we don't require console-script install.
+  # Prefer the project's .venv interpreter if present, since system python3
+  # (e.g. Homebrew) typically lacks the package's runtime deps.
+  venv_python = File.expand_path('../.venv/bin/python3', __dir__)
+  python_executable = File.executable?(venv_python) ? venv_python : 'python3'
+  command = [python_executable, '-m', 'windborne.cli', *args]
 
   output = ''
   status = nil
