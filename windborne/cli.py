@@ -21,6 +21,8 @@ from . import (
     get_soundings,
     get_sounding,
 
+    get_recent_asos_observations,
+
     get_point_forecasts,
     get_point_forecasts_interpolated,
     get_initialization_times,
@@ -182,6 +184,13 @@ def main():
     sounding_parser = subparsers.add_parser('sounding', help='Get full sounding data by ID')
     sounding_parser.add_argument('sounding_id', help='Sounding ID (UUID)')
     sounding_parser.add_argument('output', nargs='?', help='Output file (.csv or .json)')
+
+    # Recent ASOS Observations Command
+    asos_recent_parser = subparsers.add_parser('asos_recent', help='Get recent ASOS observations for a single station')
+    asos_recent_parser.add_argument('station', help='Station identifier: short code (DWH), ICAO (KDWH, EGLL), USAF-WBAN with dash (722429-53910), or 11-digit USAF+WBAN (72242953910)')
+    asos_recent_parser.add_argument('-H', '--hours', type=int, help='Lookback window in hours, 1-168 (default 48)')
+    asos_recent_parser.add_argument('-s', '--since', help='ISO 8601 timestamp; overrides --hours')
+    asos_recent_parser.add_argument('output', nargs='?', help='Output file (.csv or .json)')
 
     ####################################################################################################################
     # FORECASTS API FUNCTIONS
@@ -537,6 +546,15 @@ def main():
             sounding_id=args.sounding_id,
             output_file=args.output,
             print_result=(not args.output)
+        )
+
+    elif args.command == 'asos_recent':
+        get_recent_asos_observations(
+            station=args.station,
+            hours=args.hours,
+            since=args.since,
+            output_file=args.output,
+            print_results=(not args.output)
         )
 
     ####################################################################################################################

@@ -1026,3 +1026,74 @@ def get_sounding(sounding_id, output_file=None, print_result=False):
         save_arbitrary_response(output_file, response, csv_data_key='data')
 
     return response
+
+
+# ------------
+# ASOS
+# ------------
+
+def get_recent_asos_observations(
+    station, hours=None, since=None,
+    output_file=None, print_results=False
+):
+    """
+    Retrieves up to the last 7 days of ASOS observations for a single station.
+
+    US ASOS sites report at a 5-minute cadence; international stations follow
+    the standard 30-minute METAR cadence.
+
+    Args:
+        station (str): Station identifier. Accepts the 4-letter ICAO
+            ("KDWH", "EGLL"), 3-letter FAA code for US airports ("DWH"),
+            dashed USAF-WBAN ("722429-53910"), or 11-digit USAF+WBAN
+            ("72242953910"). Case-insensitive.
+        hours (int): Lookback window in hours. Clamped to [1, 168]
+            (7 days). Defaults to 48 server-side.
+        since (str): ISO 8601 timestamp. If supplied, overrides `hours`
+            and returns observations at or after this instant.
+        output_file (str): Optional path to save response (.csv or .json).
+        print_results (bool): Whether to print results.
+
+    Returns:
+        dict | None: Response with `station`, `units`, and `observations`,
+            or None on error.
+    """
+    if not station:
+        print("Must provide a station.")
+        return {}
+
+    url = f"{DATA_API_BASE_URL}/asos/recent"
+
+    params = {"station": station}
+    if hours is not None:
+        params["hours"] = hours
+    if since:
+        params["since"] = since
+
+    response = make_api_request(url, params=params)
+
+    if response is None:
+        return {}
+
+    observations = response.get('observations', [])
+
+    if print_results:
+        station_info = response.get('station', {}) or {}
+        label = station_info.get('icao') or station_info.get('station_id') or station
+        name = station_info.get('name')
+        header = f"ASOS observations for {label}"
+        if name:
+            header += f" ({name})"
+        print(header)
+        print(f"{len(observations)} observation(s)\n")
+        if observations:
+            print_table(
+                observations,
+                keys=['time', 'temperature_2m', 'dewpoint_2m', 'pressure_msl', 'wind_u_10m', 'wind_v_10m', 'precipitation'],
+                headers=['Time', 'Temp (C)', 'Dewpt (C)', 'P (hPa)', 'U (m/s)', 'V (m/s)', 'Precip (mm)']
+            )
+
+    if output_file:
+        save_arbitrary_response(output_file, response, csv_data_key='observations')
+
+    return response

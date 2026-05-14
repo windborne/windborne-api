@@ -21,7 +21,9 @@ from .observations_api import (
     get_flight_path,
     get_constellation_status,
     get_soundings,
-    get_sounding
+    get_sounding,
+
+    get_recent_asos_observations
 )
 
 # Import Forecasts API functions
@@ -71,6 +73,8 @@ __all__ = [
     "get_constellation_status",
     "get_soundings",
     "get_sounding",
+
+    "get_recent_asos_observations",
 
     "get_point_forecasts",
     "get_point_forecasts_interpolated",
