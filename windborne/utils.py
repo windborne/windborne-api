@@ -27,6 +27,7 @@ def to_unix_timestamp(date_string):
             "%Y-%m-%d %H:%M:%S",        # e.g., 2024-12-05 14:48:00
             "%Y-%m-%d_%H:%M",           # e.g., 2024-12-05_14:48
             "%Y-%m-%dT%H:%M:%S.%fZ",    # e.g., 2024-12-05T14:48:00.000Z
+            "%Y-%m-%dT%H:%M:%SZ",       # e.g., 2024-12-05T14:48:00Z
             "%Y%m%d%H",                 # e.g., 2024120514
         ]
         for fmt in formats:
@@ -41,6 +42,7 @@ def to_unix_timestamp(date_string):
               "- YYYY-MM-DD HH:MM:SS\n"
               "- YYYY-MM-DD_HH:MM\n"
               "- YYYY-MM-DDTHH:MM:SS.fffZ\n"
+              "- YYYY-MM-DDTHH:MM:SSZ\n"
               "- YYYYMMDDHH")
         exit(1)
 
