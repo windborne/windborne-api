@@ -276,6 +276,13 @@ def get_point_forecasts(coordinates=None, min_forecast_time=None, max_forecast_t
     return response
 
 
+def _default_gridded_forecast_extension(model):
+    model = model or ''
+    if model.startswith(('wm6', 'wm-6')):
+        return '.zarr.zip'
+    return '.nc'
+
+
 def get_gridded_forecast(variable, time=None, initialization_time=None, forecast_hour=None, output_file=None, silent=False, ens_member=None, model='wm', level=None):
     """
     Get gridded forecast data from the API.
@@ -334,7 +341,8 @@ def get_gridded_forecast(variable, time=None, initialization_time=None, forecast
     if output_file:
         if not silent:
             print(f"Output URL found; downloading to {output_file}...")
-        download_and_save_output(output_file, response)
+        default_extension = _default_gridded_forecast_extension(model)
+        download_and_save_output(output_file, response, default_extension=default_extension)
 
     return response
 
@@ -483,21 +491,22 @@ def print_tc_supported_formats():
         print(f"  - {fmt}")
 
 
-def download_and_save_output(output_file, response, silent=False):
+def download_and_save_output(output_file, response, silent=False, default_extension='.nc'):
     """
-    Downloads a forecast output from a presigned S3 url contained in a response and saves it as a .nc file.
+    Downloads a forecast output from a presigned S3 url contained in a response and saves it to a file.
 
     Args:
-        output_file (str): Path where to save the .nc file
+        output_file (str): Path where to save the output file
         response (str): Response that contains the S3 url to download the data from
+        default_extension (str): Extension to add when output_file has no extension
 
     Returns:
         bool: True if successful, False otherwise
     """
 
-    # Add .nc extension if not present
-    if not output_file.endswith('.nc'):
-        output_file = output_file + '.nc'
+    # Add default extension if no extension is present
+    if '.' not in output_file.split('/')[-1]:
+        output_file = output_file + default_extension
 
     try:
         # Save the content directly to file
