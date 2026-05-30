@@ -283,7 +283,7 @@ def _default_gridded_forecast_extension(model):
     return '.nc'
 
 
-def get_gridded_forecast(variable, time=None, initialization_time=None, forecast_hour=None, output_file=None, silent=False, ens_member=None, model='wm', level=None):
+def get_gridded_forecast(variable, time=None, initialization_time=None, forecast_hour=None, output_file=None, silent=False, ens_member=None, model='wm', level=None, include_distribution=False, include_members=False):
     """
     Get gridded forecast data from the API.
     Note that this is primarily meant to be used internally by the other functions in this module.
@@ -298,6 +298,8 @@ def get_gridded_forecast(variable, time=None, initialization_time=None, forecast
         level (int, optional): The level you want the forecast for
         output_file (str, optional): Path to save the response data
                                       Supported formats: .nc
+        include_distribution (bool, optional): Include percentiles, standard deviation, and thresholds when available (WM6 only)
+        include_members (bool, optional): Include all ensemble members when available (WM6 only)
     """
 
     # backwards compatibility for time and variable order swap
@@ -332,6 +334,10 @@ def get_gridded_forecast(variable, time=None, initialization_time=None, forecast
 
     if level is not None:
         request_params['level'] = level
+    if include_distribution:
+        request_params['include_distribution'] = True
+    if include_members:
+        request_params['include_members'] = True
 
     response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/gridded", params=request_params, as_json=False)
 
@@ -346,7 +352,7 @@ def get_gridded_forecast(variable, time=None, initialization_time=None, forecast
 
     return response
 
-def get_full_gridded_forecast(time=None, initialization_time=None, forecast_hour=None, output_file=None, silent=False, ens_member=None, model='wm'):
+def get_full_gridded_forecast(time=None, initialization_time=None, forecast_hour=None, output_file=None, silent=False, ens_member=None, model='wm', include_distribution=False, include_members=False):
     """
     Get gridded forecast data for all variables from the API.
 
@@ -361,9 +367,11 @@ def get_full_gridded_forecast(time=None, initialization_time=None, forecast_hour
         silent (bool, optional): Whether to print output
         ens_member (int, optional): The ensemble member to get the forecast for
         model (str, optional): The model to get the forecast for
+        include_distribution (bool, optional): Include percentiles, standard deviation, and thresholds when available (WM6 only)
+        include_members (bool, optional): Include all ensemble members when available (WM6 only)
     """
 
-    return get_gridded_forecast(variable="all", time=time, initialization_time=initialization_time, forecast_hour=forecast_hour, output_file=output_file, silent=silent, ens_member=ens_member, model=model)
+    return get_gridded_forecast(variable="all", time=time, initialization_time=initialization_time, forecast_hour=forecast_hour, output_file=output_file, silent=silent, ens_member=ens_member, model=model, include_distribution=include_distribution, include_members=include_members)
 
 
 def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None, print_response=False, model='wm'):
