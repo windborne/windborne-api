@@ -219,9 +219,9 @@ def main():
     points_interpolated_parser.add_argument('-xh','--max-hour', type=int, help='Maximum forecast hour')
     points_interpolated_parser.add_argument('-i', '--init-time', help='Initialization time')
     points_interpolated_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
-    points_interpolated_parser.add_argument('-v', '--variable', help='Variable to retrieve (e.g., temperature_2m). Required with --include-distribution')
+    points_interpolated_parser.add_argument('-v', '--variable', help='Variable to retrieve (e.g., temperature_2m). WM-6 only. Required with --include-distribution')
     points_interpolated_parser.add_argument('--include-distribution', action='store_true', help='Include distribution statistics (mean, std, percentiles). WM-6 only')
-    points_interpolated_parser.add_argument('-l', '--level', type=int, help='Pressure level in hPa for upper-level variables (e.g., 500, 850)')
+    points_interpolated_parser.add_argument('-l', '--level', type=int, help='Pressure level in hPa for upper-level variables (e.g., 500, 850). WM-6 only')
     points_interpolated_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm-4.5-ens)')
     points_interpolated_parser.add_argument('output_file', nargs='?', help='Output file (.csv or .json)')
 
