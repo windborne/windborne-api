@@ -1026,7 +1026,7 @@ def get_interpolated_sounding(coordinates, time=None, initialization_time=None, 
     return response
 
 
-def get_point_forecasts_interpolated(coordinates, min_forecast_time=None, max_forecast_time=None, min_forecast_hour=None, max_forecast_hour=None, initialization_time=None, ens_member=None, output_file=None, print_response=False, model='wm'):
+def get_point_forecasts_interpolated(coordinates, min_forecast_time=None, max_forecast_time=None, min_forecast_hour=None, max_forecast_hour=None, initialization_time=None, ens_member=None, variable=None, include_distribution=False, level=None, output_file=None, print_response=False, model='wm'):
     """
     Get interpolated point forecasts from the API.
 
@@ -1038,6 +1038,9 @@ def get_point_forecasts_interpolated(coordinates, min_forecast_time=None, max_fo
         max_forecast_hour (int, optional): Maximum forecast hour
         initialization_time (str, optional): Initialization time (ISO 8601). If omitted, latest is used
         ens_member (str | int, optional): Ensemble member (e.g., "mean" or 0-23)
+        variable (str, optional): Variable to retrieve (e.g., "temperature_2m"). Required when include_distribution is True. Only a single variable is allowed with include_distribution.
+        include_distribution (bool, optional): Include distribution statistics (mean, std, percentiles). WM-6 only. Requires variable to be set.
+        level (int, optional): Pressure level in hPa for upper-level variables (e.g., 500, 850)
         output_file (str, optional): Save response to .json or .csv (csv_data_key='forecasts')
         print_response (bool, optional): Print response summary to stdout
         model (str, optional): Forecast model (e.g., wm, wm4, wm4-intra, ecmwf-det)
@@ -1088,6 +1091,12 @@ def get_point_forecasts_interpolated(coordinates, min_forecast_time=None, max_fo
         params["initialization_time"] = parse_time(initialization_time, init_time_flag=True)
     if ens_member is not None:
         params["ens_member"] = ens_member
+    if variable:
+        params["variable"] = variable
+    if include_distribution:
+        params["include_distribution"] = True
+    if level is not None:
+        params["level"] = int(level)
 
     if print_response:
         print("Generating interpolated point forecast...")
@@ -1100,14 +1109,31 @@ def get_point_forecasts_interpolated(coordinates, min_forecast_time=None, max_fo
 
     if print_response and response is not None:
         unformatted_coordinates = formatted_coordinates.split(';')
-        # Include latitude/longitude along with standard surface variables
-        keys = ['time', 'temperature_2m', 'dewpoint_2m', 'wind_u_10m', 'wind_v_10m', 'precipitation', 'pressure_msl', 'latitude', 'longitude']
-        headers = ['Time', '2m Temperature (°C)', '2m Dewpoint (°C)', 'Wind U (m/s)', 'Wind V (m/s)', 'Precipitation (mm)', 'MSL Pressure (hPa)', 'Latitude', 'Longitude']
-
         forecasts = response.get('forecasts', [])
+
+        default_keys = ['time', 'temperature_2m', 'dewpoint_2m', 'wind_u_10m', 'wind_v_10m', 'precipitation', 'pressure_msl', 'latitude', 'longitude']
+        default_headers = ['Time', '2m Temperature (°C)', '2m Dewpoint (°C)', 'Wind U (m/s)', 'Wind V (m/s)', 'Precipitation (mm)', 'MSL Pressure (hPa)', 'Latitude', 'Longitude']
+
+        if variable and forecasts and forecasts[0]:
+            available = set(forecasts[0][0].keys()) - {'distribution'}
+            keys = [k for k in default_keys if k in available]
+            headers = [h for k, h in zip(default_keys, default_headers) if k in available]
+        else:
+            keys = default_keys
+            headers = default_headers
+
         for i in range(min(len(forecasts), len(unformatted_coordinates))):
             latitude, longitude = unformatted_coordinates[i].split(',')
             print(f"\nForecast for ({latitude}, {longitude})")
             print_table(forecasts[i], keys=keys, headers=headers)
+
+            if include_distribution and forecasts[i]:
+                print(f"\n  Distribution ({variable}):")
+                print(f"  {'Time':<24} {'Mean':>8} {'Std':>8} {'p01':>8} {'p05':>8} {'p10':>8} {'p25':>8} {'p75':>8} {'p90':>8} {'p95':>8} {'p99':>8}")
+                print(f"  {'-'*108}")
+                for point in forecasts[i]:
+                    dist = point.get('distribution', {})
+                    if dist:
+                        print(f"  {point.get('time', ''):<24} {dist.get('mean', ''):>8} {dist.get('std', ''):>8} {dist.get('p01', ''):>8} {dist.get('p05', ''):>8} {dist.get('p10', ''):>8} {dist.get('p25', ''):>8} {dist.get('p75', ''):>8} {dist.get('p90', ''):>8} {dist.get('p95', ''):>8} {dist.get('p99', ''):>8}")
 
     return response
