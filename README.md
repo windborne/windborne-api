@@ -9,4 +9,4 @@ See [https://api.windbornesystems.com/](https://api.windbornesystems.com/) for d
 ## Further information and help request
 If you encounter issues or have questions, please ask your WindBorne Systems contact or email data@windbornesystems.com.
 
-For development of this package, see [README_dev.md](README_dev.md)
+For development of this package, see [README_dev.md](https://github.com/windborne/windborne-api/blob/main/README_dev.md)
