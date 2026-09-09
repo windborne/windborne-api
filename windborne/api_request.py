@@ -152,6 +152,8 @@ def make_api_request(url, params=None, as_json=True, retry_counter=0, method='GE
             return response
 
     except requests.exceptions.HTTPError as http_err:
+        if method.upper() not in ['GET', 'HEAD']:
+            raise
         if http_err.response.status_code in [401, 403]:
             print("--------------------------------------")
             print("We couldn't authenticate your request.")

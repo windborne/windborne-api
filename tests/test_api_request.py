@@ -58,6 +58,30 @@ class ApiRequestTest(unittest.TestCase):
 
     @patch('windborne.api_request.requests.request')
     @patch('windborne.api_request.get_verified_api_credentials', return_value=(None, 'wb_test'))
+    def test_mutating_request_raises_http_errors(self, credentials, request):
+        for status_code in [400, 401, 403, 404]:
+            with self.subTest(status_code=status_code):
+                response = Mock(status_code=status_code)
+                response.raise_for_status.side_effect = requests.exceptions.HTTPError(response=response)
+                request.return_value = response
+
+                with self.assertRaises(requests.exceptions.HTTPError):
+                    api_request.make_api_request(
+                        'https://example.test/webhooks/1', method='DELETE'
+                    )
+
+    @patch('windborne.api_request.requests.request')
+    @patch('windborne.api_request.get_verified_api_credentials', return_value=(None, 'wb_test'))
+    def test_read_request_keeps_not_found_behavior(self, credentials, request):
+        response = Mock(status_code=404, text='not found')
+        response.raise_for_status.side_effect = requests.exceptions.HTTPError(response=response)
+        request.return_value = response
+
+        with patch('builtins.print'):
+            self.assertIsNone(api_request.make_api_request('https://example.test/data'))
+
+    @patch('windborne.api_request.requests.request')
+    @patch('windborne.api_request.get_verified_api_credentials', return_value=(None, 'wb_test'))
     def test_mutating_request_is_not_retried_after_connection_failure(self, credentials, request):
         request.side_effect = requests.exceptions.ConnectionError('connection lost')
         with self.assertRaises(requests.exceptions.ConnectionError):

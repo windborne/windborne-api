@@ -8,8 +8,14 @@ from windborne import webhooks_api
 class WebhooksApiTest(unittest.TestCase):
     @patch('windborne.webhooks_api.make_api_request', return_value={})
     def test_endpoint_crud(self, request):
+        subscriptions = {
+            'initialization_time.available': {'filters': {'model': 'wm-6'}}
+        }
         webhooks_api.create_webhook(
-            'https://receiver.test/hook', name='Forecasts', active=False, subscriptions=[]
+            'https://receiver.test/hook',
+            name='Forecasts',
+            active=False,
+            subscriptions=subscriptions,
         )
         webhooks_api.list_webhooks(page=1, page_size=20, active=True, subscription_type='forecast_hour.available')
         webhooks_api.get_webhook('wh_1')
@@ -17,7 +23,15 @@ class WebhooksApiTest(unittest.TestCase):
         webhooks_api.delete_webhook('wh_1')
 
         self.assertEqual(
-            {'method': 'POST', 'json': {'url': 'https://receiver.test/hook', 'name': 'Forecasts', 'subscriptions': [], 'active': False}},
+            {
+                'method': 'POST',
+                'json': {
+                    'url': 'https://receiver.test/hook',
+                    'name': 'Forecasts',
+                    'subscriptions': subscriptions,
+                    'active': False,
+                },
+            },
             request.call_args_list[0].kwargs,
         )
         self.assertEqual(
@@ -31,7 +45,7 @@ class WebhooksApiTest(unittest.TestCase):
     @patch('windborne.webhooks_api.make_api_request', return_value=None)
     def test_subscription_crud_and_ping(self, request):
         webhooks_api.add_webhook_subscription(
-            'wh_1', 'initialization_time.available', filters={'model': ['wm-6']}
+            'wh_1', 'initialization_time.available', filters={'model': 'wm-6'}
         )
         webhooks_api.update_webhook_subscription(
             'wh_1', 'sub_1', response_options=None
@@ -40,7 +54,7 @@ class WebhooksApiTest(unittest.TestCase):
         webhooks_api.ping_webhook_subscription('wh_1', 'sub_1')
 
         self.assertEqual(
-            {'method': 'PATCH', 'json': {'subscription_type': 'initialization_time.available', 'filters': {'model': ['wm-6']}}},
+            {'method': 'PATCH', 'json': {'subscription_type': 'initialization_time.available', 'filters': {'model': 'wm-6'}}},
             request.call_args_list[0].kwargs,
         )
         self.assertEqual({'method': 'PATCH', 'json': {'response_options': None}}, request.call_args_list[1].kwargs)
