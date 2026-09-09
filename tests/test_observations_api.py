@@ -40,6 +40,23 @@ class ObservationsApiTest(unittest.TestCase):
         )
 
     @patch('windborne.observations_api.make_api_request')
+    def test_soundings_preserve_legacy_underscore_times_as_utc(self, request):
+        request.return_value = {'soundings': []}
+
+        observations_api.get_soundings(
+            min_time='2026-09-01_00:00',
+            max_time='2026-09-02_12:30',
+        )
+
+        self.assertEqual(
+            {
+                'min_time': '2026-09-01T00:00:00Z',
+                'max_time': '2026-09-02T12:30:00Z',
+            },
+            request.call_args.kwargs['params'],
+        )
+
+    @patch('windborne.observations_api.make_api_request')
     def test_flying_missions_can_request_one_documented_page(self, request):
         request.return_value = {'missions': [{'id': 'mission'}]}
         result = observations_api.get_flying_missions(page=3, page_size=25)

@@ -61,8 +61,11 @@ def parse_time(time, init_time_flag=None, require_past=False):
             parsed_date = datetime.fromtimestamp(time, tz=timezone.utc)
             return parsed_date.strftime('%Y-%m-%dT%H:%M:%SZ')
 
+        # Preserve the SDK's legacy underscore-separated UTC input format.
+        if re.match(r'^\d{4}-\d{2}-\d{2}_\d{2}:\d{2}$', time):
+            parsed_date = datetime.strptime(time, "%Y-%m-%d_%H:%M").replace(tzinfo=timezone.utc)
         # Try parsing compact format first (YYYYMMDDHH)
-        if re.match(r'^\d{10}$', time):
+        elif re.match(r'^\d{10}$', time):
             try:
                 parsed_date = datetime.strptime(time, "%Y%m%d%H")
             except (ValueError, OverflowError):
@@ -81,6 +84,7 @@ def parse_time(time, init_time_flag=None, require_past=False):
                 print("Please use one of these formats:")
                 print("  - Compact: 'YYYYMMDDHH' (e.g., 2024073112)")
                 print("  - ISO: 'YYYY-MM-DDTHH' or 'YYYY-MM-DDTHH:MM:00'")
+                print("  - Legacy UTC: 'YYYY-MM-DD_HH:MM'")
                 print("  - Initialization time hour must be 00, 06, 12, or 18")
                 exit(2)
 
