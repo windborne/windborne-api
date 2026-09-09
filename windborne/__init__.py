@@ -30,6 +30,8 @@ from .observations_api import (
 from .forecasts_api import (
     get_point_forecasts,
     get_point_forecasts_interpolated,
+    get_interpolated_point_forecast,
+    get_point_forecast_conditions,
     get_initialization_times,
     get_archived_initialization_times,
     get_run_information,
@@ -43,6 +45,9 @@ from .forecasts_api import (
     get_full_gridded_forecast,
 
     get_tropical_cyclones,
+    get_tropical_cyclone,
+    get_tropical_cyclone_index,
+    get_tropical_cyclone_init_times,
 
     get_population_weighted_hdds,
     get_population_weighted_cdds,
@@ -52,6 +57,18 @@ from .forecasts_api import (
     get_analysis_variables,
     get_interpolated_analysis,
     get_gridded_analysis
+)
+
+from .webhooks_api import (
+    create_webhook,
+    list_webhooks,
+    get_webhook,
+    update_webhook,
+    delete_webhook,
+    add_webhook_subscription,
+    update_webhook_subscription,
+    delete_webhook_subscription,
+    ping_webhook_subscription,
 )
 
 # Define what should be available when users import *
@@ -78,6 +95,8 @@ __all__ = [
 
     "get_point_forecasts",
     "get_point_forecasts_interpolated",
+    "get_interpolated_point_forecast",
+    "get_point_forecast_conditions",
     "get_initialization_times",
     "get_archived_initialization_times",
     "get_run_information",
@@ -91,6 +110,9 @@ __all__ = [
     "get_full_gridded_forecast",
 
     "get_tropical_cyclones",
+    "get_tropical_cyclone",
+    "get_tropical_cyclone_index",
+    "get_tropical_cyclone_init_times",
 
     "get_population_weighted_hdds",
     "get_population_weighted_cdds",
@@ -100,6 +122,16 @@ __all__ = [
     "get_analysis_variables",
     "get_interpolated_analysis",
     "get_gridded_analysis",
+
+    "create_webhook",
+    "list_webhooks",
+    "get_webhook",
+    "update_webhook",
+    "delete_webhook",
+    "add_webhook_subscription",
+    "update_webhook_subscription",
+    "delete_webhook_subscription",
+    "ping_webhook_subscription",
 
     # API helpers
     "API_BASE_URL",

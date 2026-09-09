@@ -118,7 +118,7 @@ def save_arbitrary_response(output_file, response, csv_data_key=None):
     elif not response:
         print("There are no available data to save to file.")
         exit(1)
-    elif output_file.lower().endswith('.json'):
+    elif output_file.lower().endswith(('.json', '.geojson')):
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(response, f, indent=4)
         print("Saved to", output_file)

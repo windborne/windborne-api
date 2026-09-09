@@ -3,10 +3,9 @@ import time
 import requests
 import re
 import os
-import base64
 
 API_BASE_URL = "https://api.windbornesystems.com"
-AUTH_DOCS_URL = "https://api.windbornesystems.com/technical-guides/authentication/basic-auth/"
+AUTH_DOCS_URL = "https://api.windbornesystems.com/technical-guides/authentication/auth/"
 
 
 def is_valid_uuid_v4(client_id):
@@ -17,38 +16,8 @@ def is_valid_client_id_format(client_id):
     return re.fullmatch(r"[a-z0-9_]+", client_id) is not None
 
 
-def parse_combined_api_key(api_key):
-    if not api_key or not api_key.startswith("wb_"):
-        return None
-
-    encoded_credentials = api_key[3:]
-    padded_encoded_credentials = encoded_credentials + ("=" * (-len(encoded_credentials) % 4))
-
-    try:
-        decoded_credentials = base64.b64decode(padded_encoded_credentials, validate=True).decode("utf-8")
-    except Exception:
-        return None
-
-    if ":" not in decoded_credentials:
-        return None
-
-    client_id, password = decoded_credentials.split(":", 1)
-
-    if not client_id or not password:
-        return None
-
-    return client_id, password
-
-
 def get_api_credentials():
-    client_id = os.getenv('WB_CLIENT_ID')
-    api_key = os.getenv('WB_API_KEY')
-
-    combined_credentials = parse_combined_api_key(api_key)
-    if combined_credentials is not None:
-        return combined_credentials
-
-    return client_id, api_key
+    return os.getenv('WB_CLIENT_ID'), os.getenv('WB_API_KEY')
 
 
 def verify_api_credentials(client_id, api_key):
@@ -58,18 +27,22 @@ def verify_api_credentials(client_id, api_key):
             f"For instructions, refer to {AUTH_DOCS_URL}"
         )
 
-    if not client_id:
-        raise ValueError(
-            "Your WB_API_KEY doesn't look valid (or you meant to set WB_CLIENT_ID and WB_API_KEY separately, but didn't). "
-            "Check that you copied it exactly as provided and try again. "
-            f"For instructions, refer to {AUTH_DOCS_URL}"
-        )
-
     if not api_key:
         raise ValueError(
             "To access the WindBorne API, set the environment variable WB_API_KEY. "
             f"For instructions, refer to {AUTH_DOCS_URL}"
         )
+
+    if not client_id and not api_key.startswith("wb_"):
+        raise ValueError(
+            "Your WB_API_KEY doesn't look valid. "
+            "Check that you copied it exactly as provided and try again. "
+            f"For instructions, refer to {AUTH_DOCS_URL}"
+        )
+
+    # Current API keys use Bearer authentication and do not require a client ID.
+    if not client_id:
+        return
 
     if len(client_id) in [32, 35] and len(api_key) not in [32, 35]:
         raise ValueError(
@@ -85,7 +58,7 @@ def verify_api_credentials(client_id, api_key):
             f"For instructions, refer to {AUTH_DOCS_URL}"
         )
 
-    # Validate WB_API_KEY for both newer and older formats
+    # Validate legacy client ID + API key credentials.
     if api_key.startswith("wb_"):
         if len(api_key) != 35:
             raise ValueError(
@@ -103,28 +76,32 @@ def verify_api_credentials(client_id, api_key):
 
 VERIFIED_WB_CLIENT_ID = None
 VERIFIED_WB_API_KEY = None
+_CREDENTIALS_VERIFIED = False
 
 def get_verified_api_credentials():
-    global VERIFIED_WB_CLIENT_ID, VERIFIED_WB_API_KEY
+    global VERIFIED_WB_CLIENT_ID, VERIFIED_WB_API_KEY, _CREDENTIALS_VERIFIED
 
-    if VERIFIED_WB_CLIENT_ID is None or VERIFIED_WB_API_KEY is None:
+    if not _CREDENTIALS_VERIFIED:
         VERIFIED_WB_CLIENT_ID, VERIFIED_WB_API_KEY = get_api_credentials()
         verify_api_credentials(VERIFIED_WB_CLIENT_ID, VERIFIED_WB_API_KEY)
+        _CREDENTIALS_VERIFIED = True
 
     return VERIFIED_WB_CLIENT_ID, VERIFIED_WB_API_KEY
 
 
-def make_api_request(url, params=None, as_json=True, retry_counter=0):
+def make_api_request(url, params=None, as_json=True, retry_counter=0, method='GET', json=None):
     """
     Make an authenticated request to the WindBorne API.
 
-    This uses a JWT under the hood
-    While basic auth is supported, this method reduces the odds of an improper configuration accidentally leaking the keys
+    Current API keys use Bearer authentication. Legacy client ID + API key
+    credentials continue to use a short-lived JWT with HTTP Basic auth.
 
     :param url: The URL to make the request to
     :param params: The parameters to pass to the request
     :param as_json: Whether to return the response as JSON or as a requests.Response object
     :param retry_counter: The number of times the request has been retried
+    :param method: HTTP method to use
+    :param json: Optional JSON request body
     :return:
     """
     if retry_counter >= 5:
@@ -132,26 +109,35 @@ def make_api_request(url, params=None, as_json=True, retry_counter=0):
 
     client_id, api_key = get_verified_api_credentials()
 
-    signed_token = jwt.encode({
-        'client_id': client_id,
-        'iat': int(time.time()),
-    }, api_key, algorithm='HS256')
+    request_args = {}
+    if client_id:
+        signed_token = jwt.encode({
+            'client_id': client_id,
+            'iat': int(time.time()),
+        }, api_key, algorithm='HS256')
+        request_args['auth'] = (client_id, signed_token)
+    else:
+        request_args['headers'] = {'Authorization': f'Bearer {api_key}'}
+
+    if params:
+        request_args['params'] = params
+    if json is not None:
+        request_args['json'] = json
 
     try:
-        if params:
-            response = requests.get(url, auth=(client_id, signed_token), params=params)
-        else:
-            response = requests.get(url, auth=(client_id, signed_token))
+        response = requests.request(method.upper(), url, **request_args)
 
         response.raise_for_status()
 
-        if as_json:
+        if response.status_code == 204:
+            return None
+        elif as_json:
             return response.json()
         else:
             return response
 
     except requests.exceptions.HTTPError as http_err:
-        if http_err.response.status_code == 403:
+        if http_err.response.status_code in [401, 403]:
             print("--------------------------------------")
             print("We couldn't authenticate your request.")
             print("--------------------------------------")
@@ -177,23 +163,27 @@ def make_api_request(url, params=None, as_json=True, retry_counter=0):
             print("Response text:")
             print(http_err.response.text)
             return None
-        elif http_err.response.status_code == 502:
+        elif http_err.response.status_code == 502 and method.upper() in ['GET', 'HEAD']:
             print(f"Temporary connection failure; sleeping for {2**retry_counter}s before retrying")
             print(f"Underlying error: 502 Bad Gateway")
             time.sleep(2**retry_counter)
-            return make_api_request(url, params, as_json, retry_counter + 1)
+            return make_api_request(url, params, as_json, retry_counter + 1, method=method, json=json)
         else:
             # Re-raise the HTTP error instead of exiting
             raise http_err
     except requests.exceptions.ConnectionError as conn_err:
+        if method.upper() not in ['GET', 'HEAD']:
+            raise
         print(f"Temporary connection failure; sleeping for {2**retry_counter}s before retrying")
         print(f"Underlying error: \n\n{conn_err}")
         time.sleep(2**retry_counter)
-        return make_api_request(url, params, as_json, retry_counter + 1)
+        return make_api_request(url, params, as_json, retry_counter + 1, method=method, json=json)
     except requests.exceptions.Timeout as timeout_err:
+        if method.upper() not in ['GET', 'HEAD']:
+            raise
         print(f"Temporary connection failure; sleeping for {2**retry_counter}s before retrying")
         print(f"Underlying error: \n\n{timeout_err}")
         time.sleep(2**retry_counter)
-        return make_api_request(url, params, as_json, retry_counter + 1)
+        return make_api_request(url, params, as_json, retry_counter + 1, method=method, json=json)
     except requests.exceptions.RequestException as req_err:
         print(f"An error occurred\n\n{req_err}")
