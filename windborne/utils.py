@@ -57,8 +57,15 @@ def parse_time(time, init_time_flag=None, require_past=False):
         return None
 
     try:
+        if isinstance(time, int):
+            parsed_date = datetime.fromtimestamp(time, tz=timezone.utc)
+            return parsed_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+        # Preserve the SDK's legacy underscore-separated UTC input format.
+        if re.match(r'^\d{4}-\d{2}-\d{2}_\d{2}:\d{2}$', time):
+            parsed_date = datetime.strptime(time, "%Y-%m-%d_%H:%M").replace(tzinfo=timezone.utc)
         # Try parsing compact format first (YYYYMMDDHH)
-        if re.match(r'^\d{10}$', time):
+        elif re.match(r'^\d{10}$', time):
             try:
                 parsed_date = datetime.strptime(time, "%Y%m%d%H")
             except (ValueError, OverflowError):
@@ -77,6 +84,7 @@ def parse_time(time, init_time_flag=None, require_past=False):
                 print("Please use one of these formats:")
                 print("  - Compact: 'YYYYMMDDHH' (e.g., 2024073112)")
                 print("  - ISO: 'YYYY-MM-DDTHH' or 'YYYY-MM-DDTHH:MM:00'")
+                print("  - Legacy UTC: 'YYYY-MM-DD_HH:MM'")
                 print("  - Initialization time hour must be 00, 06, 12, or 18")
                 exit(2)
 
@@ -86,8 +94,8 @@ def parse_time(time, init_time_flag=None, require_past=False):
 
         if parsed_date.tzinfo is not None:
             parsed_date = parsed_date.astimezone(timezone.utc)
-            return parsed_date.strftime('%Y-%m-%dT%H:%M:00Z')
-        return parsed_date.strftime('%Y-%m-%dT%H:%M:00')
+            return parsed_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+        return parsed_date.strftime('%Y-%m-%dT%H:%M:%S')
 
     except Exception:
         print(f"Invalid date format: {time}")
@@ -118,7 +126,7 @@ def save_arbitrary_response(output_file, response, csv_data_key=None):
     elif not response:
         print("There are no available data to save to file.")
         exit(1)
-    elif output_file.lower().endswith('.json'):
+    elif output_file.lower().endswith(('.json', '.geojson')):
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(response, f, indent=4)
         print("Saved to", output_file)

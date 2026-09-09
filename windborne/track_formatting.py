@@ -167,7 +167,7 @@ def save_track_as_gpx(filename, track_data, time_key='time'):
                 gpx += '    <trkseg>\n'
                 for point in current_segment:
                     gpx += f'      <trkpt lat="{point["latitude"]}" lon="{point["longitude"]}">\n'
-                    gpx += f'        <time>{point["time"]}</time>\n'
+                    gpx += f'        <time>{point[time_key]}</time>\n'
                     gpx += '      </trkpt>\n'
                 gpx += '    </trkseg>\n'
 
@@ -259,4 +259,3 @@ def save_track_as_geojson(filename, track_data, time_key='time'):
     with open(filename, 'w', encoding='utf-8') as f:
         json.dump(geojson, f, indent=4)
     print("Saved to", filename)
-

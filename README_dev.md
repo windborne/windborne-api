@@ -11,22 +11,23 @@ You can then `import windborne` and have it refer to the latest version, or use 
 
 ### windborne Package
 
-The `windborne` package is a Python library and CLI tool for accessing WindBorne's weather balloon data and forecast APIs.
+The `windborne` package is a Python library and CLI tool for accessing WindBorne observations, forecasts, insights, and webhooks.
 
 #### Core Modules
 
-- **`__init__.py`** - Public API exports from observations_api and forecasts_api
-- **`api_request.py`** - Authentication (JWT), request handling, and retry logic
+- **`__init__.py`** - Package entry point defining the functions available directly from `import windborne`
+- **`api_request.py`** - Bearer authentication, legacy JWT authentication, request handling, and retry logic
 - **`cli.py`** - Command-line interface implementation using argparse
-- **`observations_api.py`** - Balloon observation data access (observations, missions, flight paths)
-- **`forecasts_api.py`** - Weather forecast data access (point/gridded forecasts, tropical cyclones)
+- **`observations_api.py`** - Observations, missions, flight paths, soundings, and recent ASOS data
+- **`forecasts_api.py`** - Forecast availability, point and gridded forecasts, tropical cyclones, analyses, and insights
+- **`webhooks_api.py`** - Webhook and subscription management
 - **`utils.py`** - Date parsing, file saving, and output formatting utilities
 - **`observation_formatting.py`** - Data format conversions (netCDF, little_r)
 - **`track_formatting.py`** - Trajectory format conversions (CSV, GeoJSON, GPX, KML)
 
 #### Key Features
 
-- Authenticates via either `WB_CLIENT_ID` + `WB_API_KEY` or a single combined `WB_API_KEY`
+- Authenticates with a Bearer `WB_API_KEY`, while retaining support for legacy `WB_CLIENT_ID` + `WB_API_KEY` credentials
 - Supports multiple output formats for scientific data
 - Provides both Python API and CLI access
 - Handles large datasets with bucketing and pagination
@@ -39,9 +40,11 @@ The `windborne` package is a Python library and CLI tool for accessing WindBorne
 
 ## Unit testing
 
-`pytest` tests are in the folder `pytest/`. To run, do `pytest pytest/ -v`. Currently just minimal testing is implemented for recent changes.
+Tests are in the `tests/` folder and use Python's standard-library test runner:
 
-You may need to run `pip3 install pytest` to install.
+```bash
+python -m unittest discover -s tests -v
+```
 
 ## Integration testing
 These are end-to-end tests, designed primarily to test that the backend gives expected responses when accessed through the cli.

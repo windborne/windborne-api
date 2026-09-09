@@ -6,7 +6,7 @@ import json
 
 from .api_request import make_api_request, API_BASE_URL
 from .observation_formatting import format_little_r, convert_to_netcdf
-from .utils import to_unix_timestamp, save_arbitrary_response, print_table
+from .utils import parse_time, to_unix_timestamp, save_arbitrary_response, print_table
 from .track_formatting import save_track
 
 DATA_API_BASE_URL = f"{API_BASE_URL}/observations/v1"
@@ -562,7 +562,7 @@ def poll_super_observations(**kwargs):
 # ------------
 # METADATA
 # ------------
-def get_flying_missions(output_file=None, print_results=False):
+def get_flying_missions(output_file=None, print_results=False, page=None, page_size=None):
     """
     Retrieves a list of currently flying missions.
     In CLI mode, displays missions in a formatted table.
@@ -575,11 +575,12 @@ def get_flying_missions(output_file=None, print_results=False):
     Returns:
         dict: The API response containing list of flying missions.
     """
-    page_size = 64
+    requested_page = page
+    page_size = page_size or 64
 
     # Initial query to get total flying
     query_params = {
-        'page': 0,
+        'page': page or 0,
         'page_size': page_size 
     }
 
@@ -589,7 +590,7 @@ def get_flying_missions(output_file=None, print_results=False):
     flying_missions = flying_missions_response.get("missions", [])
     num_fetched_missions = len(flying_missions) 
     
-    while num_fetched_missions == page_size:
+    while requested_page is None and num_fetched_missions == page_size:
         query_params['page'] += 1
 
         new_missions = make_api_request(url, params=query_params).get('missions', [])
@@ -626,7 +627,7 @@ def get_flying_missions(output_file=None, print_results=False):
             print("No missions are currently flying.")
 
     if output_file:
-        save_arbitrary_response(output_file, flying_missions_response, csv_data_key='missions')
+        save_arbitrary_response(output_file, {'missions': flying_missions}, csv_data_key='missions')
     
     return flying_missions
 
@@ -725,7 +726,12 @@ def get_predicted_path(mission_id=None, output_file=None, print_result=False):
         print("To get the predicted flight path for a given mission you must provide a mission ID.")
         return
 
-    mission = get_flying_mission(mission_id)
+    if mission_id.startswith('W-'):
+        mission = get_flying_mission(mission_id)
+        if mission is None:
+            return None
+    else:
+        mission = {'id': mission_id, 'name': mission_id}
 
     url = f"{DATA_API_BASE_URL}/missions/{mission.get('id')}/predicted_path.json"
     response = make_api_request(url)
@@ -769,6 +775,8 @@ def get_current_location(mission_id=None, output_file=None, print_result=False, 
         return
 
     mission = get_flying_mission(mission_id, verify_flying=verify_flying)
+    if mission is None:
+        return None
 
     url = f"{DATA_API_BASE_URL}/missions/{mission.get('id')}/current_location.json"
     response = make_api_request(url)
@@ -915,7 +923,7 @@ def get_soundings(
     min_latitude=None, max_latitude=None,
     min_longitude=None, max_longitude=None,
     page=None, page_size=None,
-    output_file=None, print_results=False
+    output_file=None, print_results=False, min_length=None
 ):
     """
     Retrieves a list of atmospheric soundings with optional filtering.
@@ -944,13 +952,15 @@ def get_soundings(
     if mission_id is not None:
         params["mission_id"] = mission_id
     if min_time:
-        params["min_time"] = to_unix_timestamp(min_time)
+        params["min_time"] = parse_time(min_time)
     if max_time:
-        params["max_time"] = to_unix_timestamp(max_time)
+        params["max_time"] = parse_time(max_time)
     if min_altitude is not None:
         params["min_altitude"] = min_altitude
     if max_altitude is not None:
         params["max_altitude"] = max_altitude
+    if min_length is not None:
+        params["min_length"] = min_length
     if min_latitude is not None:
         params["min_latitude"] = min_latitude
     if max_latitude is not None:
