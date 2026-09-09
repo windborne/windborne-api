@@ -1,10 +1,14 @@
 # WindBorne API
 
-A Python library and CLI for accessing WindBorne observations, forecasts, insights, and webhooks.
+A Python SDK for accessing WindBorne observations, forecasts, insights, and webhooks. The package also includes a CLI for common workflows.
 
 Use it either as a Python package with `import windborne` or as a command-line tool with `windborne`.
 
-The [WindBorne API documentation](https://api.windbornesystems.com/) is the source of truth for available APIs, parameters, and response schemas.
+## Where to find the right information
+
+The [WindBorne API documentation](https://api.windbornesystems.com/) is the source of truth for HTTP endpoints, supported models, request parameters, and response schemas.
+
+The Python SDK maps documented API operations into Python functions and adds conveniences such as time parsing, pagination, formatted output, and file downloads. The CLI intentionally focuses on common workflows and does not expose every SDK function; use `windborne --help` and `windborne <command> --help` for the exact commands and options installed with your package version.
 
 ## Installation
 
@@ -36,23 +40,15 @@ forecast = get_interpolated_point_forecast(
 )
 ```
 
+This calls the documented `/forecasts/v1/wm-6/point_forecast/interpolated` endpoint. Use its API documentation to choose variables, time bounds, levels, and distribution options.
+
 ### CLI
 
 ```bash
 windborne points_interpolated "37.7749,-122.4194" --model wm-6 --max-hour 24
 ```
 
-Run `windborne --help` to list the currently installed CLI commands.
-
-## Features
-
-| Category | Capabilities |
-| --- | --- |
-| Forecasts | Point and gridded forecasts, atmospheric soundings, forecast availability, and tropical cyclone tracking |
-| Observations | Raw and aggregated observations, missions, flight paths, soundings, and constellation status |
-| Insights | Population-weighted heating and cooling degree days |
-| Webhooks | Endpoint and subscription management, including test deliveries |
-| Output formats | JSON, CSV, NetCDF, Zarr, little_r, GeoJSON, GPX, and KML |
+The Python SDK has broader coverage than the CLI, including webhook management and tropical-cyclone tracker methods. Use the API documentation for service capabilities and the installed CLI help for command availability.
 
 ## Support
 
