@@ -1,3 +1,5 @@
+import json
+
 import requests
 
 from .utils import (
@@ -506,8 +508,8 @@ def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None
     if print_response:
         if not response:
             print("No tropical cyclones for initialization time:", initialization_time)
-        elif len(response) == 0:
-            print("No tropical cyclones for initialization time:", initialization_time)
+        elif isinstance(response, dict) and response.get('type') == 'FeatureCollection':
+            print(json.dumps(response, indent=2))
         else:
             print("Tropical Cyclones for initialization time:", response.get('initialization_time', initialization_time))
             cyclones = response.get('tropical_cyclones', response)

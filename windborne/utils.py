@@ -57,6 +57,10 @@ def parse_time(time, init_time_flag=None, require_past=False):
         return None
 
     try:
+        if isinstance(time, int):
+            parsed_date = datetime.fromtimestamp(time, tz=timezone.utc)
+            return parsed_date.strftime('%Y-%m-%dT%H:%M:00Z')
+
         # Try parsing compact format first (YYYYMMDDHH)
         if re.match(r'^\d{10}$', time):
             try:

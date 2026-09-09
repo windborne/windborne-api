@@ -23,6 +23,20 @@ class ObservationsApiTest(unittest.TestCase):
         )
 
     @patch('windborne.observations_api.make_api_request')
+    def test_soundings_accept_unix_integer_times(self, request):
+        request.return_value = {'soundings': []}
+
+        observations_api.get_soundings(min_time=1725148800, max_time=1725235200)
+
+        self.assertEqual(
+            {
+                'min_time': '2024-09-01T00:00:00Z',
+                'max_time': '2024-09-02T00:00:00Z',
+            },
+            request.call_args.kwargs['params'],
+        )
+
+    @patch('windborne.observations_api.make_api_request')
     def test_flying_missions_can_request_one_documented_page(self, request):
         request.return_value = {'missions': [{'id': 'mission'}]}
         result = observations_api.get_flying_missions(page=3, page_size=25)

@@ -134,6 +134,19 @@ class ForecastsApiTest(unittest.TestCase):
         forecasts_api.get_tropical_cyclones(print_response=True)
         print_table.assert_called_once()
 
+    @patch('builtins.print')
+    @patch('windborne.forecasts_api.print_table')
+    @patch('windborne.forecasts_api.make_api_request')
+    def test_tropical_cyclone_geojson_prints_without_track_formatting(self, request, print_table, print_output):
+        response = {'type': 'FeatureCollection', 'features': []}
+        request.return_value = response
+
+        result = forecasts_api.get_tropical_cyclones(format='geojson', print_response=True)
+
+        self.assertEqual(response, result)
+        print_table.assert_not_called()
+        print_output.assert_called_once()
+
     @patch('windborne.forecasts_api.get_point_forecasts_interpolated', return_value={})
     def test_documented_interpolated_name_accepts_time(self, interpolated):
         forecasts_api.get_interpolated_point_forecast('40,-73', time='2026-09-09T00:00:00Z')
