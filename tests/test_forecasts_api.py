@@ -99,11 +99,11 @@ class ForecastsApiTest(unittest.TestCase):
     @patch('windborne.forecasts_api.make_api_request', return_value={'archived_initialization_times': []})
     def test_archive_returns_response_and_current_pagination(self, request):
         result = forecasts_api.get_archived_initialization_times(
-            page=2, page_size=10, order='asc', domain='global'
+            page=2, page_size=10, order='oldest', domain='global'
         )
         self.assertEqual({'archived_initialization_times': []}, result)
         self.assertEqual(
-            {'page': 2, 'page_size': 10, 'order': 'asc', 'domain': 'global'},
+            {'page': 2, 'page_size': 10, 'order': 'oldest', 'domain': 'global'},
             request.call_args.kwargs['params'],
         )
 
