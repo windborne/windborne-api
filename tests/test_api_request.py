@@ -1,4 +1,5 @@
 import unittest
+import base64
 from unittest.mock import Mock, patch
 
 import requests
@@ -65,6 +66,12 @@ class ApiRequestTest(unittest.TestCase):
 
     def test_current_key_does_not_require_client_id(self):
         api_request.verify_api_credentials(None, 'wb_current-key')
+
+    @patch.dict('os.environ', {'WB_CLIENT_ID': 'stale-client-id'}, clear=True)
+    def test_combined_key_ignores_stale_client_id(self):
+        encoded = base64.b64encode(b'current-client:current-secret').decode().rstrip('=')
+        with patch.dict('os.environ', {'WB_API_KEY': f'wb_{encoded}'}, clear=False):
+            self.assertEqual((None, f'wb_{encoded}'), api_request.get_api_credentials())
 
     def test_missing_key_is_rejected(self):
         with self.assertRaises(ValueError):

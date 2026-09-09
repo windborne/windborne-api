@@ -1,4 +1,6 @@
 import unittest
+import json
+import tempfile
 from unittest.mock import patch
 
 from windborne import forecasts_api
@@ -146,6 +148,46 @@ class ForecastsApiTest(unittest.TestCase):
         self.assertEqual(response, result)
         print_table.assert_not_called()
         print_output.assert_called_once()
+
+    @patch('windborne.forecasts_api.save_track')
+    @patch('windborne.forecasts_api.make_api_request')
+    def test_tropical_cyclone_track_export_requests_details(self, request, save_track):
+        request.return_value = {
+            'tropical_cyclones': {
+                'AL022026': {
+                    'mean_path': [
+                        {'valid_at': '2026-09-09T00:00:00Z', 'latitude': 20, 'longitude': -60}
+                    ]
+                }
+            }
+        }
+
+        forecasts_api.get_tropical_cyclones(output_file='tracks.csv')
+
+        self.assertTrue(request.call_args.kwargs['params']['include_details'])
+        self.assertTrue(save_track.call_args.args[1]['AL022026'])
+
+    @patch('windborne.forecasts_api.make_api_request')
+    def test_tropical_cyclone_geojson_export_is_a_feature_collection(self, request):
+        request.return_value = {
+            'tropical_cyclones': {
+                'AL022026': {
+                    'mean_path': [
+                        {'valid_at': '2026-09-09T00:00:00Z', 'latitude': 20, 'longitude': -60},
+                        {'valid_at': '2026-09-09T01:00:00Z', 'latitude': 21, 'longitude': -61},
+                    ]
+                }
+            }
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            output_file = f'{directory}/tracks.geojson'
+            forecasts_api.get_tropical_cyclones(output_file=output_file)
+            with open(output_file, encoding='utf-8') as exported_file:
+                exported = json.load(exported_file)
+
+        self.assertEqual('geojson', request.call_args.kwargs['params']['format'])
+        self.assertEqual('FeatureCollection', exported['type'])
 
     @patch('windborne.forecasts_api.get_point_forecasts_interpolated', return_value={})
     def test_documented_interpolated_name_accepts_time(self, interpolated):

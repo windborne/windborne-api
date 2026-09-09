@@ -3,6 +3,7 @@ import time
 import requests
 import re
 import os
+import base64
 
 API_BASE_URL = "https://api.windbornesystems.com"
 AUTH_DOCS_URL = "https://api.windbornesystems.com/technical-guides/authentication/auth/"
@@ -17,7 +18,21 @@ def is_valid_client_id_format(client_id):
 
 
 def get_api_credentials():
-    return os.getenv('WB_CLIENT_ID'), os.getenv('WB_API_KEY')
+    client_id = os.getenv('WB_CLIENT_ID')
+    api_key = os.getenv('WB_API_KEY')
+
+    if api_key and api_key.startswith('wb_'):
+        encoded_credentials = api_key[3:]
+        encoded_credentials += '=' * (-len(encoded_credentials) % 4)
+        try:
+            decoded_credentials = base64.b64decode(encoded_credentials, validate=True).decode('utf-8')
+        except Exception:
+            pass
+        else:
+            if ':' in decoded_credentials:
+                return None, api_key
+
+    return client_id, api_key
 
 
 def verify_api_credentials(client_id, api_key):

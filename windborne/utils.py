@@ -59,7 +59,7 @@ def parse_time(time, init_time_flag=None, require_past=False):
     try:
         if isinstance(time, int):
             parsed_date = datetime.fromtimestamp(time, tz=timezone.utc)
-            return parsed_date.strftime('%Y-%m-%dT%H:%M:00Z')
+            return parsed_date.strftime('%Y-%m-%dT%H:%M:%SZ')
 
         # Try parsing compact format first (YYYYMMDDHH)
         if re.match(r'^\d{10}$', time):
@@ -90,8 +90,8 @@ def parse_time(time, init_time_flag=None, require_past=False):
 
         if parsed_date.tzinfo is not None:
             parsed_date = parsed_date.astimezone(timezone.utc)
-            return parsed_date.strftime('%Y-%m-%dT%H:%M:00Z')
-        return parsed_date.strftime('%Y-%m-%dT%H:%M:00')
+            return parsed_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+        return parsed_date.strftime('%Y-%m-%dT%H:%M:%S')
 
     except Exception:
         print(f"Invalid date format: {time}")

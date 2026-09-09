@@ -26,12 +26,15 @@ class ObservationsApiTest(unittest.TestCase):
     def test_soundings_accept_unix_integer_times(self, request):
         request.return_value = {'soundings': []}
 
-        observations_api.get_soundings(min_time=1725148800, max_time=1725235200)
+        observations_api.get_soundings(
+            min_time=1725148859,
+            max_time='2024-09-02T00:00:59Z',
+        )
 
         self.assertEqual(
             {
-                'min_time': '2024-09-01T00:00:00Z',
-                'max_time': '2024-09-02T00:00:00Z',
+                'min_time': '2024-09-01T00:00:59Z',
+                'max_time': '2024-09-02T00:00:59Z',
             },
             request.call_args.kwargs['params'],
         )

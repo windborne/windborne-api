@@ -445,6 +445,17 @@ def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None
     """
     params = {}
 
+    if output_file:
+        output_file_lower = output_file.lower()
+        if not output_file_lower.endswith(TCS_SUPPORTED_FORMATS):
+            print("Unsupported file format.")
+            print_tc_supported_formats()
+            exit(44)
+        if output_file_lower.endswith('.geojson') and format is None:
+            format = 'geojson'
+        elif output_file_lower.endswith(('.csv', '.gpx', '.kml', '.little_r')):
+            include_details = True
+
     if initialization_time:
         initialization_time_parsed = parse_time(initialization_time)
         params["initialization_time"] = initialization_time_parsed
@@ -478,11 +489,7 @@ def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None
     response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/tropical_cyclones", params=params)
 
     if output_file:
-        if not output_file.lower().endswith(TCS_SUPPORTED_FORMATS):
-            print("Unsupported file format.")
-            print_tc_supported_formats()
-            exit(44)
-        elif response == {}:
+        if response == {}:
             # This should be prior to any check of specific .filetype format check and post filetype valid check
             # make_api_request covers 403, 404, 502, HTTP, Connections Errors
             # If we pass all of these and we get an empty dictionary ==> there are no active TCs
@@ -493,7 +500,9 @@ def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None
             print("-------------------------------------------------------")
             print("Tropical cyclones have not yet been generated for this initialization time")
         else:
-            if output_file.lower().endswith(('.json', '.geojson')):
+            if output_file.lower().endswith('.json'):
+                save_arbitrary_response(output_file, response)
+            elif output_file.lower().endswith('.geojson') and response.get('type') == 'FeatureCollection':
                 save_arbitrary_response(output_file, response)
             else:
                 cyclones = response.get('tropical_cyclones', response)
