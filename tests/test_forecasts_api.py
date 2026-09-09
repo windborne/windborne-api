@@ -4,6 +4,7 @@ import tempfile
 from unittest.mock import patch
 
 from windborne import forecasts_api
+from windborne.track_formatting import save_track_as_gpx
 
 
 class ForecastsApiTest(unittest.TestCase):
@@ -78,6 +79,23 @@ class ForecastsApiTest(unittest.TestCase):
             request.call_args.kwargs['params'],
         )
 
+    @patch('windborne.forecasts_api.download_and_save_output')
+    @patch('windborne.forecasts_api.make_api_request')
+    def test_gridded_explicit_format_controls_default_extension(self, request, download):
+        response = object()
+        request.return_value = response
+
+        forecasts_api.get_gridded_forecast(
+            'temperature_2m',
+            time='2026-09-09T00:00:00Z',
+            output_file='forecast',
+            output_format='netcdf',
+            model='wm-6',
+            silent=True,
+        )
+
+        download.assert_called_once_with('forecast', response, default_extension='.nc')
+
     @patch('windborne.forecasts_api.make_api_request', return_value={'archived_initialization_times': []})
     def test_archive_returns_response_and_current_pagination(self, request):
         result = forecasts_api.get_archived_initialization_times(
@@ -119,6 +137,32 @@ class ForecastsApiTest(unittest.TestCase):
         )
         self.assertFalse(request.call_args_list[2].kwargs['as_json'])
         self.assertTrue(request.call_args_list[3].args[0].endswith('/tropical_cyclones/AL022026/init_times'))
+
+    @patch('windborne.forecasts_api.make_api_request', return_value={})
+    def test_tropical_cyclone_latest_initialization_time_is_supported(self, request):
+        forecasts_api.get_tropical_cyclones(initialization_time='latest')
+        forecasts_api.get_tropical_cyclone('AL022026', initialization_time='latest')
+
+        self.assertEqual('latest', request.call_args_list[0].kwargs['params']['initialization_time'])
+        self.assertEqual('latest', request.call_args_list[1].kwargs['params']['initialization_time'])
+
+    def test_gpx_date_line_crossing_uses_configured_time_key(self):
+        tracks = {
+            'AL022026': [
+                {'valid_at': '2026-09-09T00:00:00Z', 'latitude': 20, 'longitude': 179},
+                {'valid_at': '2026-09-09T01:00:00Z', 'latitude': 21, 'longitude': -179},
+            ]
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            output_file = f'{directory}/tracks.gpx'
+            save_track_as_gpx(output_file, tracks, time_key='valid_at')
+            with open(output_file, encoding='utf-8') as exported_file:
+                exported = exported_file.read()
+
+        self.assertIn('<time>2026-09-09T00:00:00Z</time>', exported)
+        self.assertIn('<time>2026-09-09T01:00:00Z</time>', exported)
+        self.assertEqual(2, exported.count('<trkseg>'))
 
     @patch('windborne.forecasts_api.print_table')
     @patch('windborne.forecasts_api.make_api_request')

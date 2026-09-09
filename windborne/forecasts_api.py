@@ -312,7 +312,11 @@ def get_point_forecast_conditions(coordinates, hourly_interval=None, model='wm-6
     )
 
 
-def _default_gridded_forecast_extension(model):
+def _default_gridded_forecast_extension(model, output_format=None):
+    if output_format == 'zarr':
+        return '.zarr.zip'
+    if output_format == 'netcdf':
+        return '.nc'
     model = model or ''
     if model.startswith(('wm6', 'wm-6')):
         return '.zarr.zip'
@@ -400,7 +404,7 @@ def get_gridded_forecast(variable, time=None, initialization_time=None, forecast
         else:
             if not silent:
                 print(f"Output URL found; downloading to {output_file}...")
-            default_extension = _default_gridded_forecast_extension(model)
+            default_extension = _default_gridded_forecast_extension(model, output_format)
             download_and_save_output(output_file, response, default_extension=default_extension)
 
     return response
@@ -457,8 +461,9 @@ def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None
             include_details = True
 
     if initialization_time:
-        initialization_time_parsed = parse_time(initialization_time)
-        params["initialization_time"] = initialization_time_parsed
+        params["initialization_time"] = (
+            initialization_time if initialization_time == 'latest' else parse_time(initialization_time)
+        )
     else:
         initialization_time = 'latest'
 
@@ -557,7 +562,9 @@ def get_tropical_cyclone(tropical_cyclone_id, initialization_time=None, include_
     """Get one tropical cyclone forecast by ID."""
     params = {}
     if initialization_time:
-        params['initialization_time'] = parse_time(initialization_time)
+        params['initialization_time'] = (
+            initialization_time if initialization_time == 'latest' else parse_time(initialization_time)
+        )
     if include_members:
         params['include_members'] = True
     if include_cones:
