@@ -443,6 +443,10 @@ def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None
         output_file (str, optional): Path to save the response data
                                       Supported formats: .json, .csv, .gpx, .geojson, .kml, .little_r
         print_response (bool, optional): Whether to print the response data
+        include_details (bool, optional): Whether to include cyclone paths and other detailed data
+        format (str, optional): API response format, either json or geojson. Detailed JSON responses
+                                can be converted to track files; GeoJSON responses can only be saved
+                                as .json or .geojson files.
 
     Returns:
         dict: API response data or None if there's an error
@@ -455,9 +459,16 @@ def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None
             print("Unsupported file format.")
             print_tc_supported_formats()
             exit(44)
-        if output_file_lower.endswith('.geojson') and format is None:
-            format = 'geojson'
+        if output_file_lower.endswith('.geojson'):
+            if format is None:
+                format = 'geojson'
+            elif format != 'geojson':
+                include_details = True
         elif output_file_lower.endswith(('.csv', '.gpx', '.kml', '.little_r')):
+            if format == 'geojson':
+                raise ValueError(
+                    "GeoJSON responses can only be saved as .json or .geojson files."
+                )
             include_details = True
 
     if initialization_time:
@@ -489,7 +500,6 @@ def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None
     if format:
         params['format'] = format
 
-    # Response here is a .json
     # Tropical cyclones endpoint is model-specific
     response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/tropical_cyclones", params=params)
 
@@ -516,7 +526,7 @@ def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None
                     if isinstance(cyclone, list):
                         tracks[cyclone_id] = cyclone
                     elif isinstance(cyclone, dict):
-                        tracks[cyclone_id] = cyclone.get('mean_path') or cyclone.get('path') or []
+                        tracks[cyclone_id] = cyclone.get('path') or cyclone.get('mean_path') or []
                 save_track(output_file, tracks, require_ids=True, time_key='valid_at')
 
     if print_response:
@@ -527,15 +537,46 @@ def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None
         else:
             print("Tropical Cyclones for initialization time:", response.get('initialization_time', initialization_time))
             cyclones = response.get('tropical_cyclones', response)
+            summaries = []
+            detailed_tracks = []
             for cyclone_id, cyclone in cyclones.items():
-                print(f"\nCyclone ID: {cyclone_id}")
                 if isinstance(cyclone, dict):
-                    tracks = cyclone.get('mean_path') or cyclone.get('path') or []
+                    genesis = cyclone.get('genesis') or {}
+                    basins = cyclone.get('basins') or []
+                    summaries.append({
+                        'tropical_cyclone_id': cyclone.get('tropical_cyclone_id', cyclone_id),
+                        'storm_name': cyclone.get('storm_name'),
+                        'basins': ', '.join(basins),
+                        'genesis': (
+                            f"{genesis.get('latitude')}, {genesis.get('longitude')}"
+                            if genesis else None
+                        ),
+                        'start_time': cyclone.get('start_time'),
+                        'end_time': cyclone.get('end_time'),
+                        'max_wind_kt': cyclone.get('max_wind_kt'),
+                        'min_mslp_hpa': cyclone.get('min_mslp_hpa'),
+                    })
+                    tracks = cyclone.get('path') or cyclone.get('mean_path') or []
                 else:
                     tracks = cyclone
                 if tracks:
-                    time_key = 'valid_at' if 'valid_at' in tracks[0] else 'time'
-                    print_table(tracks, keys=[time_key, 'latitude', 'longitude'], headers=['Time', 'Latitude', 'Longitude'])
+                    detailed_tracks.append((cyclone_id, tracks))
+            if summaries:
+                print_table(
+                    summaries,
+                    keys=[
+                        'tropical_cyclone_id', 'storm_name', 'basins', 'genesis',
+                        'start_time', 'end_time', 'max_wind_kt', 'min_mslp_hpa',
+                    ],
+                    headers=[
+                        'Cyclone ID', 'Storm Name', 'Basins', 'Genesis (lat, lon)',
+                        'Start Time', 'End Time', 'Max Wind (kt)', 'Min MSLP (hPa)',
+                    ],
+                )
+            for cyclone_id, tracks in detailed_tracks:
+                print(f"\nPath for cyclone ID: {cyclone_id}")
+                time_key = 'valid_at' if 'valid_at' in tracks[0] else 'time'
+                print_table(tracks, keys=[time_key, 'latitude', 'longitude'], headers=['Time', 'Latitude', 'Longitude'])
 
     return response
 

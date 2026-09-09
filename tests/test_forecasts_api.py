@@ -166,19 +166,48 @@ class ForecastsApiTest(unittest.TestCase):
 
     @patch('windborne.forecasts_api.print_table')
     @patch('windborne.forecasts_api.make_api_request')
-    def test_tropical_cyclone_current_response_shape_prints(self, request, print_table):
+    def test_tropical_cyclone_summary_response_prints_without_requesting_details(self, request, print_table):
         request.return_value = {
             'initialization_time': '2026-09-09T00:00:00Z',
             'tropical_cyclones': {
                 'AL022026': {
-                    'mean_path': [
+                    'tropical_cyclone_id': 'AL022026',
+                    'genesis': {'latitude': 20, 'longitude': -60},
+                    'storm_name': 'TEST',
+                    'basins': ['AL'],
+                    'start_time': '2026-09-09T00:00:00Z',
+                    'end_time': '2026-09-16T00:00:00Z',
+                    'max_wind_kt': 70.1,
+                    'min_mslp_hpa': 982.3,
+                }
+            },
+        }
+        forecasts_api.get_tropical_cyclones(print_response=True)
+
+        self.assertNotIn('include_details', request.call_args.kwargs['params'])
+        print_table.assert_called_once()
+        summary = print_table.call_args.args[0][0]
+        self.assertEqual('TEST', summary['storm_name'])
+        self.assertEqual('AL', summary['basins'])
+        self.assertEqual('20, -60', summary['genesis'])
+
+    @patch('windborne.forecasts_api.print_table')
+    @patch('windborne.forecasts_api.make_api_request')
+    def test_tropical_cyclone_detailed_response_prints_path(self, request, print_table):
+        request.return_value = {
+            'tropical_cyclones': {
+                'AL022026': {
+                    'path': [
                         {'valid_at': '2026-09-09T00:00:00Z', 'latitude': 20, 'longitude': -60}
                     ]
                 }
             },
         }
-        forecasts_api.get_tropical_cyclones(print_response=True)
-        print_table.assert_called_once()
+
+        forecasts_api.get_tropical_cyclones(include_details=True, print_response=True)
+
+        self.assertEqual(2, print_table.call_count)
+        self.assertEqual('2026-09-09T00:00:00Z', print_table.call_args_list[1].args[0][0]['valid_at'])
 
     @patch('builtins.print')
     @patch('windborne.forecasts_api.print_table')
@@ -199,7 +228,7 @@ class ForecastsApiTest(unittest.TestCase):
         request.return_value = {
             'tropical_cyclones': {
                 'AL022026': {
-                    'mean_path': [
+                    'path': [
                         {'valid_at': '2026-09-09T00:00:00Z', 'latitude': 20, 'longitude': -60}
                     ]
                 }
@@ -213,16 +242,7 @@ class ForecastsApiTest(unittest.TestCase):
 
     @patch('windborne.forecasts_api.make_api_request')
     def test_tropical_cyclone_geojson_export_is_a_feature_collection(self, request):
-        request.return_value = {
-            'tropical_cyclones': {
-                'AL022026': {
-                    'mean_path': [
-                        {'valid_at': '2026-09-09T00:00:00Z', 'latitude': 20, 'longitude': -60},
-                        {'valid_at': '2026-09-09T01:00:00Z', 'latitude': 21, 'longitude': -61},
-                    ]
-                }
-            }
-        }
+        request.return_value = {'type': 'FeatureCollection', 'features': []}
 
         with tempfile.TemporaryDirectory() as directory:
             output_file = f'{directory}/tracks.geojson'
@@ -232,6 +252,48 @@ class ForecastsApiTest(unittest.TestCase):
 
         self.assertEqual('geojson', request.call_args.kwargs['params']['format'])
         self.assertEqual('FeatureCollection', exported['type'])
+
+    @patch('windborne.forecasts_api.make_api_request')
+    def test_tropical_cyclone_json_details_can_be_converted_to_geojson(self, request):
+        request.return_value = {
+            'tropical_cyclones': {
+                'AL022026': {
+                    'path': [
+                        {'valid_at': '2026-09-09T00:00:00Z', 'latitude': 20, 'longitude': -60},
+                        {'valid_at': '2026-09-09T01:00:00Z', 'latitude': 21, 'longitude': -61},
+                    ]
+                }
+            }
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            output_file = f'{directory}/tracks.geojson'
+            forecasts_api.get_tropical_cyclones(format='json', output_file=output_file)
+            with open(output_file, encoding='utf-8') as exported_file:
+                exported = json.load(exported_file)
+
+        self.assertEqual(
+            {'include_details': True, 'format': 'json'},
+            request.call_args.kwargs['params'],
+        )
+        self.assertEqual('FeatureCollection', exported['type'])
+
+    @patch('windborne.forecasts_api.make_api_request')
+    def test_tropical_cyclone_geojson_response_rejects_track_table_export(self, request):
+        with self.assertRaisesRegex(ValueError, 'GeoJSON responses'):
+            forecasts_api.get_tropical_cyclones(format='geojson', output_file='tracks.csv')
+
+        request.assert_not_called()
+
+    @patch('windborne.forecasts_api.save_arbitrary_response')
+    @patch('windborne.forecasts_api.make_api_request')
+    def test_tropical_cyclone_geojson_response_can_be_saved_as_json(self, request, save_response):
+        response = {'type': 'FeatureCollection', 'features': []}
+        request.return_value = response
+
+        forecasts_api.get_tropical_cyclones(format='geojson', output_file='tracks.json')
+
+        save_response.assert_called_once_with('tracks.json', response)
 
     @patch('windborne.forecasts_api.get_point_forecasts_interpolated', return_value={})
     def test_documented_interpolated_name_accepts_time(self, interpolated):
