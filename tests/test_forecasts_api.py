@@ -1,7 +1,9 @@
 import unittest
 import json
 import tempfile
-from unittest.mock import patch
+from unittest.mock import Mock, patch
+
+import requests
 
 from windborne import forecasts_api
 from windborne.track_formatting import save_track_as_gpx
@@ -31,6 +33,18 @@ class ForecastsApiTest(unittest.TestCase):
         )
 
     @patch('windborne.forecasts_api.make_api_request', return_value={'forecasts': []})
+    def test_point_forecast_keeps_zero_hour_bounds(self, request):
+        forecasts_api.get_point_forecasts(
+            coordinates='40,-73',
+            min_forecast_hour=0,
+            max_forecast_hour=0,
+        )
+        self.assertEqual(
+            {'coordinates': '40,-73', 'min_forecast_hour': 0, 'max_forecast_hour': 0},
+            request.call_args.kwargs['params'],
+        )
+
+    @patch('windborne.forecasts_api.make_api_request', return_value={'forecasts': []})
     def test_station_forecast_uses_generic_point_forecast(self, request):
         forecasts_api.get_station_forecast('KJFK')
         self.assertEqual(
@@ -56,7 +70,7 @@ class ForecastsApiTest(unittest.TestCase):
             include_deterministic=True,
             include_members=True,
             skip_mean=True,
-            output_format='zarr',
+            format='zarr',
             as_url=True,
             domain='global',
         )
@@ -78,6 +92,7 @@ class ForecastsApiTest(unittest.TestCase):
             },
             request.call_args.kwargs['params'],
         )
+        self.assertFalse(request.call_args.kwargs['stream'])
 
     @patch('windborne.forecasts_api.download_and_save_output')
     @patch('windborne.forecasts_api.make_api_request')
@@ -89,12 +104,69 @@ class ForecastsApiTest(unittest.TestCase):
             'temperature_2m',
             time='2026-09-09T00:00:00Z',
             output_file='forecast',
-            output_format='netcdf',
+            format='netcdf',
             model='wm-6',
             silent=True,
         )
 
-        download.assert_called_once_with('forecast', response, default_extension='.nc')
+        download.assert_called_once_with(
+            'forecast', response, silent=True, default_extension='.nc'
+        )
+        self.assertTrue(request.call_args.kwargs['stream'])
+
+    @patch('windborne.forecasts_api.make_api_request')
+    def test_gridded_as_url_requires_json_output(self, request):
+        with self.assertRaisesRegex(ValueError, 'must be saved to a .json file'):
+            forecasts_api.get_gridded_forecast(
+                'temperature_2m',
+                time='2026-09-09T00:00:00Z',
+                as_url=True,
+                output_file='forecast.nc',
+            )
+        request.assert_not_called()
+
+    @patch('windborne.forecasts_api.make_api_request')
+    def test_gridded_rejects_conflicting_time_modes(self, request):
+        with self.assertRaisesRegex(ValueError, 'cannot be combined'):
+            forecasts_api.get_gridded_forecast(
+                'temperature_2m',
+                time='2026-09-09T06:00:00Z',
+                initialization_time='2026-09-09T00:00:00Z',
+                forecast_hour=6,
+            )
+        request.assert_not_called()
+
+    def test_gridded_download_streams_chunks(self):
+        response = Mock()
+        response.iter_content.return_value = [b'first', b'', b'second']
+
+        with tempfile.TemporaryDirectory() as directory:
+            output_file = f'{directory}/forecast.nc'
+            forecasts_api.download_and_save_output(output_file, response, silent=True)
+            with open(output_file, 'rb') as forecast_file:
+                self.assertEqual(b'firstsecond', forecast_file.read())
+
+        response.iter_content.assert_called_once_with(chunk_size=1024 * 1024)
+        response.close.assert_called_once_with()
+
+    def test_failed_gridded_download_preserves_existing_file(self):
+        response = Mock()
+        response.iter_content.side_effect = requests.exceptions.ChunkedEncodingError(
+            'incomplete response'
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            output_file = f'{directory}/forecast.nc'
+            with open(output_file, 'wb') as forecast_file:
+                forecast_file.write(b'complete previous download')
+
+            with self.assertRaises(requests.exceptions.ChunkedEncodingError):
+                forecasts_api.download_and_save_output(output_file, response, silent=True)
+
+            with open(output_file, 'rb') as forecast_file:
+                self.assertEqual(b'complete previous download', forecast_file.read())
+
+        response.close.assert_called_once_with()
 
     @patch('windborne.forecasts_api.make_api_request', return_value={'archived_initialization_times': []})
     def test_archive_returns_response_and_current_pagination(self, request):
@@ -145,6 +217,32 @@ class ForecastsApiTest(unittest.TestCase):
 
         self.assertEqual('latest', request.call_args_list[0].kwargs['params']['initialization_time'])
         self.assertEqual('latest', request.call_args_list[1].kwargs['params']['initialization_time'])
+
+    @patch('windborne.forecasts_api.make_api_request')
+    def test_tropical_cyclone_invalid_options_raise_value_error(self, request):
+        with self.assertRaisesRegex(ValueError, 'Basin must be one of'):
+            forecasts_api.get_tropical_cyclones(basin='invalid')
+        with self.assertRaisesRegex(ValueError, 'Unsupported file format'):
+            forecasts_api.get_tropical_cyclones(output_file='tracks.txt')
+        request.assert_not_called()
+
+    @patch('builtins.print')
+    @patch('windborne.forecasts_api.make_api_request')
+    def test_tropical_cyclone_empty_envelope_is_reported(self, request, print_output):
+        response = {
+            'initialization_time': '2026-09-09T00:00:00Z',
+            'tropical_cyclones': {},
+            'total': 0,
+        }
+        request.return_value = response
+
+        result = forecasts_api.get_tropical_cyclones(print_response=True)
+
+        self.assertEqual(response, result)
+        print_output.assert_called_once_with(
+            'No tropical cyclones for initialization time:',
+            '2026-09-09T00:00:00Z',
+        )
 
     def test_gpx_date_line_crossing_uses_configured_time_key(self):
         tracks = {
@@ -311,11 +409,48 @@ class ForecastsApiTest(unittest.TestCase):
         self.assertEqual({}, request.call_args_list[0].kwargs['params'])
         self.assertEqual({}, request.call_args_list[1].kwargs['params'])
 
+    @patch('windborne.forecasts_api.save_arbitrary_response')
     @patch('windborne.forecasts_api.make_api_request')
-    def test_undocumented_analysis_variables_route_is_not_called(self, request):
-        with self.assertRaises(NotImplementedError):
-            forecasts_api.get_analysis_variables()
+    def test_degree_days_json_output_is_saved(self, request, save_response):
+        request.return_value = {'dates': [], 'hdd': {}, 'cdd': {}}
+
+        forecasts_api.get_population_weighted_hdds(output_file='hdds.json')
+        forecasts_api.get_population_weighted_cdds(output_file='cdds.json')
+
+        save_response.assert_any_call('hdds.json', request.return_value)
+        save_response.assert_any_call('cdds.json', request.return_value)
+
+    @patch('windborne.forecasts_api.make_api_request', return_value={})
+    def test_calculation_times_use_forecast_routes(self, request):
+        forecasts_api.get_calculation_times_degree_days(model='wm-6')
+        forecasts_api.get_calculation_times_tropical_cyclones(model='wm-6')
+
+        self.assertTrue(
+            request.call_args_list[0].args[0].endswith(
+                '/forecasts/v1/wm-6/calculation_times/degree_days'
+            )
+        )
+        self.assertTrue(
+            request.call_args_list[1].args[0].endswith(
+                '/forecasts/v1/wm-6/calculation_times/tropical_cyclones'
+            )
+        )
+
+    @patch('windborne.forecasts_api.make_api_request', return_value={})
+    def test_interpolated_sounding_accepts_documented_coordinate_tuple(self, request):
+        forecasts_api.get_interpolated_sounding(
+            (40.7, -74.0), time='2026-09-09T00:00:00Z'
+        )
+        self.assertEqual('40.7,-74.0', request.call_args.kwargs['params']['coordinates'])
+
+    @patch('windborne.forecasts_api.make_api_request')
+    def test_invalid_coordinates_raise_value_error(self, request):
+        with self.assertRaises(ValueError):
+            forecasts_api.get_point_forecasts(coordinates=[(40.7, -74.0), object()])
         request.assert_not_called()
+
+    def test_analysis_variables_is_not_part_of_the_sdk(self):
+        self.assertFalse(hasattr(forecasts_api, 'get_analysis_variables'))
 
 
 if __name__ == '__main__':

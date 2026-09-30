@@ -52,9 +52,9 @@ from .forecasts_api import (
     get_population_weighted_hdds,
     get_population_weighted_cdds,
     get_calculation_times_degree_days,
+    get_calculation_times_tropical_cyclones,
 
     get_analysis_available_times,
-    get_analysis_variables,
     get_interpolated_analysis,
     get_gridded_analysis
 )
@@ -117,9 +117,9 @@ __all__ = [
     "get_population_weighted_hdds",
     "get_population_weighted_cdds",
     "get_calculation_times_degree_days",
+    "get_calculation_times_tropical_cyclones",
 
     "get_analysis_available_times",
-    "get_analysis_variables",
     "get_interpolated_analysis",
     "get_gridded_analysis",
 

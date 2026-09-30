@@ -40,7 +40,6 @@ from . import (
     get_interpolated_sounding,
 
     get_analysis_available_times,
-    get_analysis_variables,
     get_interpolated_analysis,
     get_gridded_analysis
 )
@@ -318,10 +317,6 @@ def main():
     # Analysis Available Times Command
     analysis_times_parser = subparsers.add_parser('analysis_available_times', help='Get available analysis times for a source')
     analysis_times_parser.add_argument('-s', '--source', default='ecmwf_det_anl', help='Analysis source (ecmwf_det_anl, ecmwf_ens_anl, era5)')
-
-    # Analysis Variables Command
-    analysis_variables_parser = subparsers.add_parser('analysis_variables', help='Get available variables for an analysis source')
-    analysis_variables_parser.add_argument('-s', '--source', default='ecmwf_det_anl', help='Analysis source (ecmwf_det_anl, ecmwf_ens_anl, era5)')
 
     # Analysis Interpolated Command
     analysis_interpolated_parser = subparsers.add_parser('analysis_interpolated', help='Get analysis data interpolated to specific coordinates')
@@ -739,7 +734,6 @@ def main():
     elif args.command == 'calculation_times':
         if args.calculation_times_type == 'degree_days':
             get_calculation_times_degree_days(
-                ens_member=args.ens_member,
                 model=args.model,
                 print_response=True
             )
@@ -751,9 +745,6 @@ def main():
     ####################################################################################################################
     elif args.command == 'analysis_available_times':
         get_analysis_available_times(source=args.source, print_response=True)
-
-    elif args.command == 'analysis_variables':
-        get_analysis_variables(source=args.source, print_response=True)
 
     elif args.command == 'analysis_interpolated':
         get_interpolated_analysis(
@@ -770,7 +761,7 @@ def main():
             variable=args.variable,
             time=args.time,
             output_file=args.output_file,
-            output_format=args.format
+            format=args.format
         )
 
     else:

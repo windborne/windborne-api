@@ -74,6 +74,22 @@ class ObservationsApiTest(unittest.TestCase):
             'https://api.windbornesystems.com/observations/v1/missions/mission-id/predicted_path.json'
         )
 
+    @patch('builtins.print')
+    @patch('windborne.observations_api.make_api_request')
+    def test_documented_print_response_keyword_is_supported(self, request, print_output):
+        request.side_effect = [
+            {'soundings': []},
+            {'missions': []},
+            {'prediction': []},
+        ]
+
+        observations_api.get_soundings(print_response=True)
+        observations_api.get_flying_missions(print_response=True, page=0)
+        observations_api.get_predicted_path('mission-id', print_response=True)
+
+        self.assertEqual(3, request.call_count)
+        print_output.assert_called()
+
 
 if __name__ == '__main__':
     unittest.main()

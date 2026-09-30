@@ -1,6 +1,6 @@
 import json
-
-import requests
+import os
+import tempfile
 
 from .utils import (
     parse_time,
@@ -129,13 +129,19 @@ def _format_point_forecast_coordinates(coordinates):
 
     if isinstance(coordinates, str):
         formatted_coordinates = coordinates
+    elif isinstance(coordinates, tuple):
+        if len(coordinates) != 2:
+            raise ValueError("Coordinates must contain latitude and longitude.")
+        formatted_coordinates = f"{coordinates[0]},{coordinates[1]}"
     elif isinstance(coordinates, list):
+        if len(coordinates) == 2 and all(isinstance(value, (int, float)) for value in coordinates):
+            formatted_coordinates = f"{coordinates[0]},{coordinates[1]}"
+            return formatted_coordinates.replace(" ", "")
         coordinate_items = []
         for coordinate in coordinates:
             if isinstance(coordinate, tuple) or isinstance(coordinate, list):
                 if len(coordinate) != 2:
-                    print("Coordinates should be tuples or lists with two elements: latitude and longitude.")
-                    return None
+                    raise ValueError("Coordinates must contain latitude and longitude.")
 
                 coordinate_items.append(f"{coordinate[0]},{coordinate[1]}")
             elif isinstance(coordinate, str):
@@ -150,13 +156,13 @@ def _format_point_forecast_coordinates(coordinates):
                 elif 'lat' in coordinate and 'lng' in coordinate:
                     coordinate_items.append(f"{coordinate['lat']},{coordinate['lng']}")
                 else:
-                    print("Coordinates should be dictionaries with keys 'latitude' and 'longitude'.")
-                    return None
+                    raise ValueError("Coordinate dictionaries must contain latitude and longitude.")
+            else:
+                raise ValueError("Coordinates must be strings, coordinate pairs, or coordinate dictionaries.")
 
         formatted_coordinates = ";".join(coordinate_items)
     else:
-        print("Coordinates should be a string like '37,-121' or a list of coordinate entries.")
-        return None
+        raise ValueError("Coordinates must be a 'latitude,longitude' string or coordinate collection.")
 
     formatted_coordinates = formatted_coordinates.replace(" ", "")
     return formatted_coordinates or None
@@ -172,13 +178,11 @@ def _format_point_forecast_stations(stations):
         station_items = []
         for station in stations:
             if not isinstance(station, str):
-                print("Stations should be strings like 'PANC' or 'KJFK'.")
-                return None
+                raise ValueError("Stations must be strings like 'PANC' or 'KJFK'.")
             station_items.append(station)
         formatted_stations = ";".join(station_items)
     else:
-        print("Stations should be a string like 'PANC;KJFK' or a list of station IDs.")
-        return None
+        raise ValueError("Stations must be a string like 'PANC;KJFK' or a list of station IDs.")
 
     formatted_stations = formatted_stations.replace(" ", "").upper()
     return formatted_stations or None
@@ -233,16 +237,10 @@ def get_point_forecasts(coordinates=None, min_forecast_time=None, max_forecast_t
         raw_coordinates = None
 
     formatted_coordinates = _format_point_forecast_coordinates(raw_coordinates)
-    if raw_coordinates is not None and formatted_coordinates is None:
-        return
-
     formatted_stations = _format_point_forecast_stations(raw_stations)
-    if raw_stations is not None and formatted_stations is None:
-        return
 
     if not formatted_coordinates and not formatted_stations:
-        print("To get point forecasts you must provide coordinates or stations.")
-        return
+        raise ValueError("Point forecasts require coordinates or stations.")
 
     params = {}
     if formatted_coordinates:
@@ -300,7 +298,7 @@ def get_point_forecast_conditions(coordinates, hourly_interval=None, model='wm-6
     """Get summarized weather conditions for one or more coordinates."""
     formatted_coordinates = _format_point_forecast_coordinates(coordinates)
     if formatted_coordinates is None:
-        return None
+        raise ValueError("Point forecast conditions require coordinates.")
 
     params = {'coordinates': formatted_coordinates}
     if hourly_interval is not None:
@@ -312,10 +310,10 @@ def get_point_forecast_conditions(coordinates, hourly_interval=None, model='wm-6
     )
 
 
-def _default_gridded_forecast_extension(model, output_format=None):
-    if output_format == 'zarr':
+def _default_gridded_forecast_extension(model, format=None):
+    if format == 'zarr':
         return '.zarr.zip'
-    if output_format == 'netcdf':
+    if format == 'netcdf':
         return '.nc'
     model = model or ''
     if model.startswith(('wm6', 'wm-6')):
@@ -323,7 +321,7 @@ def _default_gridded_forecast_extension(model, output_format=None):
     return '.nc'
 
 
-def get_gridded_forecast(variable, time=None, initialization_time=None, forecast_hour=None, output_file=None, silent=False, ens_member=None, model='wm-6', level=None, include_distribution=False, include_members=False, include_deterministic=False, skip_mean=False, output_format=None, as_url=False, domain=None):
+def get_gridded_forecast(variable, time=None, initialization_time=None, forecast_hour=None, output_file=None, silent=False, ens_member=None, model='wm-6', level=None, include_distribution=False, include_members=False, include_deterministic=False, skip_mean=False, format=None, as_url=False, domain=None):
     """
     Get gridded forecast data from the API.
     Note that this is primarily meant to be used internally by the other functions in this module.
@@ -337,21 +335,34 @@ def get_gridded_forecast(variable, time=None, initialization_time=None, forecast
         variable (str): The variable you want the forecast for
         level (int, optional): The level you want the forecast for
         output_file (str, optional): Path to save the response data
-                                      Supported formats: .nc
+                                      Supported formats: .zarr.zip and .nc
         include_distribution (bool, optional): Include percentiles, standard deviation, and thresholds when available (WM6 only)
         include_members (bool, optional): Include all ensemble members when available (WM6 only)
+        include_deterministic (bool, optional): Include the deterministic forecast when available (WM6 only)
+        skip_mean (bool, optional): Omit the ensemble mean when supported
+        format (str, optional): Output format, either zarr or netcdf
+        as_url (bool, optional): Return JSON containing a download URL instead of binary data
+        domain (str, optional): Regional domain when supported by the selected model
+
+    Returns:
+        dict | requests.Response: URL metadata when as_url is true, otherwise a streaming response
+
+        When output_file is omitted, the caller is responsible for closing the streaming response.
     """
+
+    if as_url and output_file and not output_file.lower().endswith('.json'):
+        raise ValueError("as_url responses must be saved to a .json file.")
 
     # backwards compatibility for time and variable order swap
     if time in ['temperature_2m', 'dewpoint_2m', 'wind_u_10m', 'wind_v_10m', '500/wind_u', '500/wind_v', '500/temperature', '850/temperature', 'pressure_msl', '500/geopotential', '850/geopotential', 'FULL']:
         variable, time = time, variable
 
-    # require either time or initialization_time and forecast_hour
-    if time is None and (initialization_time is None or forecast_hour is None):
-        print("Error: you must provide either time or initialization_time and forecast_hour.")
-        return
-    elif time is not None and initialization_time is not None and forecast_hour is not None:
-        print("Warning: time, initialization_time, forecast_hour all provided; using initialization_time and forecast_hour.")
+    has_initialization = initialization_time is not None
+    has_forecast_hour = forecast_hour is not None
+    if time is None and not (has_initialization and has_forecast_hour):
+        raise ValueError("Provide time or both initialization_time and forecast_hour.")
+    if time is not None and (has_initialization or has_forecast_hour):
+        raise ValueError("time cannot be combined with initialization_time or forecast_hour.")
 
     params = {}
     if initialization_time is not None and forecast_hour is not None:
@@ -382,8 +393,8 @@ def get_gridded_forecast(variable, time=None, initialization_time=None, forecast
         request_params['include_deterministic'] = True
     if skip_mean:
         request_params['skip_mean'] = True
-    if output_format:
-        request_params['format'] = output_format
+    if format:
+        request_params['format'] = format
     if as_url:
         request_params['as_url'] = True
     if domain:
@@ -393,6 +404,7 @@ def get_gridded_forecast(variable, time=None, initialization_time=None, forecast
         f"{FORECASTS_API_BASE_URL}/{model}/gridded",
         params=request_params,
         as_json=as_url,
+        stream=not as_url,
     )
 
     if response is None:
@@ -404,12 +416,12 @@ def get_gridded_forecast(variable, time=None, initialization_time=None, forecast
         else:
             if not silent:
                 print(f"Output URL found; downloading to {output_file}...")
-            default_extension = _default_gridded_forecast_extension(model, output_format)
-            download_and_save_output(output_file, response, default_extension=default_extension)
+            default_extension = _default_gridded_forecast_extension(model, format)
+            download_and_save_output(output_file, response, silent=silent, default_extension=default_extension)
 
     return response
 
-def get_full_gridded_forecast(time=None, initialization_time=None, forecast_hour=None, output_file=None, silent=False, ens_member=None, model='wm-6', include_distribution=False, include_members=False, include_deterministic=False, skip_mean=False, output_format=None, as_url=False, domain=None):
+def get_full_gridded_forecast(time=None, initialization_time=None, forecast_hour=None, output_file=None, silent=False, ens_member=None, model='wm-6', include_distribution=False, include_members=False, include_deterministic=False, skip_mean=False, format=None, as_url=False, domain=None):
     """
     Get gridded forecast data for all variables from the API.
 
@@ -426,9 +438,14 @@ def get_full_gridded_forecast(time=None, initialization_time=None, forecast_hour
         model (str, optional): The model to get the forecast for
         include_distribution (bool, optional): Include percentiles, standard deviation, and thresholds when available (WM6 only)
         include_members (bool, optional): Include all ensemble members when available (WM6 only)
+        include_deterministic (bool, optional): Include the deterministic forecast when available (WM6 only)
+        skip_mean (bool, optional): Omit the ensemble mean when supported
+        format (str, optional): Output format, either zarr or netcdf
+        as_url (bool, optional): Return JSON containing a download URL instead of binary data
+        domain (str, optional): Regional domain when supported by the selected model
     """
 
-    return get_gridded_forecast(variable="all", time=time, initialization_time=initialization_time, forecast_hour=forecast_hour, output_file=output_file, silent=silent, ens_member=ens_member, model=model, include_distribution=include_distribution, include_members=include_members, include_deterministic=include_deterministic, skip_mean=skip_mean, output_format=output_format, as_url=as_url, domain=domain)
+    return get_gridded_forecast(variable="all", time=time, initialization_time=initialization_time, forecast_hour=forecast_hour, output_file=output_file, silent=silent, ens_member=ens_member, model=model, include_distribution=include_distribution, include_members=include_members, include_deterministic=include_deterministic, skip_mean=skip_mean, format=format, as_url=as_url, domain=domain)
 
 
 def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None, print_response=False, model='wm-6', include_unofficial_ids=False, include_details=False, format=None):
@@ -456,9 +473,7 @@ def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None
     if output_file:
         output_file_lower = output_file.lower()
         if not output_file_lower.endswith(TCS_SUPPORTED_FORMATS):
-            print("Unsupported file format.")
-            print_tc_supported_formats()
-            exit(44)
+            raise ValueError(f"Unsupported file format. Supported formats: {', '.join(TCS_SUPPORTED_FORMATS)}")
         if output_file_lower.endswith('.geojson'):
             if format is None:
                 format = 'geojson'
@@ -481,16 +496,7 @@ def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None
     if basin:
         basin = basin.upper()
         if basin not in ['AL', 'EP', 'CP', 'WP', 'NI', 'SI', 'AU', 'SP']:
-            print("Basin should be one of the following:")
-            print("AL - North Atlantic")
-            print("EP - Eastern Pacific")
-            print("CP - Central Pacific")
-            print("WP - Western Pacific")
-            print("NI - North Indian")
-            print("SI - South West Indian")
-            print("AU - Australian Region")
-            print("SP - South Pacific")
-            exit(44)
+            raise ValueError("Basin must be one of: AL, EP, CP, WP, NI, SI, AU, SP.")
         params["basin"] = basin
 
     if include_unofficial_ids:
@@ -504,39 +510,34 @@ def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None
     response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/tropical_cyclones", params=params)
 
     if output_file:
-        if response == {}:
-            # This should be prior to any check of specific .filetype format check and post filetype valid check
-            # make_api_request covers 403, 404, 502, HTTP, Connections Errors
-            # If we pass all of these and we get an empty dictionary ==> there are no active TCs
-            print("There are no active tropical cyclones for your request\n")
-            # It's pointless to save an empty file
-            # save_response_to_file() will throw error on saving {}
-        elif response is None:
-            print("-------------------------------------------------------")
-            print("Tropical cyclones have not yet been generated for this initialization time")
+        if output_file.lower().endswith('.json'):
+            save_arbitrary_response(output_file, response)
+        elif output_file.lower().endswith('.geojson') and response.get('type') == 'FeatureCollection':
+            save_arbitrary_response(output_file, response)
         else:
-            if output_file.lower().endswith('.json'):
-                save_arbitrary_response(output_file, response)
-            elif output_file.lower().endswith('.geojson') and response.get('type') == 'FeatureCollection':
-                save_arbitrary_response(output_file, response)
-            else:
-                cyclones = response.get('tropical_cyclones', response)
-                tracks = {}
-                for cyclone_id, cyclone in cyclones.items():
-                    if isinstance(cyclone, list):
-                        tracks[cyclone_id] = cyclone
-                    elif isinstance(cyclone, dict):
-                        tracks[cyclone_id] = cyclone.get('path') or cyclone.get('mean_path') or []
-                save_track(output_file, tracks, require_ids=True, time_key='valid_at')
+            cyclones = response.get('tropical_cyclones', response)
+            tracks = {}
+            for cyclone_id, cyclone in cyclones.items():
+                if isinstance(cyclone, list):
+                    tracks[cyclone_id] = cyclone
+                elif isinstance(cyclone, dict):
+                    tracks[cyclone_id] = cyclone.get('path') or cyclone.get('mean_path') or []
+            save_track(output_file, tracks, require_ids=True, time_key='valid_at')
 
     if print_response:
         if not response:
             print("No tropical cyclones for initialization time:", initialization_time)
         elif isinstance(response, dict) and response.get('type') == 'FeatureCollection':
-            print(json.dumps(response, indent=2))
+            if response.get('features'):
+                print(json.dumps(response, indent=2))
+            else:
+                print("No tropical cyclones for initialization time:", initialization_time)
         else:
-            print("Tropical Cyclones for initialization time:", response.get('initialization_time', initialization_time))
             cyclones = response.get('tropical_cyclones', response)
+            if not cyclones:
+                print("No tropical cyclones for initialization time:", response.get('initialization_time', initialization_time))
+                return response
+            print("Tropical Cyclones for initialization time:", response.get('initialization_time', initialization_time))
             summaries = []
             detailed_tracks = []
             for cyclone_id, cyclone in cyclones.items():
@@ -692,11 +693,11 @@ def print_tc_supported_formats():
 
 def download_and_save_output(output_file, response, silent=False, default_extension='.nc'):
     """
-    Downloads a forecast output from a presigned S3 url contained in a response and saves it to a file.
+    Stream a forecast response body to a file.
 
     Args:
         output_file (str): Path where to save the output file
-        response (str): Response that contains the S3 url to download the data from
+        response (requests.Response): Streaming HTTP response
         default_extension (str): Extension to add when output_file has no extension
 
     Returns:
@@ -707,28 +708,40 @@ def download_and_save_output(output_file, response, silent=False, default_extens
     if '.' not in output_file.split('/')[-1]:
         output_file = output_file + default_extension
 
+    directory = os.path.dirname(output_file) or '.'
+    temporary_path = None
     try:
-        # Save the content directly to file
-        with open(output_file, 'wb') as f:
-            f.write(response.content)
+        os.makedirs(directory, exist_ok=True)
+        # Stream into a sibling temporary file so an interrupted response does
+        # not replace a previously complete download with a partial file.
+        with tempfile.NamedTemporaryFile(
+            mode='wb',
+            dir=directory,
+            prefix=f".{os.path.basename(output_file)}.",
+            delete=False,
+        ) as output:
+            temporary_path = output.name
+            for chunk in response.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    output.write(chunk)
+        os.replace(temporary_path, output_file)
+    except Exception:
+        if temporary_path and os.path.exists(temporary_path):
+            os.unlink(temporary_path)
+        raise
+    finally:
+        response.close()
 
-        if not silent:
-            print(f"Data Successfully saved to {output_file}")
+    if not silent:
+        print(f"Data Successfully saved to {output_file}")
 
-        return True
-
-    except requests.exceptions.RequestException as e:
-        if not silent:
-            print(f"Error downloading the file: {e}")
-        return False
-    except Exception as e:
-        if not silent:
-            print(f"Error processing the file: {e}")
-        return False
+    return True
 
 def get_population_weighted_hdds(initialization_time=None, ens_member=None, output_file=None, print_response=False, model='ecmwf-det'):
     """
     Get forecasted population-weighted HDDs from the API.
+
+    output_file may be a .csv or .json path.
     """
     params = {}
     if initialization_time is not None:
@@ -774,6 +787,10 @@ def get_population_weighted_hdds(initialization_time=None, ens_member=None, outp
                     writer.writerow(['Region'] + dates)
                     for region in regions:
                         writer.writerow([region] + [hdd_map.get(region, {}).get(date, '') for date in dates])
+        elif output_file.endswith('.json'):
+            save_arbitrary_response(output_file, response)
+        else:
+            raise ValueError("HDD output_file must end in .csv or .json.")
     
     if print_response:
         dates = response['dates']
@@ -806,6 +823,8 @@ def get_population_weighted_hdds(initialization_time=None, ens_member=None, outp
 def get_population_weighted_cdds(initialization_time=None, ens_member=None, output_file=None, print_response=False, model='ecmwf-det'):
     """
     Get forecasted population-weighted CDDs from the API.
+
+    output_file may be a .csv or .json path.
     """
     params = {}
     if initialization_time is not None:
@@ -851,6 +870,10 @@ def get_population_weighted_cdds(initialization_time=None, ens_member=None, outp
                     writer.writerow(['Region'] + dates)
                     for region in regions:
                         writer.writerow([region] + [cdd_map.get(region, {}).get(date, '') for date in dates])
+        elif output_file.endswith('.json'):
+            save_arbitrary_response(output_file, response)
+        else:
+            raise ValueError("CDD output_file must end in .csv or .json.")
     
     if print_response:
         dates = response['dates']
@@ -904,22 +927,6 @@ def get_analysis_available_times(source='ecmwf_det_anl', print_response=False):
     return response
 
 
-def get_analysis_variables(source='ecmwf_det_anl', print_response=False):
-    """
-    Get available variables for a given analysis source.
-
-    Args:
-        source (str): Analysis source (ecmwf_det_anl, ecmwf_ens_anl, era5)
-        print_response (bool, optional): Whether to print formatted output
-
-    Returns:
-        dict: API response with analysis variables, levels
-    """
-    raise NotImplementedError(
-        "The current WindBorne API does not expose an analysis variables endpoint."
-    )
-
-
 def get_interpolated_analysis(source='ecmwf_det_anl', coordinates=None, time=None, output_file=None, print_response=False):
     """
     Get analysis data interpolated to specific coordinates.
@@ -934,40 +941,12 @@ def get_interpolated_analysis(source='ecmwf_det_anl', coordinates=None, time=Non
     Returns:
         dict: API response with analysis data
     """
-    if not coordinates:
-        print("To get interpolated analysis you must provide coordinates.")
-        return
-
-    formatted_coordinates = coordinates
-    if isinstance(coordinates, list):
-        coordinate_items = []
-        for coordinate in coordinates:
-            if isinstance(coordinate, (tuple, list)):
-                if len(coordinate) != 2:
-                    print("Coordinates should be tuples or lists with two elements: latitude and longitude.")
-                    return
-                coordinate_items.append(f"{coordinate[0]},{coordinate[1]}")
-            elif isinstance(coordinate, str):
-                coordinate_items.append(coordinate)
-            elif isinstance(coordinate, dict):
-                if 'latitude' in coordinate and 'longitude' in coordinate:
-                    coordinate_items.append(f"{coordinate['latitude']},{coordinate['longitude']}")
-                elif 'lat' in coordinate and 'lon' in coordinate:
-                    coordinate_items.append(f"{coordinate['lat']},{coordinate['lon']}")
-                elif 'lat' in coordinate and 'long' in coordinate:
-                    coordinate_items.append(f"{coordinate['lat']},{coordinate['long']}")
-                elif 'lat' in coordinate and 'lng' in coordinate:
-                    coordinate_items.append(f"{coordinate['lat']},{coordinate['lng']}")
-                else:
-                    print("Coordinates should be dictionaries with keys 'latitude' and 'longitude'.")
-                    return
-        formatted_coordinates = ";".join(coordinate_items)
-
-    formatted_coordinates = formatted_coordinates.replace(" ", "")
+    formatted_coordinates = _format_point_forecast_coordinates(coordinates)
+    if formatted_coordinates is None:
+        raise ValueError("Interpolated analysis requires coordinates.")
 
     if not time:
-        print("To get interpolated analysis you must provide a time.")
-        return
+        raise ValueError("Interpolated analysis requires time.")
 
     params = {
         "coordinates": formatted_coordinates,
@@ -998,7 +977,7 @@ def get_interpolated_analysis(source='ecmwf_det_anl', coordinates=None, time=Non
     return response
 
 
-def get_gridded_analysis(source='ecmwf_det_anl', variable=None, time=None, output_file=None, output_format=None):
+def get_gridded_analysis(source='ecmwf_det_anl', variable=None, time=None, output_file=None, format=None):
     """
     Get gridded analysis data for a variable.
 
@@ -1007,69 +986,68 @@ def get_gridded_analysis(source='ecmwf_det_anl', variable=None, time=None, outpu
         variable (str): Variable to download (e.g., temperature_2m)
         time (str): Time to retrieve data for (ISO 8601)
         output_file (str): Path to save output file (.nc or .zarr)
-        output_format (str, optional): Output format (zarr or netcdf)
+        format (str, optional): Output format (zarr or netcdf)
 
     Returns:
         Response object or None
     """
     if not variable:
-        print("To get gridded analysis you must provide a variable.")
-        return
+        raise ValueError("Gridded analysis requires variable.")
     if not time:
-        print("To get gridded analysis you must provide a time.")
-        return
+        raise ValueError("Gridded analysis requires time.")
 
     params = {
         "variable": variable,
         "time": parse_time(time),
     }
-    if output_format:
-        params["format"] = output_format
+    if format:
+        params["format"] = format
 
-    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{source}/analysis/gridded", params=params, as_json=False)
+    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{source}/analysis/gridded", params=params, as_json=False, stream=True)
 
     if response is None:
         return None
 
     if output_file:
-        if output_format == 'zarr' or output_file.endswith('.zarr'):
-            with open(output_file, 'wb') as f:
-                f.write(response.content)
-            print(f"Data Successfully saved to {output_file}")
-        else:
-            download_and_save_output(output_file, response)
+        default_extension = '.zarr.zip' if format == 'zarr' else '.nc'
+        download_and_save_output(output_file, response, default_extension=default_extension)
 
     return response
 
 
-def get_calculation_times_degree_days(ens_member=None, print_response=False, model='ecmwf-det'):
+def _get_calculation_times(calculation_type, print_response, model):
+    response = make_api_request(
+        f"{FORECASTS_API_BASE_URL}/{model}/calculation_times/{calculation_type}",
+        as_json=True,
+    )
+
+    if print_response:
+        print("Latest calculation time:", response.get('latest'))
+        for state, label in (
+            ('available', 'Available'),
+            ('in_progress', 'In progress'),
+            ('incomplete', 'Incomplete'),
+        ):
+            print(f"{label} calculation times:")
+            for calculation_time in response.get(state, []):
+                print(f" - {calculation_time}")
+
+    return response
+
+
+def get_calculation_times_degree_days(print_response=False, model='wm-6'):
     """
     Get available calculation times for degree days forecasts.
 
     Returns dict with keys "available", "in_progress", "incomplete", and "latest".
     """
 
-    params = {}
-    if ens_member is not None:
-        params["ens_member"] = ens_member
+    return _get_calculation_times('degree_days', print_response, model)
 
-    response = make_api_request(f"{API_BASE_URL}/insights/v1/{model}/calculation_times/degree_days", params=params, as_json=True)
 
-    if print_response and response is not None:
-        print("Latest calculation time:", response.get('latest'))
-        print("Available calculation times:")
-        for time in response.get('available', []):
-            print(f" - {time}")
-
-        print("In progress calculation times:")
-        for time in response.get('in_progress', []):
-            print(f" - {time}")
-
-        print("Incomplete calculation times:")
-        for time in response.get('incomplete', []):
-            print(f" - {time}")
-
-    return response
+def get_calculation_times_tropical_cyclones(print_response=False, model='wm-6'):
+    """Get available calculation times for tropical cyclone forecasts."""
+    return _get_calculation_times('tropical_cyclones', print_response, model)
 
 
 # Station forecasts
@@ -1120,8 +1098,7 @@ def get_station_forecast(station_id, initialization_time=None, output_file=None,
               initialization_time, forecast_zero, and forecast array
     """
     if not station_id:
-        print("To get a station forecast you must provide a station_id.")
-        return
+        raise ValueError("Station forecasts require station_id.")
 
     return get_point_forecasts(
         stations=station_id,
@@ -1138,7 +1115,7 @@ def get_interpolated_sounding(coordinates, time=None, initialization_time=None, 
     Get an interpolated forecast sounding (vertical atmospheric profile) for a coordinate.
 
     Args:
-        coordinates (str): Coordinates as "latitude,longitude"
+        coordinates (str | tuple | list): Coordinates as "latitude,longitude" or a latitude/longitude pair
         time (str, optional): Forecast valid time (ISO 8601). Use instead of initialization_time + forecast_hour.
         initialization_time (str, optional): Model initialization time (ISO 8601). Use with forecast_hour.
         forecast_hour (int, optional): Forecast hour offset from initialization_time.
@@ -1151,18 +1128,18 @@ def get_interpolated_sounding(coordinates, time=None, initialization_time=None, 
               forecast_hour, latitude, longitude, and data array of vertical levels
     """
     if not coordinates:
-        print("To get an interpolated sounding you must provide coordinates.")
-        return
+        raise ValueError("Interpolated soundings require coordinates.")
 
-    formatted_coordinates = coordinates.replace(" ", "")
+    formatted_coordinates = _format_point_forecast_coordinates(coordinates)
 
     params = {"coordinates": formatted_coordinates}
 
-    if time is None and (initialization_time is None or forecast_hour is None):
-        print("Error: you must provide either time or initialization_time and forecast_hour.")
-        return
-    elif time is not None and initialization_time is not None and forecast_hour is not None:
-        print("Warning: time, initialization_time, forecast_hour all provided; using initialization_time and forecast_hour.")
+    has_initialization = initialization_time is not None
+    has_forecast_hour = forecast_hour is not None
+    if time is None and not (has_initialization and has_forecast_hour):
+        raise ValueError("Provide time or both initialization_time and forecast_hour.")
+    if time is not None and (has_initialization or has_forecast_hour):
+        raise ValueError("time cannot be combined with initialization_time or forecast_hour.")
 
     if initialization_time is not None and forecast_hour is not None:
         params["initialization_time"] = parse_time(initialization_time)
@@ -1209,36 +1186,9 @@ def get_point_forecasts_interpolated(coordinates, min_forecast_time=None, max_fo
         model (str, optional): Forecast model (e.g., wm, wm4, wm4-intra, ecmwf-det)
     """
 
-    formatted_coordinates = coordinates
-
-    if isinstance(coordinates, list):
-        coordinate_items = []
-        for coordinate in coordinates:
-            if isinstance(coordinate, (tuple, list)):
-                if len(coordinate) != 2:
-                    print("Coordinates should be tuples or lists with two elements: latitude and longitude.")
-                    return
-                coordinate_items.append(f"{coordinate[0]},{coordinate[1]}")
-            elif isinstance(coordinate, str):
-                coordinate_items.append(coordinate)
-            elif isinstance(coordinate, dict):
-                if 'latitude' in coordinate and 'longitude' in coordinate:
-                    coordinate_items.append(f"{coordinate['latitude']},{coordinate['longitude']}")
-                elif 'lat' in coordinate and 'lon' in coordinate:
-                    coordinate_items.append(f"{coordinate['lat']},{coordinate['lon']}")
-                elif 'lat' in coordinate and 'long' in coordinate:
-                    coordinate_items.append(f"{coordinate['lat']},{coordinate['long']}")
-                elif 'lat' in coordinate and 'lng' in coordinate:
-                    coordinate_items.append(f"{coordinate['lat']},{coordinate['lng']}")
-                else:
-                    print("Coordinates should be dictionaries with keys 'latitude' and 'longitude'.")
-                    return
-        formatted_coordinates = ";".join(coordinate_items)
-
-    formatted_coordinates = formatted_coordinates.replace(" ", "")
+    formatted_coordinates = _format_point_forecast_coordinates(coordinates)
     if not formatted_coordinates:
-        print("To get interpolated points forecasts you must provide coordinates.")
-        return
+        raise ValueError("Interpolated point forecasts require coordinates.")
 
     params = {"coordinates": formatted_coordinates}
 

@@ -104,7 +104,7 @@ def get_verified_api_credentials():
     return VERIFIED_WB_CLIENT_ID, VERIFIED_WB_API_KEY
 
 
-def make_api_request(url, params=None, as_json=True, retry_counter=0, method='GET', json=None):
+def make_api_request(url, params=None, as_json=True, retry_counter=0, method='GET', json=None, stream=False):
     """
     Make an authenticated request to the WindBorne API.
 
@@ -117,11 +117,9 @@ def make_api_request(url, params=None, as_json=True, retry_counter=0, method='GE
     :param retry_counter: The number of times the request has been retried
     :param method: HTTP method to use
     :param json: Optional JSON request body
+    :param stream: Whether to stream the response body
     :return:
     """
-    if retry_counter >= 5:
-        raise ConnectionError("Max retries to API reached.")
-
     client_id, api_key = get_verified_api_credentials()
 
     request_args = {}
@@ -138,6 +136,8 @@ def make_api_request(url, params=None, as_json=True, retry_counter=0, method='GE
         request_args['params'] = params
     if json is not None:
         request_args['json'] = json
+    if stream:
+        request_args['stream'] = True
 
     try:
         response = requests.request(method.upper(), url, **request_args)
@@ -152,55 +152,30 @@ def make_api_request(url, params=None, as_json=True, retry_counter=0, method='GE
             return response
 
     except requests.exceptions.HTTPError as http_err:
+        if stream:
+            # Preserve the small error body for callers while releasing the
+            # streamed connection before retrying or raising.
+            _ = http_err.response.content
+            http_err.response.close()
         if method.upper() not in ['GET', 'HEAD']:
             raise
-        if http_err.response.status_code in [401, 403]:
-            print("--------------------------------------")
-            print("We couldn't authenticate your request.")
-            print("--------------------------------------")
-            print("You likely don't have permission to access this resource.\n")
-            print("For questions, email data@windbornesystems.com.")
-        elif http_err.response.status_code in [404, 400]:
-            print("-------------------------------------------------------")
-            print("Our server couldn't find the information you requested.")
-            print("-------------------------------------------------------")
-            print(f"URL: {url}")
-            print(f"Error: {http_err.response.status_code}")
-            print("-------------------------------------------------------")
-            if params:
-                print("\nParameters provided:")
-                for key, value in params.items():
-                    print(f"  {key}: {value}")
-            else:
-                if 'missions/' in url:
-                    mission_id = url.split('/missions/')[1].split('/')[0]
-                    print(f"Mission ID provided: {mission_id}")
-                    print(f"No mission found with id: {mission_id}")
-            print("-------------------------------------------------------")
-            print("Response text:")
-            print(http_err.response.text)
-            return None
-        elif http_err.response.status_code == 502 and method.upper() in ['GET', 'HEAD']:
-            print(f"Temporary connection failure; sleeping for {2**retry_counter}s before retrying")
-            print(f"Underlying error: 502 Bad Gateway")
+        if http_err.response.status_code == 502 and retry_counter < 4:
             time.sleep(2**retry_counter)
-            return make_api_request(url, params, as_json, retry_counter + 1, method=method, json=json)
-        else:
-            # Re-raise the HTTP error instead of exiting
-            raise http_err
-    except requests.exceptions.ConnectionError as conn_err:
+            return make_api_request(url, params, as_json, retry_counter + 1, method=method, json=json, stream=stream)
+        raise
+    except requests.exceptions.ConnectionError:
         if method.upper() not in ['GET', 'HEAD']:
             raise
-        print(f"Temporary connection failure; sleeping for {2**retry_counter}s before retrying")
-        print(f"Underlying error: \n\n{conn_err}")
+        if retry_counter >= 4:
+            raise
         time.sleep(2**retry_counter)
-        return make_api_request(url, params, as_json, retry_counter + 1, method=method, json=json)
-    except requests.exceptions.Timeout as timeout_err:
+        return make_api_request(url, params, as_json, retry_counter + 1, method=method, json=json, stream=stream)
+    except requests.exceptions.Timeout:
         if method.upper() not in ['GET', 'HEAD']:
             raise
-        print(f"Temporary connection failure; sleeping for {2**retry_counter}s before retrying")
-        print(f"Underlying error: \n\n{timeout_err}")
+        if retry_counter >= 4:
+            raise
         time.sleep(2**retry_counter)
-        return make_api_request(url, params, as_json, retry_counter + 1, method=method, json=json)
-    except requests.exceptions.RequestException as req_err:
-        print(f"An error occurred\n\n{req_err}")
+        return make_api_request(url, params, as_json, retry_counter + 1, method=method, json=json, stream=stream)
+    except requests.exceptions.RequestException:
+        raise

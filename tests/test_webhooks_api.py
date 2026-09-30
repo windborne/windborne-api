@@ -17,10 +17,21 @@ class WebhooksApiTest(unittest.TestCase):
             active=False,
             subscriptions=subscriptions,
         )
-        webhooks_api.list_webhooks(page=1, page_size=20, active=True, subscription_type='forecast_hour.available')
-        webhooks_api.get_webhook('wh_1')
-        webhooks_api.update_webhook('wh_1', note=None, active=False)
-        webhooks_api.delete_webhook('wh_1')
+        webhooks_api.list_webhooks(page=0, page_size=20, active=False, subscription_type='forecast_hour.available')
+        webhooks_api.get_webhook(42)
+        webhooks_api.update_webhook(42, note=None, active=False)
+        webhooks_api.delete_webhook(42)
+
+        self.assertEqual(
+            [
+                'https://api.windbornesystems.com/webhooks/v1',
+                'https://api.windbornesystems.com/webhooks/v1',
+                'https://api.windbornesystems.com/webhooks/v1/42',
+                'https://api.windbornesystems.com/webhooks/v1/42',
+                'https://api.windbornesystems.com/webhooks/v1/42',
+            ],
+            [call.args[0] for call in request.call_args_list],
+        )
 
         self.assertEqual(
             {
@@ -35,7 +46,7 @@ class WebhooksApiTest(unittest.TestCase):
             request.call_args_list[0].kwargs,
         )
         self.assertEqual(
-            {'page': 1, 'page_size': 20, 'active': True, 'subscription_type': 'forecast_hour.available'},
+            {'page': 0, 'page_size': 20, 'active': False, 'subscription_type': 'forecast_hour.available'},
             request.call_args_list[1].kwargs['params'],
         )
         self.assertEqual({}, request.call_args_list[2].kwargs)
@@ -45,13 +56,23 @@ class WebhooksApiTest(unittest.TestCase):
     @patch('windborne.webhooks_api.make_api_request', return_value=None)
     def test_subscription_crud_and_ping(self, request):
         webhooks_api.add_webhook_subscription(
-            'wh_1', 'initialization_time.available', filters={'model': 'wm-6'}
+            42, 'initialization_time.available', filters={'model': 'wm-6'}
         )
         webhooks_api.update_webhook_subscription(
-            'wh_1', 'sub_1', response_options=None
+            42, 81, response_options=None
         )
-        webhooks_api.delete_webhook_subscription('wh_1', 'sub_1')
-        webhooks_api.ping_webhook_subscription('wh_1', 'sub_1')
+        webhooks_api.delete_webhook_subscription(42, 81)
+        webhooks_api.ping_webhook_subscription(42, 81)
+
+        self.assertEqual(
+            [
+                'https://api.windbornesystems.com/webhooks/v1/42/subscriptions',
+                'https://api.windbornesystems.com/webhooks/v1/42/subscriptions/81',
+                'https://api.windbornesystems.com/webhooks/v1/42/subscriptions/81',
+                'https://api.windbornesystems.com/webhooks/v1/42/subscriptions/81/ping',
+            ],
+            [call.args[0] for call in request.call_args_list],
+        )
 
         self.assertEqual(
             {'method': 'PATCH', 'json': {'subscription_type': 'initialization_time.available', 'filters': {'model': 'wm-6'}}},

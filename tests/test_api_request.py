@@ -58,6 +58,24 @@ class ApiRequestTest(unittest.TestCase):
 
     @patch('windborne.api_request.requests.request')
     @patch('windborne.api_request.get_verified_api_credentials', return_value=(None, 'wb_test'))
+    def test_streaming_response_is_not_buffered(self, credentials, request):
+        response = Mock(status_code=200)
+        request.return_value = response
+
+        result = api_request.make_api_request(
+            'https://example.test/gridded', as_json=False, stream=True
+        )
+
+        self.assertIs(response, result)
+        request.assert_called_once_with(
+            'GET',
+            'https://example.test/gridded',
+            headers={'Authorization': 'Bearer wb_test'},
+            stream=True,
+        )
+
+    @patch('windborne.api_request.requests.request')
+    @patch('windborne.api_request.get_verified_api_credentials', return_value=(None, 'wb_test'))
     def test_mutating_request_raises_http_errors(self, credentials, request):
         for status_code in [400, 401, 403, 404]:
             with self.subTest(status_code=status_code):
@@ -72,13 +90,46 @@ class ApiRequestTest(unittest.TestCase):
 
     @patch('windborne.api_request.requests.request')
     @patch('windborne.api_request.get_verified_api_credentials', return_value=(None, 'wb_test'))
-    def test_read_request_keeps_not_found_behavior(self, credentials, request):
-        response = Mock(status_code=404, text='not found')
+    def test_read_request_raises_http_errors(self, credentials, request):
+        for status_code in [400, 401, 403, 404]:
+            with self.subTest(status_code=status_code):
+                response = Mock(status_code=status_code)
+                response.raise_for_status.side_effect = requests.exceptions.HTTPError(response=response)
+                request.return_value = response
+
+                with self.assertRaises(requests.exceptions.HTTPError):
+                    api_request.make_api_request('https://example.test/data')
+
+    @patch('windborne.api_request.requests.request')
+    @patch('windborne.api_request.get_verified_api_credentials', return_value=(None, 'wb_test'))
+    def test_streaming_http_error_preserves_body_and_closes_response(self, credentials, request):
+        response = Mock(status_code=404, content=b'{"error":"missing"}')
         response.raise_for_status.side_effect = requests.exceptions.HTTPError(response=response)
         request.return_value = response
 
-        with patch('builtins.print'):
-            self.assertIsNone(api_request.make_api_request('https://example.test/data'))
+        with self.assertRaises(requests.exceptions.HTTPError):
+            api_request.make_api_request(
+                'https://example.test/gridded', as_json=False, stream=True
+            )
+
+        response.close.assert_called_once_with()
+
+    @patch('windborne.api_request.time.sleep')
+    @patch('windborne.api_request.requests.request')
+    @patch('windborne.api_request.get_verified_api_credentials', return_value=(None, 'wb_test'))
+    def test_streaming_502_closes_response_before_retry(self, credentials, request, sleep):
+        failed = Mock(status_code=502, content=b'bad gateway')
+        failed.raise_for_status.side_effect = requests.exceptions.HTTPError(response=failed)
+        succeeded = Mock(status_code=200)
+        request.side_effect = [failed, succeeded]
+
+        result = api_request.make_api_request(
+            'https://example.test/gridded', as_json=False, stream=True
+        )
+
+        self.assertIs(succeeded, result)
+        failed.close.assert_called_once_with()
+        self.assertEqual(2, request.call_count)
 
     @patch('windborne.api_request.requests.request')
     @patch('windborne.api_request.get_verified_api_credentials', return_value=(None, 'wb_test'))
