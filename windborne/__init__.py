@@ -30,6 +30,7 @@ from .observations_api import (
 from .forecasts_api import (
     get_point_forecasts,
     get_point_forecasts_interpolated,
+    get_point_forecast_conditions,
     get_initialization_times,
     get_archived_initialization_times,
     get_run_information,
@@ -43,15 +44,41 @@ from .forecasts_api import (
     get_full_gridded_forecast,
 
     get_tropical_cyclones,
+    get_tropical_cyclone,
+    get_tropical_cyclone_index,
+    get_tropical_cyclone_init_times,
 
     get_population_weighted_hdds,
     get_population_weighted_cdds,
     get_calculation_times_degree_days,
+    get_calculation_times_tropical_cyclones,
 
     get_analysis_available_times,
     get_analysis_variables,
     get_interpolated_analysis,
     get_gridded_analysis
+)
+
+from .events_api import (
+    get_events,
+    get_event_index,
+    get_event,
+    get_event_init_times,
+    get_event_context,
+)
+from .climatology_api import get_climatology
+from .weather_context_api import get_weather_context
+from .webhooks_api import (
+    WebhookOutputError,
+    list_webhooks,
+    get_webhook,
+    create_webhook,
+    update_webhook,
+    delete_webhook,
+    add_webhook_subscription,
+    update_webhook_subscription,
+    delete_webhook_subscription,
+    ping_webhook_subscription,
 )
 
 # Define what should be available when users import *
@@ -78,6 +105,7 @@ __all__ = [
 
     "get_point_forecasts",
     "get_point_forecasts_interpolated",
+    "get_point_forecast_conditions",
     "get_initialization_times",
     "get_archived_initialization_times",
     "get_run_information",
@@ -91,15 +119,37 @@ __all__ = [
     "get_full_gridded_forecast",
 
     "get_tropical_cyclones",
+    "get_tropical_cyclone",
+    "get_tropical_cyclone_index",
+    "get_tropical_cyclone_init_times",
 
     "get_population_weighted_hdds",
     "get_population_weighted_cdds",
     "get_calculation_times_degree_days",
+    "get_calculation_times_tropical_cyclones",
 
     "get_analysis_available_times",
     "get_analysis_variables",
     "get_interpolated_analysis",
     "get_gridded_analysis",
+
+    "get_events",
+    "get_event_index",
+    "get_event",
+    "get_event_init_times",
+    "get_event_context",
+    "get_climatology",
+    "get_weather_context",
+    "WebhookOutputError",
+    "list_webhooks",
+    "get_webhook",
+    "create_webhook",
+    "update_webhook",
+    "delete_webhook",
+    "add_webhook_subscription",
+    "update_webhook_subscription",
+    "delete_webhook_subscription",
+    "ping_webhook_subscription",
 
     # API helpers
     "API_BASE_URL",

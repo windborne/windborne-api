@@ -50,8 +50,10 @@ def to_unix_timestamp(date_string):
 # Compact format YYYYMMDDHH
 def parse_time(time, init_time_flag=None, require_past=False):
     """
-    Parse and validate initialization time with support for multiple formats.
-    Returns validated initialization time in ISO format, or None if invalid.
+    Normalize a timestamp without changing its precision or model run.
+
+    init_time_flag is retained for compatibility. Initialization schedules vary
+    by model, so the API determines whether a particular run is available.
     """
     if time is None:
         return None
@@ -66,9 +68,6 @@ def parse_time(time, init_time_flag=None, require_past=False):
                 print("Make sure your date values are valid")
                 exit(2)
 
-            if init_time_flag and parsed_date.hour not in [0, 6, 12, 18]:
-                print("Initialization time hour must be 00, 06, 12, or 18")
-                exit(2)
         else:
             try:
                 parsed_date = dateutil.parser.parse(time)
@@ -77,17 +76,20 @@ def parse_time(time, init_time_flag=None, require_past=False):
                 print("Please use one of these formats:")
                 print("  - Compact: 'YYYYMMDDHH' (e.g., 2024073112)")
                 print("  - ISO: 'YYYY-MM-DDTHH' or 'YYYY-MM-DDTHH:MM:00'")
-                print("  - Initialization time hour must be 00, 06, 12, or 18")
                 exit(2)
 
-        if require_past and parsed_date > datetime.now():
+        if require_past and parsed_date > datetime.now(parsed_date.tzinfo):
             print(f"Invalid date: {time} -- cannot be in the future")
             exit(2)
 
         if parsed_date.tzinfo is not None:
             parsed_date = parsed_date.astimezone(timezone.utc)
-            return parsed_date.strftime('%Y-%m-%dT%H:%M:00Z')
-        return parsed_date.strftime('%Y-%m-%dT%H:%M:00')
+            return parsed_date.isoformat().replace('+00:00', 'Z')
+        if parsed_date.microsecond:
+            # The API treats naive times as UTC, but its fractional ISO parser
+            # requires an explicit timezone.
+            return parsed_date.isoformat() + 'Z'
+        return parsed_date.isoformat()
 
     except Exception:
         print(f"Invalid date format: {time}")
@@ -128,18 +130,35 @@ def save_arbitrary_response(output_file, response, csv_data_key=None):
         if not data:
             print("No data available to save to CSV.")
             return
-        # Handle nested list case (for forecasts)
+        # Forecasts are grouped by location, then time. Keep every group and
+        # identify its original request index even when the API filters points.
         if isinstance(data, list) and data and isinstance(data[0], list):
-            data = data[0]  # Take the first list from nested lists
+            removed = set(response.get('filtered_coordinates', [])) if isinstance(response, dict) else set()
+            location_indices = [i for i in range(len(data) + len(removed)) if i not in removed]
+            include_index = csv_data_key == 'forecasts' and len(data) + len(removed) > 1
+            rows = []
+            for index, group in zip(location_indices, data):
+                if not isinstance(group, list) or not all(isinstance(row, dict) for row in group):
+                    print("Unsupported data format for CSV.")
+                    exit(5)
+                for row in group:
+                    row = dict(row)
+                    if include_index:
+                        row.setdefault('location_index', index)
+                    rows.append(row)
+            data = rows
+            if not data:
+                print("No data available to save to CSV.")
+                return
         # If data is a list of dictionaries, write each dictionary as a row
         if isinstance(data, list) and all(isinstance(item, dict) for item in data):
-            headers = data[0].keys() if data else []
+            headers = list(dict.fromkeys(key for row in data for key in row))
         # If data is a dictionary, determine if it contains a list of dictionaries or is a flat dictionary
         elif isinstance(data, dict):
             # If the dictionary contains a list of dictionaries, use the keys of the first dictionary in the list as headers
             for key, value in data.items():
                 if isinstance(value, list) and all(isinstance(item, dict) for item in value):
-                    headers = value[0].keys() if value else []
+                    headers = list(dict.fromkeys(key for row in value for key in row))
                     data = value
                     break
             else:
