@@ -89,6 +89,25 @@ class CliParityTests(unittest.TestCase):
                 self.assertEqual(kwargs['domain'], 'europe')
                 self.assertEqual(kwargs['model'], 'wm-6-3km')
 
+    def test_gridded_url_and_ensemble_options_in_every_positional_form(self):
+        cases = [
+            ['temperature_2m', '2026100100', 'url.json'],
+            ['temperature_2m', '2026100100', '0', 'url.json'],
+            ['temperature', '500', '2026100100', 'url.json'],
+            ['temperature', '500', '2026100100', '0', 'url.json'],
+        ]
+        for positional in cases:
+            with self.subTest(positional=positional):
+                kwargs = self.invoke(
+                    ['gridded'] + positional + [
+                        '--model', 'wm-6', '--as-url', '--include-deterministic', 'false', '--skip-mean',
+                    ], 'get_gridded_forecast',
+                )
+                self.assertTrue(kwargs['as_url'])
+                self.assertFalse(kwargs['include_deterministic'])
+                self.assertTrue(kwargs['skip_mean'])
+                self.assertEqual(kwargs['output_file'], 'url.json')
+
     def test_gridded_level_request_error_is_not_retried_as_surface_variable(self):
         with mock.patch.object(cli, 'get_gridded_forecast', autospec=True, side_effect=ValueError('Unsupported format')) as called:
             with mock.patch('sys.argv', ['windborne', 'gridded', 'temperature', '500', '2026100100', '0', 'out.nc', '-f', 'netcdf']):

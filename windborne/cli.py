@@ -2,6 +2,8 @@ import argparse
 import json
 import sys
 
+from .cli_public_api import add_public_api_commands, run_public_api_command
+
 from . import (
     get_super_observations,
     get_observations,
@@ -276,6 +278,9 @@ def main():
     gridded_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
     gridded_parser.add_argument('--include-distribution', action='store_true', help='Include percentiles, standard deviation, and thresholds when available (WM6 only)')
     gridded_parser.add_argument('--include-members', action='store_true', help='Include all ensemble members when available (WM6 only)')
+    gridded_parser.add_argument('--include-deterministic', type=_boolean, nargs='?', const=True, help='Include the deterministic WM6 member (true or false)')
+    gridded_parser.add_argument('--skip-mean', type=_boolean, nargs='?', const=True, help='Omit the WM6 ensemble mean (true or false)')
+    gridded_parser.add_argument('--as-url', type=_boolean, nargs='?', const=True, help='Return archive URL metadata; use a .json output file when true')
     gridded_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm-4.5-ens, ecmwf-det)')
     gridded_parser.add_argument('-f', '--format', choices=['zarr', 'netcdf'], help='Download format (model default if omitted)')
     gridded_parser.add_argument('--domain', help='WM6-3km forecast domain')
@@ -378,7 +383,10 @@ def main():
     analysis_gridded_parser.add_argument('-s', '--source', default='ecmwf_det_anl', help='Analysis source (ecmwf_det_anl, ecmwf_ens_anl, era5)')
     analysis_gridded_parser.add_argument('-f', '--format', help='Output format (zarr or netcdf)')
 
+    add_public_api_commands(subparsers)
     args = parser.parse_args()
+    if run_public_api_command(args):
+        return
 
     ####################################################################################################################
     # DATA API FUNCTIONS CALLED
@@ -709,7 +717,7 @@ def main():
             print(f"\n       windborne gridded variable level time output_file")
             print(f"\n       windborne gridded variable level initialization_time forecast_hour output_file")
         elif len(args.args) == 3:
-            get_gridded_forecast(variable=args.args[0], time=args.args[1], output_file=args.args[2], ens_member=args.ens_member, model=args.model, include_distribution=args.include_distribution, include_members=args.include_members, format=args.format, domain=args.domain)
+            get_gridded_forecast(variable=args.args[0], time=args.args[1], output_file=args.args[2], ens_member=args.ens_member, model=args.model, include_distribution=args.include_distribution, include_members=args.include_members, format=args.format, domain=args.domain, as_url=args.as_url, include_deterministic=args.include_deterministic, skip_mean=args.skip_mean)
         elif len(args.args) == 4:
             # Support both historical form: variable initialization_time forecast_hour output
             # and alternate "variable level time output" form by detecting numeric level
@@ -731,9 +739,9 @@ def main():
 
             if is_level and looks_like_time(a2):
                 # Map to level/variable with time
-                get_gridded_forecast(variable=f"{a1}/{a0}", time=a2, output_file=a3, ens_member=args.ens_member, model=args.model, include_distribution=args.include_distribution, include_members=args.include_members, format=args.format, domain=args.domain)
+                get_gridded_forecast(variable=f"{a1}/{a0}", time=a2, output_file=a3, ens_member=args.ens_member, model=args.model, include_distribution=args.include_distribution, include_members=args.include_members, format=args.format, domain=args.domain, as_url=args.as_url, include_deterministic=args.include_deterministic, skip_mean=args.skip_mean)
             else:
-                get_gridded_forecast(variable=a0, initialization_time=a1, forecast_hour=a2, output_file=a3, ens_member=args.ens_member, model=args.model, include_distribution=args.include_distribution, include_members=args.include_members, format=args.format, domain=args.domain)
+                get_gridded_forecast(variable=a0, initialization_time=a1, forecast_hour=a2, output_file=a3, ens_member=args.ens_member, model=args.model, include_distribution=args.include_distribution, include_members=args.include_members, format=args.format, domain=args.domain, as_url=args.as_url, include_deterministic=args.include_deterministic, skip_mean=args.skip_mean)
         elif len(args.args) == 5:
             # Support historical variable level syntax:
             #   windborne gridded variable level initialization_time forecast_hour output_file
@@ -745,7 +753,7 @@ def main():
                 variable = a0
             else:
                 variable = f"{a1}/{a0}"
-            get_gridded_forecast(variable=variable, initialization_time=a2, forecast_hour=a3, output_file=a4, ens_member=args.ens_member, model=args.model, include_distribution=args.include_distribution, include_members=args.include_members, format=args.format, domain=args.domain)
+            get_gridded_forecast(variable=variable, initialization_time=a2, forecast_hour=a3, output_file=a4, ens_member=args.ens_member, model=args.model, include_distribution=args.include_distribution, include_members=args.include_members, format=args.format, domain=args.domain, as_url=args.as_url, include_deterministic=args.include_deterministic, skip_mean=args.skip_mean)
         else:
             print("Too many arguments")
 

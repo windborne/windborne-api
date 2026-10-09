@@ -20,6 +20,10 @@ The `windborne` package is a Python library and CLI tool for accessing WindBorne
 - **`cli.py`** - Command-line interface implementation using argparse
 - **`observations_api.py`** - Balloon observation data access (observations, missions, flight paths)
 - **`forecasts_api.py`** - Weather forecast data access (point/gridded forecasts, tropical cyclones)
+- **`events_api.py`** - Published weather events, event geometry, and point context
+- **`climatology_api.py` / `weather_context_api.py`** - Hourly normals and combined weather context
+- **`webhooks_api.py`** - Customer webhook and subscription management
+- **`cli_public_api.py`** - CLI commands for events, context, and webhook management
 - **`utils.py`** - Date parsing, file saving, and output formatting utilities
 - **`observation_formatting.py`** - Data format conversions (netCDF, little_r)
 - **`track_formatting.py`** - Trajectory format conversions (CSV, GeoJSON, GPX, KML)
@@ -51,11 +55,19 @@ response handling, and file exports. API responses are mocked; unexpected HTTP
 requests fail the tests, so credentials are not required.
 
 The docs parity tests use the Engine API docs at commit
-`b029b91ed9c4c7b7de789f3294d3010fc81caa61`. Existing positional arguments and
+`0c10589de758f9ef4c91a0fcb48480eac71989a4`. Coverage includes public endpoints whose
+docs currently show only cURL examples, including Events, webhook management,
+climatology, and Weather Context. Internal employee-only endpoints are excluded.
+Existing positional arguments and
 `print_result` / `print_results` remain supported alongside the documented
 `print_response` keyword. Multi-location forecast CSVs include every location
 and a `location_index` column referring to its original request position;
 single-location exports retain their existing columns.
+
+Webhook tests cover HTTP methods, complete nested request bodies, omitted versus
+null fields, authentication, and 204 responses. They also verify that writes are
+not automatically retried after HTTP errors, redirects, timeouts, or connection
+failures. The test suite never creates a live webhook or sends a test delivery.
 
 ## Integration testing
 These are end-to-end tests, designed primarily to test that the backend gives expected responses when accessed through the cli.

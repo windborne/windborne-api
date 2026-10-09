@@ -72,6 +72,71 @@ class ForecastParityTests(unittest.TestCase):
         self.assertEqual(self.params()['format'], 'netcdf')
         self.assertEqual(self.params()['domain'], 'conus')
 
+    def test_gridded_url_mode_returns_metadata_without_downloading(self):
+        response = {'url': 'https://archive.example.test/full.nc?signature=fixture', 'warning': 'Fixture metadata'}
+        self.request.return_value = response
+        with patch.object(api, 'download_and_save_output') as download:
+            result = api.get_gridded_forecast('all', time='2026091405', model='gfs', as_url=True)
+        self.assertIs(result, response)
+        self.assertTrue(self.request.call_args.kwargs['as_json'])
+        self.assertEqual(self.params()['as_url'], 'true')
+        download.assert_not_called()
+        self.request.assert_called_once()
+
+    def test_gridded_url_mode_preserves_subset_manifest_in_json_file(self):
+        response = {
+            'variable': 'temperature_2m', 'url': 'https://archive.example.test/full.zarr.zip',
+            'url_expires_at': '2026-09-14T06:00:00Z', 'subset_bytes': 125,
+            'parts': [{'path': 'zarr.json', 'inline': 'e30='}, {'path': 'temperature_2m/c/0/0', 'range': [100, 222]}],
+        }
+        self.request.return_value = response
+        with tempfile.TemporaryDirectory() as directory, patch.object(api, 'download_and_save_output') as download:
+            output = Path(directory) / 'nested' / 'manifest.json'
+            with contextlib.redirect_stdout(io.StringIO()) as printed:
+                result = api.get_gridded_forecast('temperature_2m', time='2026091405', model='wm-6', as_url=True,
+                                                 output_file=output, silent=True)
+            self.assertIs(result, response)
+            self.assertEqual(json.loads(output.read_text()), response)
+            self.assertEqual(printed.getvalue(), '')
+            download.assert_not_called()
+            self.request.assert_called_once()
+
+    def test_gridded_explicit_false_retains_binary_download(self):
+        response = Mock(content=b'netcdf bytes')
+        self.request.return_value = response
+        with tempfile.TemporaryDirectory() as directory:
+            output = str(Path(directory) / 'forecast.nc')
+            self.assertIs(api.get_gridded_forecast('temperature_2m', time='2026091405', as_url=False,
+                                                   output_file=output, silent=True), response)
+            self.assertEqual(Path(output).read_bytes(), b'netcdf bytes')
+        self.assertEqual(self.params()['as_url'], 'false')
+        self.assertFalse(self.request.call_args.kwargs['as_json'])
+        api.get_gridded_forecast('temperature_2m', time='2026091405')
+        self.assertNotIn('as_url', self.params())
+
+    def test_full_gridded_url_and_deterministic_options_forward_true_and_false(self):
+        self.request.return_value = {'url': 'https://archive.example.test/full.zarr.zip'}
+        api.get_full_gridded_forecast(time='2026091405', model='wm-6', as_url=True,
+                                     include_deterministic=True, skip_mean=False)
+        self.assertEqual(self.params()['variable'], 'all')
+        self.assertEqual(self.params()['as_url'], 'true')
+        self.assertEqual(self.params()['include_deterministic'], 'true')
+        self.assertEqual(self.params()['skip_mean'], 'false')
+        api.get_gridded_forecast('temperature_2m', time='2026091405', include_deterministic=False, skip_mean=True)
+        self.assertEqual(self.params()['include_deterministic'], 'false')
+        self.assertEqual(self.params()['skip_mean'], 'true')
+        api.get_gridded_forecast('temperature_2m', time='2026091405')
+        self.assertNotIn('include_deterministic', self.params())
+        self.assertNotIn('skip_mean', self.params())
+
+    def test_gridded_url_mode_rejects_binary_filename_and_nonboolean_before_request(self):
+        with self.assertRaises(ValueError):
+            api.get_gridded_forecast('all', time='2026091405', as_url=True, output_file='forecast.nc')
+        for name in ('as_url', 'include_deterministic', 'skip_mean'):
+            with self.subTest(option=name), self.assertRaises(ValueError):
+                api.get_gridded_forecast('all', time='2026091405', **{name: 'false'})
+        self.request.assert_not_called()
+
     def test_degree_days_default_to_latest_but_allow_specific_run(self):
         for function in (api.get_population_weighted_hdds, api.get_population_weighted_cdds):
             with self.subTest(function=function.__name__):

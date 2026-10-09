@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from urllib.parse import quote
 
 import requests
@@ -143,6 +144,9 @@ def _format_point_forecast_coordinates(coordinates):
                 else:
                     print("Coordinates should be dictionaries with keys 'latitude' and 'longitude'.")
                     return None
+            else:
+                print("Each coordinate must be a pair, a coordinate string, or a coordinate dictionary.")
+                return None
 
         formatted_coordinates = ";".join(coordinate_items)
     else:
@@ -294,7 +298,7 @@ def _default_gridded_forecast_extension(model, format=None):
     return '.nc'
 
 
-def get_gridded_forecast(variable, time=None, initialization_time=None, forecast_hour=None, output_file=None, silent=False, ens_member=None, model='wm', level=None, include_distribution=False, include_members=False, format=None, domain=None):
+def get_gridded_forecast(variable, time=None, initialization_time=None, forecast_hour=None, output_file=None, silent=False, ens_member=None, model='wm', level=None, include_distribution=False, include_members=False, format=None, domain=None, as_url=None, include_deterministic=None, skip_mean=None):
     """
     Get gridded forecast data from the API.
     Note that this is primarily meant to be used internally by the other functions in this module.
@@ -313,7 +317,24 @@ def get_gridded_forecast(variable, time=None, initialization_time=None, forecast
         include_members (bool, optional): Include all ensemble members when available (WM6 only)
         format (str, optional): netcdf or zarr; omitted uses the model's server default
         domain (str, optional): Regional domain, such as conus or europe (WM6-3km)
+        as_url (bool, optional): Return the API's URL metadata or subset manifest instead
+                    of binary data. output_file must be .json in this mode; no archive
+                    data is downloaded. Omitted/false keeps binary download behavior.
+        include_deterministic (bool, optional): Include the WM6 deterministic forecast
+        skip_mean (bool, optional): Omit the ensemble mean from WM6 output
+
+    Returns:
+        dict for as_url=True; otherwise a requests.Response containing forecast data.
+        URL metadata may contain byte-range and inline parts for a WM6 subset; callers
+        must interpret that manifest rather than treating its URL as a filtered file.
     """
+
+    for name, value in (('as_url', as_url), ('include_deterministic', include_deterministic), ('skip_mean', skip_mean)):
+        if value is not None and not isinstance(value, bool):
+            raise ValueError(f'{name} must be a boolean or None.')
+    metadata_path = Path(output_file) if as_url and output_file is not None else None
+    if metadata_path is not None and metadata_path.suffix.lower() != '.json':
+        raise ValueError('as_url=True saves URL metadata; output_file must use .json.')
 
     # backwards compatibility for time and variable order swap
     if time in ['temperature_2m', 'dewpoint_2m', 'wind_u_10m', 'wind_v_10m', '500/wind_u', '500/wind_v', '500/temperature', '850/temperature', 'pressure_msl', '500/geopotential', '850/geopotential', 'FULL']:
@@ -357,10 +378,23 @@ def get_gridded_forecast(variable, time=None, initialization_time=None, forecast
     if domain is not None:
         request_params["domain"] = domain
 
-    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/gridded", params=request_params, as_json=False)
+    for name, value in (('as_url', as_url), ('include_deterministic', include_deterministic), ('skip_mean', skip_mean)):
+        if value is not None:
+            request_params[name] = str(value).lower()
+
+    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/gridded", params=request_params, as_json=as_url is True)
 
     if response is None:
         return None
+
+    if as_url:
+        if metadata_path is not None:
+            metadata_path.parent.mkdir(parents=True, exist_ok=True)
+            with metadata_path.open('w', encoding='utf-8') as file:
+                json.dump(response, file, indent=2)
+            if not silent:
+                print(f"URL metadata saved to {metadata_path}")
+        return response
 
     if output_file:
         if not silent:
@@ -370,7 +404,7 @@ def get_gridded_forecast(variable, time=None, initialization_time=None, forecast
 
     return response
 
-def get_full_gridded_forecast(time=None, initialization_time=None, forecast_hour=None, output_file=None, silent=False, ens_member=None, model='wm', include_distribution=False, include_members=False, format=None, domain=None):
+def get_full_gridded_forecast(time=None, initialization_time=None, forecast_hour=None, output_file=None, silent=False, ens_member=None, model='wm', include_distribution=False, include_members=False, format=None, domain=None, as_url=None, include_deterministic=None, skip_mean=None):
     """
     Get gridded forecast data for all variables from the API.
 
@@ -389,9 +423,19 @@ def get_full_gridded_forecast(time=None, initialization_time=None, forecast_hour
         include_members (bool, optional): Include all ensemble members when available (WM6 only)
         format (str, optional): netcdf or zarr; omitted uses the model's server default
         domain (str, optional): Regional domain, such as conus or europe (WM6-3km)
+        as_url (bool, optional): Return the API's URL metadata or subset manifest instead
+                    of binary data. output_file must be .json in this mode; no archive
+                    data is downloaded. Omitted/false keeps binary download behavior.
+        include_deterministic (bool, optional): Include the WM6 deterministic forecast
+        skip_mean (bool, optional): Omit the ensemble mean from WM6 output
+
+    Returns:
+        dict for as_url=True; otherwise a requests.Response containing forecast data.
+        URL metadata may contain byte-range and inline parts for a WM6 subset; callers
+        must interpret that manifest rather than treating its URL as a filtered file.
     """
 
-    return get_gridded_forecast(variable="all", time=time, initialization_time=initialization_time, forecast_hour=forecast_hour, output_file=output_file, silent=silent, ens_member=ens_member, model=model, include_distribution=include_distribution, include_members=include_members, format=format, domain=domain)
+    return get_gridded_forecast(variable="all", time=time, initialization_time=initialization_time, forecast_hour=forecast_hour, output_file=output_file, silent=silent, ens_member=ens_member, model=model, include_distribution=include_distribution, include_members=include_members, format=format, domain=domain, as_url=as_url, include_deterministic=include_deterministic, skip_mean=skip_mean)
 
 
 def _tropical_cyclone_basin(basin):
