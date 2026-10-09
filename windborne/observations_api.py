@@ -562,7 +562,7 @@ def poll_super_observations(**kwargs):
 # ------------
 # METADATA
 # ------------
-def get_flying_missions(output_file=None, print_results=False):
+def get_flying_missions(output_file=None, print_results=False, *, print_response=None):
     """
     Retrieves a list of currently flying missions.
     In CLI mode, displays missions in a formatted table.
@@ -571,10 +571,13 @@ def get_flying_missions(output_file=None, print_results=False):
         output_file (str): Optional path to save the response data.
                            If provided, saves the data in CSV or JSON format.
         print_results (bool): Whether to print the results in the CLI.
+        print_response (bool): Whether to print the response. Overrides print_results when provided.
 
     Returns:
         dict: The API response containing list of flying missions.
     """
+    if print_response is not None:
+        print_results = print_response
     page_size = 64
 
     # Initial query to get total flying
@@ -631,7 +634,7 @@ def get_flying_missions(output_file=None, print_results=False):
     return flying_missions
 
 
-def get_mission_launch_site(mission_id=None, output_file=None, print_result=False):
+def get_mission_launch_site(mission_id=None, output_file=None, print_result=False, *, print_response=None):
     """
     Retrieves launch site information for a specified mission.
 
@@ -640,10 +643,13 @@ def get_mission_launch_site(mission_id=None, output_file=None, print_result=Fals
         output_file (str): Optional path to save the response data.
                            If provided, saves the data in CSV format.
         print_result (bool): Whether to print the results in the CLI.
+        print_response (bool): Whether to print the response. Overrides print_result when provided.
 
     Returns:
         dict: The API response containing the launch site information.
     """
+    if print_response is not None:
+        print_result = print_response
     if not mission_id:
         print("Must provide mission ID")
         return
@@ -708,7 +714,7 @@ def get_flying_mission(mission_id, verify_flying=True):
     return mission
 
 
-def get_predicted_path(mission_id=None, output_file=None, print_result=False):
+def get_predicted_path(mission_id=None, output_file=None, print_result=False, *, print_response=None):
     """
         Fetches the predicted flight path for a given mission.
         Displays currently flying missions if the provided mission ID is invalid.
@@ -717,10 +723,13 @@ def get_predicted_path(mission_id=None, output_file=None, print_result=False):
             mission_id (str): The ID of the mission to fetch the prediction for.
             output_file (str): Optional path to save the response data.
             print_result (bool): Whether to print the results in the CLI.
+            print_response (bool): Whether to print the response. Overrides print_result when provided.
 
         Returns:
             list: The API response containing the predicted flight path data.
     """
+    if print_response is not None:
+        print_result = print_response
     if not mission_id:
         print("To get the predicted flight path for a given mission you must provide a mission ID.")
         return
@@ -751,7 +760,7 @@ def get_predicted_path(mission_id=None, output_file=None, print_result=False):
     return prediction
 
 
-def get_current_location(mission_id=None, output_file=None, print_result=False, verify_flying=True):
+def get_current_location(mission_id=None, output_file=None, print_result=False, verify_flying=True, *, print_response=None):
     """
     Fetches the current location for a given mission.
 
@@ -760,10 +769,13 @@ def get_current_location(mission_id=None, output_file=None, print_result=False, 
         output_file (str): Optional path to save the response data.
         print_result (bool): Whether to print the results in the CLI.
         verify_flying (bool): Whether to verify the mission is flying before trying to fetch the current location
+        print_response (bool): Whether to print the response. Overrides print_result when provided.
 
     Returns:
         dict: Current location with latitude, longitude, and altitude, or None if not found
     """
+    if print_response is not None:
+        print_result = print_response
     if not mission_id:
         print("To get the current location for a given mission you must provide a mission ID.")
         return
@@ -787,7 +799,7 @@ def get_current_location(mission_id=None, output_file=None, print_result=False, 
     return response
 
 
-def get_flight_path(mission_id=None, output_file=None, print_result=False):
+def get_flight_path(mission_id=None, output_file=None, print_result=False, *, print_response=None):
     """
         Fetches the flight path for a given mission.
 
@@ -795,10 +807,13 @@ def get_flight_path(mission_id=None, output_file=None, print_result=False):
             mission_id (str): The ID of the mission to fetch the flight path for.
             output_file (str): Optional path to save the response data.
             print_result (bool): Whether to print the results in the CLI.
+            print_response (bool): Whether to print the response. Overrides print_result when provided.
 
         Returns:
             list: The API response containing the flight path.
     """
+    if print_response is not None:
+        print_result = print_response
     if not mission_id:
         print("A mission id is required to get a flight path")
         return
@@ -818,7 +833,7 @@ def get_flight_path(mission_id=None, output_file=None, print_result=False):
 
     return response.get('flight_data')
 
-def get_constellation_status(output_file=None, print_results=False):
+def get_constellation_status(output_file=None, print_results=False, *, print_response=None):
     """
     Retrieves the current constellation status with location information for all flying missions.
     Automatically fetches all pages to return the complete list of missions.
@@ -827,12 +842,15 @@ def get_constellation_status(output_file=None, print_results=False):
         output_file (str): Optional path to save the response data.
                            If provided, saves the data in CSV or JSON format.
         print_results (bool): Whether to print the results in the CLI.
+        print_response (bool): Whether to print the response. Overrides print_results when provided.
 
     Returns:
         list: List of all flying missions with their current position and status.
               Each mission contains: id, name, number, launch_time, landing_time,
               latitude, longitude, altitude, ascent_rate.
     """
+    if print_response is not None:
+        print_results = print_response
     page_size = 64
 
     # Initial query to get first page
@@ -915,7 +933,7 @@ def get_soundings(
     min_latitude=None, max_latitude=None,
     min_longitude=None, max_longitude=None,
     page=None, page_size=None,
-    output_file=None, print_results=False
+    output_file=None, print_results=False, *, min_length=None, print_response=None
 ):
     """
     Retrieves a list of atmospheric soundings with optional filtering.
@@ -934,10 +952,14 @@ def get_soundings(
         page_size (int): Results per page (default 64, max 200).
         output_file (str): Optional path to save response (.csv or .json).
         print_results (bool): Whether to print results.
+        min_length (float): Minimum difference between the sounding's maximum and minimum altitude (meters).
+        print_response (bool): Whether to print the response. Overrides print_results when provided.
 
     Returns:
         list: List of sounding metadata dicts.
     """
+    if print_response is not None:
+        print_results = print_response
     url = f"{DATA_API_BASE_URL}/soundings"
 
     params = {}
@@ -951,6 +973,8 @@ def get_soundings(
         params["min_altitude"] = min_altitude
     if max_altitude is not None:
         params["max_altitude"] = max_altitude
+    if min_length is not None:
+        params["min_length"] = min_length
     if min_latitude is not None:
         params["min_latitude"] = min_latitude
     if max_latitude is not None:
@@ -988,7 +1012,7 @@ def get_soundings(
     return soundings
 
 
-def get_sounding(sounding_id, output_file=None, print_result=False):
+def get_sounding(sounding_id, output_file=None, print_result=False, *, print_response=None):
     """
     Retrieves full atmospheric sounding data for a specific sounding ID.
 
@@ -996,10 +1020,13 @@ def get_sounding(sounding_id, output_file=None, print_result=False):
         sounding_id (str): The unique identifier of the sounding.
         output_file (str): Optional path to save response (.csv or .json).
         print_result (bool): Whether to print results.
+        print_response (bool): Whether to print the response. Overrides print_result when provided.
 
     Returns:
         dict | None: Sounding data including metadata and data points, or None on error.
     """
+    if print_response is not None:
+        print_result = print_response
     if not sounding_id:
         print("Must provide a sounding ID.")
         return {}
@@ -1034,13 +1061,13 @@ def get_sounding(sounding_id, output_file=None, print_result=False):
 
 def get_recent_asos_observations(
     station, hours=None, since=None,
-    output_file=None, print_results=False
+    output_file=None, print_results=False, *, include_high_frequency=None
 ):
     """
     Retrieves up to the last 7 days of ASOS observations for a single station.
 
-    US ASOS sites report at a 5-minute cadence; international stations follow
-    the standard 30-minute METAR cadence.
+    Returns routine reports by default. Set include_high_frequency=True to also
+    include high-frequency MADIS observations.
 
     Args:
         station (str): Station identifier. Accepts the 4-letter ICAO
@@ -1053,6 +1080,9 @@ def get_recent_asos_observations(
             and returns observations at or after this instant.
         output_file (str): Optional path to save response (.csv or .json).
         print_results (bool): Whether to print results.
+        include_high_frequency (bool): Include high-frequency MADIS observations.
+            Defaults to false server-side when omitted. These temperature and
+            dewpoint values may have lower precision than routine reports.
 
     Returns:
         dict | None: Response with `station`, `units`, and `observations`,
@@ -1069,6 +1099,8 @@ def get_recent_asos_observations(
         params["hours"] = hours
     if since:
         params["since"] = since
+    if include_high_frequency is not None:
+        params["include_high_frequency"] = str(include_high_frequency).lower()
 
     response = make_api_request(url, params=params)
 

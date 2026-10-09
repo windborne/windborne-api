@@ -30,6 +30,7 @@ from .observations_api import (
 from .forecasts_api import (
     get_point_forecasts,
     get_point_forecasts_interpolated,
+    get_point_forecast_conditions,
     get_initialization_times,
     get_archived_initialization_times,
     get_run_information,
@@ -43,10 +44,14 @@ from .forecasts_api import (
     get_full_gridded_forecast,
 
     get_tropical_cyclones,
+    get_tropical_cyclone,
+    get_tropical_cyclone_index,
+    get_tropical_cyclone_init_times,
 
     get_population_weighted_hdds,
     get_population_weighted_cdds,
     get_calculation_times_degree_days,
+    get_calculation_times_tropical_cyclones,
 
     get_analysis_available_times,
     get_analysis_variables,
@@ -78,6 +83,7 @@ __all__ = [
 
     "get_point_forecasts",
     "get_point_forecasts_interpolated",
+    "get_point_forecast_conditions",
     "get_initialization_times",
     "get_archived_initialization_times",
     "get_run_information",
@@ -91,10 +97,14 @@ __all__ = [
     "get_full_gridded_forecast",
 
     "get_tropical_cyclones",
+    "get_tropical_cyclone",
+    "get_tropical_cyclone_index",
+    "get_tropical_cyclone_init_times",
 
     "get_population_weighted_hdds",
     "get_population_weighted_cdds",
     "get_calculation_times_degree_days",
+    "get_calculation_times_tropical_cyclones",
 
     "get_analysis_available_times",
     "get_analysis_variables",

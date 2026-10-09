@@ -39,9 +39,23 @@ The `windborne` package is a Python library and CLI tool for accessing WindBorne
 
 ## Unit testing
 
-`pytest` tests are in the folder `pytest/`. To run, do `pytest pytest/ -v`. Currently just minimal testing is implemented for recent changes.
+Install the package and pytest in a virtual environment, then run:
 
-You may need to run `pip3 install pytest` to install.
+```bash
+python -m pip install -e . pytest
+python -m pytest tests -q
+```
+
+These tests cover the documented SDK and CLI arguments, request parameters,
+response handling, and file exports. API responses are mocked; unexpected HTTP
+requests fail the tests, so credentials are not required.
+
+The docs parity tests use the Engine API docs at commit
+`b029b91ed9c4c7b7de789f3294d3010fc81caa61`. Existing positional arguments and
+`print_result` / `print_results` remain supported alongside the documented
+`print_response` keyword. Multi-location forecast CSVs include every location
+and a `location_index` column referring to its original request position;
+single-location exports retain their existing columns.
 
 ## Integration testing
 These are end-to-end tests, designed primarily to test that the backend gives expected responses when accessed through the cli.

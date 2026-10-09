@@ -31,6 +31,11 @@ from . import (
     get_variables,
     get_gridded_forecast,
     get_tropical_cyclones,
+    get_tropical_cyclone,
+    get_tropical_cyclone_index,
+    get_tropical_cyclone_init_times,
+    get_calculation_times_tropical_cyclones,
+    get_point_forecast_conditions,
     get_population_weighted_hdds,
     get_population_weighted_cdds,
     get_calculation_times_degree_days,
@@ -46,6 +51,13 @@ from . import (
 )
 
 from pprint import pprint
+
+def _boolean(value):
+    if value.lower() == 'true':
+        return True
+    if value.lower() == 'false':
+        return False
+    raise argparse.ArgumentTypeError('Expected true or false')
 
 def main():
     # Normalize command to use underscores before parsing (supports both dashes and underscores)
@@ -152,7 +164,7 @@ def main():
     current_location_parser.add_argument('output', nargs='?', help='Output file')
 
     # Get Predicted Path Command
-    prediction_parser = subparsers.add_parser('predict_path', help='Get predicted flight path')
+    prediction_parser = subparsers.add_parser('predict_path', aliases=['predicted_path'], help='Get predicted flight path')
     prediction_parser.add_argument('mission_id', help='Mission ID')
     prediction_parser.add_argument('output', nargs='?', help='Output file')
 
@@ -172,6 +184,7 @@ def main():
     soundings_parser.add_argument('-xt', '--max-time', help='Filter soundings ending at or before this time')
     soundings_parser.add_argument('-ma', '--min-altitude', type=float, help='Exclude soundings below this altitude (meters)')
     soundings_parser.add_argument('-xa', '--max-altitude', type=float, help='Exclude soundings above this altitude (meters)')
+    soundings_parser.add_argument('--min-length', type=float, help='Minimum sounding length (meters)')
     soundings_parser.add_argument('-ml', '--min-lat', type=float, help='Minimum latitude')
     soundings_parser.add_argument('-xl', '--max-lat', type=float, help='Maximum latitude')
     soundings_parser.add_argument('-mg', '--min-lon', type=float, help='Minimum longitude')
@@ -190,6 +203,7 @@ def main():
     asos_recent_parser.add_argument('station', help='Station identifier: short code (DWH), ICAO (KDWH, EGLL), USAF-WBAN with dash (722429-53910), or 11-digit USAF+WBAN (72242953910)')
     asos_recent_parser.add_argument('-H', '--hours', type=int, help='Lookback window in hours, 1-168 (default 48)')
     asos_recent_parser.add_argument('-s', '--since', help='ISO 8601 timestamp; overrides --hours')
+    asos_recent_parser.add_argument('--include-high-frequency', type=_boolean, nargs='?', const=True, help='Include high-frequency observations (true or false)')
     asos_recent_parser.add_argument('output', nargs='?', help='Output file (.csv or .json)')
 
     ####################################################################################################################
@@ -200,7 +214,7 @@ def main():
     # We have quite a few quite a few optional query parameters here
     # so we set coordinates and output_file to required instead of
     # setting all args into a parser arg (add_argument('args', nargs='*', ...)
-    points_parser = subparsers.add_parser('points', help='Get the forecast at given point(s) or station(s)')
+    points_parser = subparsers.add_parser('points', aliases=['point_forecast'], help='Get the forecast at given point(s) or station(s)')
     points_parser.add_argument('coordinates', help='Coordinate pairs in format "latitudeA,longitudeA; latitudeB,longitudeB" or station IDs like "PANC;KJFK"')
     points_parser.add_argument('-mt','--min-time', help='Minimum forecast time')
     points_parser.add_argument('-xt','--max-time', help='Maximum forecast time')
@@ -224,6 +238,12 @@ def main():
     points_interpolated_parser.add_argument('-l', '--level', type=int, help='Pressure level in hPa for upper-level variables (e.g., 500, 850). WM-6 only')
     points_interpolated_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm-4.5-ens)')
     points_interpolated_parser.add_argument('output_file', nargs='?', help='Output file (.csv or .json)')
+
+    conditions_parser = subparsers.add_parser('point_forecast_conditions', help='Get ranked weather conditions for given point(s)')
+    conditions_parser.add_argument('coordinates', help='Coordinate pairs in format "latitudeA,longitudeA;latitudeB,longitudeB"')
+    conditions_parser.add_argument('-m', '--model', default='wm-6', help='Forecast model (wm-6)')
+    conditions_parser.add_argument('--hourly-interval', type=int, choices=[1, 2, 3, 4, 6, 8], help='Hours per condition block (default 1)')
+    conditions_parser.add_argument('output_file', nargs='?', help='Output JSON file; omitted to print the response')
 
     # Station Forecasts
     ####################################################################################################################
@@ -257,6 +277,8 @@ def main():
     gridded_parser.add_argument('--include-distribution', action='store_true', help='Include percentiles, standard deviation, and thresholds when available (WM6 only)')
     gridded_parser.add_argument('--include-members', action='store_true', help='Include all ensemble members when available (WM6 only)')
     gridded_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm-4.5-ens, ecmwf-det)')
+    gridded_parser.add_argument('-f', '--format', choices=['zarr', 'netcdf'], help='Download format (model default if omitted)')
+    gridded_parser.add_argument('--domain', help='WM6-3km forecast domain')
 
     # OTHER
     # TCS
@@ -264,21 +286,31 @@ def main():
 
     # Tropical Cyclones Command
     tropical_cyclones_parser = subparsers.add_parser('tropical_cyclones', help='Get tropical cyclone forecasts')
-    tropical_cyclones_parser.add_argument('-b', '--basin',  help='Optional: filter tropical cyclones on basin[ NA, EP, WP, NI, SI, AU, SP]')
-    tropical_cyclones_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm-4.5-ens, ecmwf-det)')
+    tropical_cyclones_parser.add_argument('-b', '--basin', help='Filter by basin (AL, EP, CP, WP, NI, SI, AU, SP; NA is an alias for AL)')
+    tropical_cyclones_parser.add_argument('-m', '--model', help='Forecast model (e.g., wm, wm4, wm-4.5-ens, ecmwf-det)')
+    tropical_cyclones_parser.add_argument('--initialization-time', help='Select a forecast initialization time')
+    tropical_cyclones_parser.add_argument('--include-details', type=_boolean, nargs='?', const=True, default=False, help='Include paths, landfalls, and cones in the list (true or false)')
+    tropical_cyclones_parser.add_argument('--include-unofficial-ids', type=_boolean, nargs='?', const=True, default=False, help='Include unmatched tracks (true or false)')
+    tropical_cyclones_parser.add_argument('--include-members', type=_boolean, nargs='?', const=True, default=False, help='Include member paths in detail (true or false)')
+    tropical_cyclones_parser.add_argument('--include-cones', type=_boolean, nargs='?', const=True, default=False, help='Include cones in detail (true or false)')
+    tropical_cyclones_parser.add_argument('--min-time', help='Index: minimum lifetime time (ISO 8601 or YYYYMMDDHH)')
+    tropical_cyclones_parser.add_argument('--max-time', help='Index: maximum lifetime time (ISO 8601 or YYYYMMDDHH)')
+    tropical_cyclones_parser.add_argument('--page', type=int, help='Index page number (default 0)')
+    tropical_cyclones_parser.add_argument('--page-size', type=int, help='Index results per page (default 64)')
+    tropical_cyclones_parser.add_argument('-f', '--format', choices=['json', 'geojson', 'deck'], default='json', help='Response format (deck is available for detail)')
     tropical_cyclones_parser.add_argument('args', nargs='*',
-                                 help='[optional: initialization time (YYYYMMDDHH, YYYY-MM-DDTHH, or YYYY-MM-DDTHH:mm:ss)] output_file')
+                                 help='[initialization_time] [output_file], index [output_file], detail ID [output_file], or init_times ID')
 
     # Population Weighted HDD Command
     hdd_parser = subparsers.add_parser('hdds', help='Get forecasted population-weighted heating degree days (HDDs)')
-    hdd_parser.add_argument('initialization_time', help='Initialization time (YYYYMMDDHH, YYYY-MM-DDTHH, or YYYY-MM-DDTHH:mm:ss)')
+    hdd_parser.add_argument('initialization_time', nargs='?', help='Initialization time (default: latest calculated run)')
     hdd_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
     hdd_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm-4.5-ens, ecmwf-det)')
     hdd_parser.add_argument('-o', '--output', help='Output file (supports .csv and .json formats)')
 
     # Population Weighted CDD Command
     cdd_parser = subparsers.add_parser('cdds', help='Get forecasted population-weighted cooling degree days (CDDs)')
-    cdd_parser.add_argument('initialization_time', help='Initialization time (YYYYMMDDHH, YYYY-MM-DDTHH, or YYYY-MM-DDTHH:mm:ss)')
+    cdd_parser.add_argument('initialization_time', nargs='?', help='Initialization time (default: latest calculated run)')
     cdd_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
     cdd_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm-4.5-ens, ecmwf-det)')
     cdd_parser.add_argument('-o', '--output', help='Output file (supports .csv and .json formats)')
@@ -289,23 +321,31 @@ def main():
     degree_days_parser = calculation_times_subparsers.add_parser('degree_days', help='Get available calculation times for degree days forecasts')
     degree_days_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
     degree_days_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm-4.5-ens, ecmwf-det)')
+    cyclone_times_parser = calculation_times_subparsers.add_parser('tropical_cyclones', help='Get available tropical cyclone calculation times')
+    cyclone_times_parser.add_argument('-m', '--model', default='wm-6', help='Forecast model (e.g., wm-6)')
 
     # Initialization Times Command
     initialization_times_parser = subparsers.add_parser('init_times', help='Get available initialization times for point forecasts')
     initialization_times_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
     initialization_times_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm-4.5-ens, ecmwf-det)')
+    initialization_times_parser.add_argument('--domain', help='WM6-3km forecast domain')
 
     # Archived Initialization Times Command
     archived_initialization_times_parser = subparsers.add_parser('archived_init_times', help='Get available archived initialization times')
     archived_initialization_times_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
     archived_initialization_times_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm-4.5-ens, ecmwf-det)')
     archived_initialization_times_parser.add_argument('-p', '--page-end', help='End of page window (ISO 8601). Lists times back 7 days.')
+    archived_initialization_times_parser.add_argument('--page', type=int, help='Page number (default 0)')
+    archived_initialization_times_parser.add_argument('--page-size', type=int, help='Results per page (default 64, max 500)')
+    archived_initialization_times_parser.add_argument('--order', choices=['newest', 'oldest'], help='Initialization time order (default newest)')
+    archived_initialization_times_parser.add_argument('--domain', help='WM6-3km forecast domain')
 
     # Run Information Command
     run_information_parser = subparsers.add_parser('run_information', help='Get run information for a model run')
-    run_information_parser.add_argument('initialization_time', help='Initialization time (ISO 8601)')
+    run_information_parser.add_argument('initialization_time', nargs='?', help='Initialization time (ISO 8601; default: latest run)')
     run_information_parser.add_argument('-e', '--ens-member', help='Ensemble member (eg 1 or mean)')
     run_information_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm-4.5-ens, ecmwf-det)')
+    run_information_parser.add_argument('--domain', help='WM6-3km forecast domain')
 
     # Variables Command
     variables_parser = subparsers.add_parser('variables', help='Get available variables for a model')
@@ -510,7 +550,7 @@ def main():
             output_file=args.output,
             print_result=(not args.output)
         )
-    elif args.command == 'predict_path':
+    elif args.command in ('predict_path', 'predicted_path'):
         get_predicted_path(
             mission_id=args.mission_id,
             output_file=args.output,
@@ -536,6 +576,7 @@ def main():
             max_time=args.max_time,
             min_altitude=args.min_altitude,
             max_altitude=args.max_altitude,
+            min_length=args.min_length,
             min_latitude=args.min_lat,
             max_latitude=args.max_lat,
             min_longitude=args.min_lon,
@@ -558,6 +599,7 @@ def main():
             station=args.station,
             hours=args.hours,
             since=args.since,
+            include_high_frequency=args.include_high_frequency,
             output_file=args.output,
             print_results=(not args.output)
         )
@@ -565,11 +607,11 @@ def main():
     ####################################################################################################################
     # FORECASTS API FUNCTIONS CALLED
     ####################################################################################################################
-    elif args.command == 'points':
+    elif args.command in ('points', 'point_forecast'):
         min_forecast_time = args.min_time if args.min_time else None
         max_forecast_time = args.max_time if args.max_time else None
-        min_forecast_hour = args.min_hour if args.min_hour else None
-        max_forecast_hour = args.max_hour if args.max_hour else None
+        min_forecast_hour = args.min_hour
+        max_forecast_hour = args.max_hour
         initialization_time = args.init_time if args.init_time else None
 
         get_point_forecasts(
@@ -587,8 +629,8 @@ def main():
     elif args.command == 'points_interpolated':
         min_forecast_time = args.min_time if args.min_time else None
         max_forecast_time = args.max_time if args.max_time else None
-        min_forecast_hour = args.min_hour if args.min_hour else None
-        max_forecast_hour = args.max_hour if args.max_hour else None
+        min_forecast_hour = args.min_hour
+        max_forecast_hour = args.max_hour
         initialization_time = args.init_time if args.init_time else None
 
         get_point_forecasts_interpolated(
@@ -604,6 +646,15 @@ def main():
             level=getattr(args, 'level', None),
             output_file=args.output_file,
             model=args.model,
+            print_response=(not args.output_file)
+        )
+
+    elif args.command == 'point_forecast_conditions':
+        get_point_forecast_conditions(
+            coordinates=args.coordinates,
+            hourly_interval=args.hourly_interval,
+            model=args.model,
+            output_file=args.output_file,
             print_response=(not args.output_file)
         )
 
@@ -635,13 +686,17 @@ def main():
         )
 
     elif args.command == 'init_times':
-        get_initialization_times(print_response=True, ens_member=args.ens_member, model=args.model)
+        get_initialization_times(print_response=True, ens_member=args.ens_member, model=args.model, domain=args.domain)
 
     elif args.command == 'archived_init_times':
-        get_archived_initialization_times(print_response=True, ens_member=args.ens_member, model=args.model, page_end=getattr(args, 'page_end', None))
+        get_archived_initialization_times(
+            print_response=True, ens_member=args.ens_member, model=args.model,
+            page_end=args.page_end, page=args.page, page_size=args.page_size, order=args.order,
+            domain=args.domain
+        )
 
     elif args.command == 'run_information':
-        get_run_information(initialization_time=args.initialization_time, ens_member=getattr(args, 'ens_member', None), model=args.model, print_response=True)
+        get_run_information(initialization_time=args.initialization_time, ens_member=getattr(args, 'ens_member', None), model=args.model, print_response=True, domain=args.domain)
 
     elif args.command == 'variables':
         get_variables(print_response=True, model=args.model)
@@ -654,7 +709,7 @@ def main():
             print(f"\n       windborne gridded variable level time output_file")
             print(f"\n       windborne gridded variable level initialization_time forecast_hour output_file")
         elif len(args.args) == 3:
-            get_gridded_forecast(variable=args.args[0], time=args.args[1], output_file=args.args[2], ens_member=args.ens_member, model=args.model, include_distribution=args.include_distribution, include_members=args.include_members)
+            get_gridded_forecast(variable=args.args[0], time=args.args[1], output_file=args.args[2], ens_member=args.ens_member, model=args.model, include_distribution=args.include_distribution, include_members=args.include_members, format=args.format, domain=args.domain)
         elif len(args.args) == 4:
             # Support both historical form: variable initialization_time forecast_hour output
             # and alternate "variable level time output" form by detecting numeric level
@@ -676,45 +731,78 @@ def main():
 
             if is_level and looks_like_time(a2):
                 # Map to level/variable with time
-                get_gridded_forecast(variable=f"{a1}/{a0}", time=a2, output_file=a3, ens_member=args.ens_member, model=args.model, include_distribution=args.include_distribution, include_members=args.include_members)
+                get_gridded_forecast(variable=f"{a1}/{a0}", time=a2, output_file=a3, ens_member=args.ens_member, model=args.model, include_distribution=args.include_distribution, include_members=args.include_members, format=args.format, domain=args.domain)
             else:
-                get_gridded_forecast(variable=a0, initialization_time=a1, forecast_hour=a2, output_file=a3, ens_member=args.ens_member, model=args.model, include_distribution=args.include_distribution, include_members=args.include_members)
+                get_gridded_forecast(variable=a0, initialization_time=a1, forecast_hour=a2, output_file=a3, ens_member=args.ens_member, model=args.model, include_distribution=args.include_distribution, include_members=args.include_members, format=args.format, domain=args.domain)
         elif len(args.args) == 5:
             # Support historical variable level syntax:
             #   windborne gridded variable level initialization_time forecast_hour output_file
             a0, a1, a2, a3, a4 = args.args
             try:
                 int(a1)
-                # Treat a1 as level
-                get_gridded_forecast(variable=f"{a1}/{a0}", initialization_time=a2, forecast_hour=a3, output_file=a4, ens_member=args.ens_member, model=args.model, include_distribution=args.include_distribution, include_members=args.include_members)
-            except Exception:
+            except ValueError:
                 # Fallback: treat like variable initialization_time forecast_hour output_file (ignore a1)
-                get_gridded_forecast(variable=a0, initialization_time=a2, forecast_hour=a3, output_file=a4, ens_member=args.ens_member, model=args.model, include_distribution=args.include_distribution, include_members=args.include_members)
+                variable = a0
+            else:
+                variable = f"{a1}/{a0}"
+            get_gridded_forecast(variable=variable, initialization_time=a2, forecast_hour=a3, output_file=a4, ens_member=args.ens_member, model=args.model, include_distribution=args.include_distribution, include_members=args.include_members, format=args.format, domain=args.domain)
         else:
             print("Too many arguments")
 
     elif args.command == 'tropical_cyclones':
-        # Parse cyclones arguments
-        basin_name = 'all basins'
-        if args.basin:
-            basin_name = f"{args.basin} basin"
-
-        if len(args.args) == 0:
-            get_tropical_cyclones(basin=args.basin, print_response=True, model=args.model)
-            return
-        elif len(args.args) == 1:
-            if '.' in args.args[0]:
-                # Save tcs with the latest available initialization time in filename
-                get_tropical_cyclones(basin=args.basin, output_file=args.args[0], model=args.model)
-            else:
-                # Display tcs for selected initialization time
-                get_tropical_cyclones(initialization_time=args.args[0], basin=args.basin, print_response=True, model=args.model)
-        elif len(args.args) == 2:
-            print(f"Saving tropical cyclones for initialization time {args.args[0]} and {basin_name}\n")
-            get_tropical_cyclones(initialization_time=args.args[0], basin=args.basin, output_file=args.args[1], model=args.model)
+        operation = args.args[0].replace('-', '_') if args.args else None
+        if operation == 'index':
+            if len(args.args) > 2:
+                tropical_cyclones_parser.error('Usage: tropical_cyclones index [output_file]')
+            output_file = args.args[1] if len(args.args) == 2 else None
+            get_tropical_cyclone_index(
+                basin=args.basin, include_unofficial_ids=args.include_unofficial_ids,
+                min_time=args.min_time, max_time=args.max_time,
+                page=args.page, page_size=args.page_size, model=args.model or 'wm-6',
+                output_file=output_file, print_response=(not output_file)
+            )
+        elif operation == 'detail':
+            if len(args.args) not in (2, 3):
+                tropical_cyclones_parser.error('Usage: tropical_cyclones detail ID [output_file]')
+            output_file = args.args[2] if len(args.args) == 3 else None
+            get_tropical_cyclone(
+                tropical_cyclone_id=args.args[1], initialization_time=args.initialization_time,
+                include_members=args.include_members, include_cones=args.include_cones,
+                format=args.format, model=args.model or 'wm-6',
+                output_file=output_file, print_response=(not output_file)
+            )
+        elif operation == 'init_times':
+            if len(args.args) != 2:
+                tropical_cyclones_parser.error('Usage: tropical_cyclones init_times ID')
+            get_tropical_cyclone_init_times(
+                tropical_cyclone_id=args.args[1], model=args.model or 'wm-6', print_response=True
+            )
         else:
-            print("Error: Too many arguments")
-            print("Usage: windborne tropical_cyclones [initialization_time] output_file")
+            # Retain the original optional initialization time and output-file positionals.
+            initialization_time = args.initialization_time
+            output_file = None
+            if len(args.args) > 2:
+                tropical_cyclones_parser.error('Usage: tropical_cyclones [initialization_time] [output_file]')
+            if len(args.args) == 2:
+                if initialization_time is not None:
+                    tropical_cyclones_parser.error('Specify initialization time either positionally or with --initialization-time')
+                initialization_time, output_file = args.args
+            elif args.args:
+                value = args.args[0]
+                if initialization_time is not None or value.lower().endswith(('.json', '.geojson', '.csv', '.gpx', '.kml', '.little_r')):
+                    output_file = value
+                elif '.' in value and 'T' not in value:
+                    output_file = value
+                else:
+                    initialization_time = value
+            if args.format == 'deck':
+                tropical_cyclones_parser.error('--format deck is only available with detail')
+            get_tropical_cyclones(
+                initialization_time=initialization_time, basin=args.basin,
+                include_details=args.include_details, include_unofficial_ids=args.include_unofficial_ids,
+                format=args.format, model=args.model or 'wm',
+                output_file=output_file, print_response=(not output_file)
+            )
 
     elif args.command == 'hdds':
         # Handle population weighted HDD
@@ -743,6 +831,8 @@ def main():
                 model=args.model,
                 print_response=True
             )
+        elif args.calculation_times_type == 'tropical_cyclones':
+            get_calculation_times_tropical_cyclones(model=args.model, print_response=True)
         else:
             calculation_times_parser.print_help()
 

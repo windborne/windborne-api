@@ -1,3 +1,6 @@
+import json
+from urllib.parse import quote
+
 import requests
 
 from .utils import (
@@ -14,7 +17,7 @@ TCS_SUPPORTED_FORMATS = ('.csv', '.json', '.geojson', '.gpx', '.kml', '.little_r
 
 
 # Run information
-def get_run_information(initialization_time=None, ens_member=None, print_response=False, model='wm'):
+def get_run_information(initialization_time=None, ens_member=None, print_response=False, model='wm', domain=None):
     """
     Get run information for a given model initialization.
 
@@ -23,6 +26,7 @@ def get_run_information(initialization_time=None, ens_member=None, print_respons
         ens_member (str|int, optional): Ensemble member (e.g., "mean" or member number as string/int)
         print_response (bool, optional): Whether to print a formatted summary
         model (str, optional): Forecast model (e.g., wm, wm4, wm4-intra, ecmwf-det)
+        domain (str, optional): Regional domain, such as conus or europe (WM6-3km)
 
     Returns:
         dict: API response containing initialization_time, forecast_zero, in_progress, and available list
@@ -31,8 +35,11 @@ def get_run_information(initialization_time=None, ens_member=None, print_respons
     params = {}
     if initialization_time:
         params['initialization_time'] = parse_time(initialization_time, init_time_flag=True)
-    if ens_member:
+    if ens_member is not None:
         params['ens_member'] = ens_member
+
+    if domain is not None:
+        params['domain'] = domain
 
     response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/run_information", params=params)
 
@@ -238,9 +245,9 @@ def get_point_forecasts(coordinates=None, min_forecast_time=None, max_forecast_t
         params["min_forecast_time"] = parse_time(min_forecast_time)
     if max_forecast_time:
         params["max_forecast_time"] = parse_time(max_forecast_time)
-    if min_forecast_hour:
+    if min_forecast_hour is not None:
         params["min_forecast_hour"] = int(min_forecast_hour)
-    if max_forecast_hour:
+    if max_forecast_hour is not None:
         params["max_forecast_hour"] = int(max_forecast_hour)
     if initialization_time:
         initialization_time = parse_time(initialization_time,init_time_flag=True)
@@ -276,14 +283,18 @@ def get_point_forecasts(coordinates=None, min_forecast_time=None, max_forecast_t
     return response
 
 
-def _default_gridded_forecast_extension(model):
+def _default_gridded_forecast_extension(model, format=None):
+    if format == 'netcdf':
+        return '.nc'
+    if format == 'zarr':
+        return '.zarr.zip'
     model = model or ''
     if model.startswith(('wm6', 'wm-6')):
         return '.zarr.zip'
     return '.nc'
 
 
-def get_gridded_forecast(variable, time=None, initialization_time=None, forecast_hour=None, output_file=None, silent=False, ens_member=None, model='wm', level=None, include_distribution=False, include_members=False):
+def get_gridded_forecast(variable, time=None, initialization_time=None, forecast_hour=None, output_file=None, silent=False, ens_member=None, model='wm', level=None, include_distribution=False, include_members=False, format=None, domain=None):
     """
     Get gridded forecast data from the API.
     Note that this is primarily meant to be used internally by the other functions in this module.
@@ -297,9 +308,11 @@ def get_gridded_forecast(variable, time=None, initialization_time=None, forecast
         variable (str): The variable you want the forecast for
         level (int, optional): The level you want the forecast for
         output_file (str, optional): Path to save the response data
-                                      Supported formats: .nc
+                                      Supported formats: .nc, .zarr.zip
         include_distribution (bool, optional): Include percentiles, standard deviation, and thresholds when available (WM6 only)
         include_members (bool, optional): Include all ensemble members when available (WM6 only)
+        format (str, optional): netcdf or zarr; omitted uses the model's server default
+        domain (str, optional): Regional domain, such as conus or europe (WM6-3km)
     """
 
     # backwards compatibility for time and variable order swap
@@ -320,7 +333,7 @@ def get_gridded_forecast(variable, time=None, initialization_time=None, forecast
     elif time:
         params["time"] = parse_time(time)
 
-    if ens_member:
+    if ens_member is not None:
         params["ens_member"] = ens_member
 
     # Map variable strings like "500/temperature" to query params variable=temperature, level=500
@@ -335,9 +348,14 @@ def get_gridded_forecast(variable, time=None, initialization_time=None, forecast
     if level is not None:
         request_params['level'] = level
     if include_distribution:
-        request_params['include_distribution'] = True
+        request_params['include_distribution'] = 'true'
     if include_members:
-        request_params['include_members'] = True
+        request_params['include_members'] = 'true'
+
+    if format is not None:
+        request_params["format"] = format
+    if domain is not None:
+        request_params["domain"] = domain
 
     response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/gridded", params=request_params, as_json=False)
 
@@ -347,12 +365,12 @@ def get_gridded_forecast(variable, time=None, initialization_time=None, forecast
     if output_file:
         if not silent:
             print(f"Output URL found; downloading to {output_file}...")
-        default_extension = _default_gridded_forecast_extension(model)
-        download_and_save_output(output_file, response, default_extension=default_extension)
+        default_extension = _default_gridded_forecast_extension(model, format=format)
+        download_and_save_output(output_file, response, silent=silent, default_extension=default_extension)
 
     return response
 
-def get_full_gridded_forecast(time=None, initialization_time=None, forecast_hour=None, output_file=None, silent=False, ens_member=None, model='wm', include_distribution=False, include_members=False):
+def get_full_gridded_forecast(time=None, initialization_time=None, forecast_hour=None, output_file=None, silent=False, ens_member=None, model='wm', include_distribution=False, include_members=False, format=None, domain=None):
     """
     Get gridded forecast data for all variables from the API.
 
@@ -363,100 +381,251 @@ def get_full_gridded_forecast(time=None, initialization_time=None, forecast_hour
                     or compact format (YYYYMMDDHH). May be used in conjunction with forecast_hour instead of time.
         forecast_hour (int, optional): The forecast hour to get the forecast for. May be used in conjunction with initialization_time instead of time.
         output_file (str, optional): Path to save the response data
-                                      Supported formats: .nc
+                                      Supported formats: .nc, .zarr.zip
         silent (bool, optional): Whether to print output
         ens_member (int, optional): The ensemble member to get the forecast for
         model (str, optional): The model to get the forecast for
         include_distribution (bool, optional): Include percentiles, standard deviation, and thresholds when available (WM6 only)
         include_members (bool, optional): Include all ensemble members when available (WM6 only)
+        format (str, optional): netcdf or zarr; omitted uses the model's server default
+        domain (str, optional): Regional domain, such as conus or europe (WM6-3km)
     """
 
-    return get_gridded_forecast(variable="all", time=time, initialization_time=initialization_time, forecast_hour=forecast_hour, output_file=output_file, silent=silent, ens_member=ens_member, model=model, include_distribution=include_distribution, include_members=include_members)
+    return get_gridded_forecast(variable="all", time=time, initialization_time=initialization_time, forecast_hour=forecast_hour, output_file=output_file, silent=silent, ens_member=ens_member, model=model, include_distribution=include_distribution, include_members=include_members, format=format, domain=domain)
 
 
-def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None, print_response=False, model='wm'):
-    """
-    Get tropical cyclone data from the API.
+def _tropical_cyclone_basin(basin):
+    if basin is None:
+        return None
+    basin = basin.upper()
+    if basin == 'NA':
+        basin = 'AL'  # Preserve the older SDK's North Atlantic spelling.
+    if basin not in ('AL', 'EP', 'CP', 'WP', 'NI', 'SI', 'AU', 'SP'):
+        raise ValueError('basin must be one of AL, EP, CP, WP, NI, SI, AU, SP')
+    return basin
 
-    Args:
-        initialization_time (str): Date in either ISO 8601 format (YYYY-MM-DDTHH:00:00)
-                                 or compact format (YYYYMMDDHH)
-                                 where HH must be 00, 06, 12, or 18
-        basin (str, optional): Basin code (e.g., 'NA', 'EP', 'WP', 'NI', 'SI', 'AU', 'SP')
-        output_file (str, optional): Path to save the response data
-                                      Supported formats: .json, .csv, .gpx, .geojson, .kml, .little_r
-        print_response (bool, optional): Whether to print the response data
 
-    Returns:
-        dict: API response data or None if there's an error
-    """
-    params = {}
-
-    if initialization_time:
-        initialization_time_parsed = parse_time(initialization_time, init_time_flag=True)
-        params["initialization_time"] = initialization_time_parsed
+def _tropical_cyclone_tracks(response):
+    """Adapt current envelopes and legacy ID-to-track maps to file exporters."""
+    if 'tropical_cyclones' in response:
+        cyclones = response['tropical_cyclones']
+    elif 'tropical_cyclone_id' in response:
+        cyclones = {response['tropical_cyclone_id']: response}
     else:
-        initialization_time = 'latest'
+        cyclones = response
+    tracks = {}
+    for cyclone_id, cyclone in cyclones.items():
+        path = cyclone if isinstance(cyclone, list) else cyclone.get('path', cyclone.get('mean_path', []))
+        tracks[cyclone_id] = [dict(point, time=point.get('valid_at', point.get('time'))) for point in path]
+    return tracks
 
-    if basin:
-        if basin not in ['NA', 'EP', 'WP', 'NI', 'SI', 'AU', 'SP']:
-            print("Basin should be one of the following:")
-            print("NA - North Atlantic")
-            print("EP - Eastern Pacific")
-            print("WP - Western Pacific")
-            print("NI - North Indian")
-            print("SI - South West Indian")
-            print("AU - Australian Region")
-            print("SP - South Pacific")
-            exit(44)
-        params["basin"] = basin
 
-    # Response here is a .json
-    # Tropical cyclones endpoint is model-specific
-    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/tropical_cyclones", params=params)
-
-    if output_file:
+def _save_tropical_cyclone_response(output_file, response, format):
+    if format == 'deck':
+        with open(output_file, 'wb') as f:
+            f.write(response.content)
+    elif output_file.lower().endswith(('.json', '.geojson')):
+        # Preserve the API's envelope, metadata, cones and landfalls.
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(response, f, indent=4)
+    elif format == 'geojson':
+        raise ValueError('Save a GeoJSON response to a .json or .geojson file.')
+    else:
         if not output_file.lower().endswith(TCS_SUPPORTED_FORMATS):
-            print("Unsupported file format.")
-            print_tc_supported_formats()
-            exit(44)
-        elif response == {}:
-            # This should be prior to any check of specific .filetype format check and post filetype valid check
-            # make_api_request covers 403, 404, 502, HTTP, Connections Errors
-            # If we pass all of these and we get an empty dictionary ==> there are no active TCs
-            print("There are no active tropical cyclones for your request\n")
-            # It's pointless to save an empty file
-            # save_response_to_file() will throw error on saving {}
-        elif response is None:
-            print("-------------------------------------------------------")
-            print("Tropical cyclones have not yet been generated for this initialization time")
-        else:
-            save_track(output_file, response, require_ids=True)
+            raise ValueError('Unsupported tropical cyclone file format.')
+        save_track(output_file, _tropical_cyclone_tracks(response), require_ids=True)
 
+
+def _print_tropical_cyclone_response(response):
+    if response.get('type') == 'FeatureCollection':
+        print(json.dumps(response, indent=2))
+        return
+    if 'initialization_time' in response:
+        print('Tropical Cyclones for initialization time:', response['initialization_time'])
+    if 'tropical_cyclones' in response:
+        cyclones = response['tropical_cyclones']
+    elif 'tropical_cyclone_id' in response:
+        cyclones = {response['tropical_cyclone_id']: response}
+    else:
+        cyclones = response
+    if not cyclones:
+        print('No tropical cyclones for this request.')
+    for cyclone_id, cyclone in cyclones.items():
+        print(f'\nCyclone ID: {cyclone_id}')
+        if isinstance(cyclone, list):
+            print_table(cyclone, keys=['time', 'latitude', 'longitude'], headers=['Time', 'Latitude', 'Longitude'])
+        else:
+            print_table([cyclone], keys=['storm_name', 'start_time', 'end_time', 'max_wind_kt', 'min_mslp_hpa'],
+                        headers=['Storm', 'Start', 'End', 'Max wind (kt)', 'Min pressure (hPa)'])
+            path = cyclone.get('path', cyclone.get('mean_path', []))
+            if path:
+                print_table(path, keys=['valid_at', 'latitude', 'longitude'], headers=['Time', 'Latitude', 'Longitude'])
+
+
+def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None, print_response=False, model='wm', include_details=False, include_unofficial_ids=False, format='json'):
+    """Get the published cyclone summary or detailed tracks for a model run.
+
+    Use model='wm-6' for the current tracker. initialization_time defaults to the
+    latest published run. basin accepts AL, EP, CP, WP, NI, SI, AU, SP, and the
+    legacy alias NA for AL. include_details adds paths, landfalls and cones;
+    include_unofficial_ids includes unmatched member tracks. format is json or
+    geojson. Existing positional arguments retain their order.
+
+    JSON files retain the full response. A .geojson output requests the native
+    GeoJSON representation. Track exports, including .geojson, request details
+    automatically so that paths are present.
+    """
+    if format not in ('json', 'geojson'):
+        raise ValueError('format must be json or geojson')
+    if output_file and output_file.lower().endswith('.geojson'):
+        format = 'geojson'
+        include_details = True
+    if output_file and not output_file.lower().endswith(('.json', '.geojson')):
+        if format == 'geojson':
+            raise ValueError('Save a GeoJSON response to a .json or .geojson file.')
+        include_details = True
+    params = {
+        'include_details': str(include_details).lower(),
+        'include_unofficial_ids': str(include_unofficial_ids).lower(),
+        'format': format,
+    }
+    if initialization_time is not None and initialization_time != 'latest':
+        params['initialization_time'] = parse_time(initialization_time, init_time_flag=True)
+    if basin is not None:
+        params['basin'] = _tropical_cyclone_basin(basin)
+    response = make_api_request(f'{FORECASTS_API_BASE_URL}/{model}/tropical_cyclones', params=params)
+    if response is None:
+        return None
+    if output_file:
+        _save_tropical_cyclone_response(output_file, response, format)
     if print_response:
-        if not response:
-            print("No tropical cyclones for initialization time:", initialization_time)
-        elif len(response) == 0:
-            print("No tropical cyclones for initialization time:", initialization_time)
-        else:
-            print("Tropical Cyclones for initialization time:", initialization_time)
-            for cyclone_id, tracks in response.items():
-                print(f"\nCyclone ID: {cyclone_id}")
-                print_table(tracks, keys=['time', 'latitude', 'longitude'], headers=['Time', 'Latitude', 'Longitude'])
-
+        _print_tropical_cyclone_response(response)
     return response
 
 
-def get_initialization_times(print_response=False, ens_member=None, model='wm'):
+def get_tropical_cyclone(tropical_cyclone_id, initialization_time=None, include_members=False, include_cones=False, format='json', model='wm-6', output_file=None, print_response=False):
+    """Get one cyclone's detail, optional member paths/cones, GeoJSON or A-deck.
+
+    Returns a dict for json/geojson, or a requests.Response for deck. Omitted
+    initialization_time selects the latest published run containing this storm.
+    """
+    if format not in ('json', 'geojson', 'deck'):
+        raise ValueError('format must be json, geojson, or deck')
+    if output_file and output_file.lower().endswith('.geojson') and format != 'deck':
+        format = 'geojson'
+    params = {
+        'include_members': str(include_members).lower(),
+        'include_cones': str(include_cones).lower(),
+        'format': format,
+    }
+    if initialization_time is not None and initialization_time != 'latest':
+        params['initialization_time'] = parse_time(initialization_time, init_time_flag=True)
+    tc_id = quote(tropical_cyclone_id, safe='')
+    response = make_api_request(f'{FORECASTS_API_BASE_URL}/{model}/tropical_cyclones/{tc_id}', params=params, as_json=format != 'deck')
+    if response is None:
+        return None
+    if output_file:
+        _save_tropical_cyclone_response(output_file, response, format)
+    if print_response:
+        if format == 'deck':
+            print(response.text)
+        else:
+            _print_tropical_cyclone_response(response)
+    return response
+
+
+def get_tropical_cyclone_index(basin=None, include_unofficial_ids=False, min_time=None, max_time=None, page=None, page_size=None, model='wm-6', output_file=None, print_response=False):
+    """Get one page of published cyclones whose lifetimes overlap the time bounds.
+
+    page defaults to 0 and page_size to 64 on the server (maximum 500).
+    """
+    params = {'include_unofficial_ids': str(include_unofficial_ids).lower()}
+    if basin is not None:
+        params['basin'] = _tropical_cyclone_basin(basin)
+    for name, value in [('min_time', min_time), ('max_time', max_time)]:
+        if value is not None:
+            params[name] = parse_time(value)
+    for name, value in [('page', page), ('page_size', page_size)]:
+        if value is not None:
+            params[name] = value
+    response = make_api_request(f'{FORECASTS_API_BASE_URL}/{model}/tropical_cyclones/index', params=params)
+    if response is None:
+        return None
+    cyclones = response.get('tropical_cyclones', {})
+    if isinstance(cyclones, dict):
+        cyclones = list(cyclones.values())
+    if output_file:
+        save_arbitrary_response(output_file, cyclones if output_file.lower().endswith('.csv') else response)
+    if print_response:
+        print_table(cyclones, keys=['tropical_cyclone_id', 'storm_name', 'start_time', 'end_time'],
+                    headers=['Cyclone ID', 'Storm', 'Start', 'End'])
+    return response
+
+
+def get_tropical_cyclone_init_times(tropical_cyclone_id, model='wm-6', print_response=False):
+    """Get published initialization times containing this cyclone."""
+    tc_id = quote(tropical_cyclone_id, safe='')
+    response = make_api_request(f'{FORECASTS_API_BASE_URL}/{model}/tropical_cyclones/{tc_id}/init_times')
+    if print_response and response is not None:
+        print('Latest initialization time:', response.get('latest'))
+        print('Available initialization times:')
+        for time in response.get('available', []):
+            print(f' - {time}')
+    return response
+
+
+def get_calculation_times_tropical_cyclones(print_response=False, model='wm-6'):
+    """Get completed, in-progress and incomplete tropical cyclone calculations."""
+    response = make_api_request(f'{API_BASE_URL}/insights/v1/{model}/calculation_times/tropical_cyclones')
+    if print_response and response is not None:
+        print('Latest calculation time:', response.get('latest'))
+        for key in ('available', 'in_progress', 'incomplete'):
+            print(f'{key.replace("_", " ").capitalize()} calculation times:')
+            for time in response.get(key, []):
+                print(f' - {time}')
+    return response
+
+
+def get_point_forecast_conditions(coordinates, hourly_interval=None, model='wm-6', output_file=None, print_response=False):
+    """Get hourly, daily and day/night conditions for up to ten locations.
+
+    coordinates accepts a semicolon-separated string or a list of coordinate
+    pairs/dictionaries. hourly_interval defaults to 1 on the server; supported
+    intervals are 1, 2, 3, 4, 6 and 8 hours.
+    """
+    coordinates = _format_point_forecast_coordinates(coordinates)
+    if not coordinates:
+        print('To get forecast conditions you must provide coordinates.')
+        return None
+    params = {'coordinates': coordinates}
+    if hourly_interval is not None:
+        params['hourly_interval'] = hourly_interval
+    response = make_api_request(f'{FORECASTS_API_BASE_URL}/{model}/point_forecast/conditions', params=params)
+    if output_file and response is not None:
+        save_arbitrary_response(output_file, response, csv_data_key='forecasts')
+    if print_response and response is not None:
+        for forecast in response.get('forecasts', []):
+            print(f'\nForecast for ({forecast["latitude"]}, {forecast["longitude"]})')
+            for period in ('hourly', 'daily', 'day_night'):
+                print(period.replace('_', ' ').capitalize())
+                print_table(forecast.get(period, []), keys=['start_time', 'end_time', 'text'], headers=['Start', 'End', 'Conditions'])
+    return response
+
+
+def get_initialization_times(print_response=False, ens_member=None, model='wm', domain=None):
     """
     Get available WeatherMesh initialization times (also known as cycle times).
 
-    Returns dict with keys "latest", "available", and "in_progress"
+    Returns dict with keys "latest", "available", and "in_progress".
+    domain selects the WM6-3km regional domain (conus or europe).
     """
 
     params = {
         'ens_member': ens_member,
     }
+    if domain is not None:
+        params['domain'] = domain
+
     response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/initialization_times", params=params)
 
     if print_response:
@@ -472,23 +641,29 @@ def get_initialization_times(print_response=False, ens_member=None, model='wm'):
     return response
 
 
-def get_archived_initialization_times(print_response=False, ens_member=None, model='wm', page_end=None):
+def get_archived_initialization_times(print_response=False, ens_member=None, model='wm', page_end=None, page=None, page_size=None, order=None, domain=None):
+    """Get one page of archived runs, preserving the legacy page_end filter.
+
+    page is zero-indexed; page_size defaults to 64 on the server (maximum 500).
+    order accepts "newest" (the server default) or "oldest".
     """
-    Get archived initialization times for forecasts from our archive.
-    These may be higher latency to fetch and cannot be used for custom point forecasting.
-    """
-    params = {
-        'ens_member': ens_member,
-    }
-    if page_end:
+    params = {}
+    if ens_member is not None:
+        params['ens_member'] = ens_member
+    if page_end is not None:
         params['page_end'] = parse_time(page_end)
+    for name, value in [('page', page), ('page_size', page_size), ('order', order), ('domain', domain)]:
+        if value is not None:
+            params[name] = value
     response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/initialization_times/archive", params=params)
 
-    if print_response:
+    if print_response and response is not None:
         print("Available archived initialization times:")
-        times = response.get('archived_initialization_times', response)
+        times = response.get('archived_initialization_times', []) if isinstance(response, dict) else response
         for time in times:
             print(f" - {time}")
+
+    return response
 
 
 # Tropical cyclones
@@ -535,18 +710,23 @@ def download_and_save_output(output_file, response, silent=False, default_extens
             print(f"Error processing the file: {e}")
         return False
 
-def get_population_weighted_hdds(initialization_time, ens_member=None, output_file=None, print_response=False, model='wm'):
+def get_population_weighted_hdds(initialization_time=None, ens_member=None, output_file=None, print_response=False, model='wm'):
     """
     Get forecasted population-weighted HDDs from the API.
+    Omitted initialization_time selects the latest calculated degree-day run.
+    output_file supports .json or a region-by-date .csv table.
     """
-    params = {
-        "initialization_time": initialization_time,
-        "ens_member": ens_member,
-    }
+    params = {}
+    if initialization_time is not None and initialization_time != 'latest':
+        params["initialization_time"] = parse_time(initialization_time, init_time_flag=True)
+    if ens_member is not None:
+        params["ens_member"] = ens_member
     response = make_api_request(f"{API_BASE_URL}/insights/v1/{model}/hdds", params=params, as_json=True)
-    
+    if response is None:
+        return None
+
     if output_file:
-        if output_file.endswith('.csv'):
+        if output_file.lower().endswith('.csv'):
             import csv
 
             dates = response['dates']
@@ -582,7 +762,9 @@ def get_population_weighted_hdds(initialization_time, ens_member=None, output_fi
                     writer.writerow(['Region'] + dates)
                     for region in regions:
                         writer.writerow([region] + [hdd_map.get(region, {}).get(date, '') for date in dates])
-    
+        else:
+            save_arbitrary_response(output_file, response)
+
     if print_response:
         dates = response['dates']
         hdd_map = response.get('hdd', {})
@@ -611,18 +793,23 @@ def get_population_weighted_hdds(initialization_time, ens_member=None, output_fi
     
     return response
 
-def get_population_weighted_cdds(initialization_time, ens_member=None, output_file=None, print_response=False, model='wm'):
+def get_population_weighted_cdds(initialization_time=None, ens_member=None, output_file=None, print_response=False, model='wm'):
     """
     Get forecasted population-weighted CDDs from the API.
+    Omitted initialization_time selects the latest calculated degree-day run.
+    output_file supports .json or a region-by-date .csv table.
     """
-    params = {
-        "initialization_time": initialization_time,
-        "ens_member": ens_member,
-    }
+    params = {}
+    if initialization_time is not None and initialization_time != 'latest':
+        params["initialization_time"] = parse_time(initialization_time, init_time_flag=True)
+    if ens_member is not None:
+        params["ens_member"] = ens_member
     response = make_api_request(f"{API_BASE_URL}/insights/v1/{model}/cdds", params=params, as_json=True)
-    
+    if response is None:
+        return None
+
     if output_file:
-        if output_file.endswith('.csv'):
+        if output_file.lower().endswith('.csv'):
             import csv
 
             dates = response['dates']
@@ -658,7 +845,9 @@ def get_population_weighted_cdds(initialization_time, ens_member=None, output_fi
                     writer.writerow(['Region'] + dates)
                     for region in regions:
                         writer.writerow([region] + [cdd_map.get(region, {}).get(date, '') for date in dates])
-    
+        else:
+            save_arbitrary_response(output_file, response)
+
     if print_response:
         dates = response['dates']
         cdd_map = response.get('cdd', {})
@@ -877,7 +1066,7 @@ def get_calculation_times_degree_days(ens_member=None, print_response=False, mod
     """
 
     params = {}
-    if ens_member:
+    if ens_member is not None:
         params["ens_member"] = ens_member
 
     response = make_api_request(f"{API_BASE_URL}/insights/v1/{model}/calculation_times/degree_days", params=params, as_json=True)
@@ -1083,9 +1272,9 @@ def get_point_forecasts_interpolated(coordinates, min_forecast_time=None, max_fo
         params["min_forecast_time"] = parse_time(min_forecast_time)
     if max_forecast_time:
         params["max_forecast_time"] = parse_time(max_forecast_time)
-    if min_forecast_hour:
+    if min_forecast_hour is not None:
         params["min_forecast_hour"] = int(min_forecast_hour)
-    if max_forecast_hour:
+    if max_forecast_hour is not None:
         params["max_forecast_hour"] = int(max_forecast_hour)
     if initialization_time:
         params["initialization_time"] = parse_time(initialization_time, init_time_flag=True)
@@ -1094,7 +1283,7 @@ def get_point_forecasts_interpolated(coordinates, min_forecast_time=None, max_fo
     if variable:
         params["variable"] = variable
     if include_distribution:
-        params["include_distribution"] = True
+        params["include_distribution"] = 'true'
     if level is not None:
         params["level"] = int(level)
 
@@ -1108,7 +1297,11 @@ def get_point_forecasts_interpolated(coordinates, min_forecast_time=None, max_fo
         save_arbitrary_response(output_file, response, csv_data_key='forecasts')
 
     if print_response and response is not None:
-        unformatted_coordinates = formatted_coordinates.split(';')
+        removed_indices = set(response.get('filtered_coordinates', []))
+        unformatted_coordinates = [
+            coordinate for index, coordinate in enumerate(formatted_coordinates.split(';'))
+            if index not in removed_indices
+        ]
         forecasts = response.get('forecasts', [])
 
         default_keys = ['time', 'temperature_2m', 'dewpoint_2m', 'wind_u_10m', 'wind_v_10m', 'precipitation', 'pressure_msl', 'latitude', 'longitude']
