@@ -438,14 +438,20 @@ def get_full_gridded_forecast(time=None, initialization_time=None, forecast_hour
     return get_gridded_forecast(variable="all", time=time, initialization_time=initialization_time, forecast_hour=forecast_hour, output_file=output_file, silent=silent, ens_member=ens_member, model=model, include_distribution=include_distribution, include_members=include_members, format=format, domain=domain, as_url=as_url, include_deterministic=include_deterministic, skip_mean=skip_mean)
 
 
-def _tropical_cyclone_basin(basin):
+def _tropical_cyclone_basin(basin, legacy=False):
     if basin is None:
         return None
     basin = basin.upper()
-    if basin == 'NA':
-        basin = 'AL'  # Preserve the older SDK's North Atlantic spelling.
-    if basin not in ('AL', 'EP', 'CP', 'WP', 'NI', 'SI', 'AU', 'SP'):
-        raise ValueError('basin must be one of AL, EP, CP, WP, NI, SI, AU, SP')
+    if legacy:
+        if basin == 'AL':
+            basin = 'NA'
+        supported = ('NA', 'EP', 'WP', 'NI', 'SI', 'AU', 'SP')
+    else:
+        if basin == 'NA':
+            basin = 'AL'
+        supported = ('AL', 'EP', 'CP', 'WP', 'NI', 'SI', 'AU', 'SP')
+    if basin not in supported:
+        raise ValueError(f'basin must be one of {", ".join(supported)}')
     return basin
 
 
@@ -459,8 +465,22 @@ def _tropical_cyclone_tracks(response):
         cyclones = response
     tracks = {}
     for cyclone_id, cyclone in cyclones.items():
-        path = cyclone if isinstance(cyclone, list) else cyclone.get('path', cyclone.get('mean_path', []))
-        tracks[cyclone_id] = [dict(point, time=point.get('valid_at', point.get('time'))) for point in path]
+        path = cyclone if isinstance(cyclone, list) else cyclone.get('path') or cyclone.get('mean_path')
+        if path:
+            paths = [(cyclone_id, path)]
+        else:
+            members = cyclone.get('members_path', []) if isinstance(cyclone, dict) else []
+            members = [member for member in members if member.get('path')]
+            if not members:
+                raise ValueError(f'No track points available for {cyclone_id}; request include_members=True for unmatched cyclones.')
+            # Unmatched cyclones have one member path. Keep that cyclone's ID;
+            # if multiple members are returned, identify each as a separate track.
+            paths = [
+                (cyclone_id if len(members) == 1 else f'{cyclone_id}/member/{member["member"]}', member['path'])
+                for member in members
+            ]
+        for track_id, path in paths:
+            tracks[track_id] = [dict(point, time=point.get('valid_at', point.get('time'))) for point in path]
     return tracks
 
 
@@ -511,7 +531,8 @@ def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None
 
     Use model='wm-6' for the current tracker. initialization_time defaults to the
     latest published run. basin accepts AL, EP, CP, WP, NI, SI, AU, SP, and the
-    legacy alias NA for AL. include_details adds paths, landfalls and cones;
+    legacy alias NA for AL. Older model routes use NA for the Atlantic instead
+    and do not support CP. include_details adds paths, landfalls and cones;
     include_unofficial_ids includes unmatched member tracks. format is json or
     geojson. Existing positional arguments retain their order.
 
@@ -535,9 +556,13 @@ def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None
     }
     if initialization_time is not None and initialization_time != 'latest':
         params['initialization_time'] = parse_time(initialization_time, init_time_flag=True)
+    # Only this exact route uses the new tracker; aliases and other models
+    # still go through the legacy /tcs service in the API gateway.
+    legacy = model != 'wm-6'
     if basin is not None:
-        params['basin'] = _tropical_cyclone_basin(basin)
-    response = make_api_request(f'{FORECASTS_API_BASE_URL}/{model}/tropical_cyclones', params=params)
+        params['basin'] = _tropical_cyclone_basin(basin, legacy=legacy)
+    suffix = '.geojson' if legacy and format == 'geojson' else ''
+    response = make_api_request(f'{FORECASTS_API_BASE_URL}/{model}/tropical_cyclones{suffix}', params=params)
     if response is None:
         return None
     if output_file:
@@ -552,11 +577,15 @@ def get_tropical_cyclone(tropical_cyclone_id, initialization_time=None, include_
 
     Returns a dict for json/geojson, or a requests.Response for deck. Omitted
     initialization_time selects the latest published run containing this storm.
+    CSV, GPX, KML and little_r exports request member paths so unmatched
+    cyclones can be exported; matched cyclones still export their mean path.
     """
     if format not in ('json', 'geojson', 'deck'):
         raise ValueError('format must be json, geojson, or deck')
     if output_file and output_file.lower().endswith('.geojson') and format != 'deck':
         format = 'geojson'
+    if output_file and format == 'json' and output_file.lower().endswith(('.csv', '.gpx', '.kml', '.little_r')):
+        include_members = True
     params = {
         'include_members': str(include_members).lower(),
         'include_cones': str(include_cones).lower(),

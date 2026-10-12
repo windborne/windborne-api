@@ -206,6 +206,42 @@ class CliParityTests(unittest.TestCase):
         self.assertEqual(kwargs['output_file'], 'output.json')
         self.assertFalse(kwargs['print_response'])
 
+    def test_conditions_output_before_after_or_without_options(self):
+        cases = [
+            (['37.77,-122.42', 'output.json', '--hourly-interval', '6'], 'output.json'),
+            (['37.77,-122.42', '--hourly-interval', '6', 'output.json'], 'output.json'),
+            (['--hourly-interval', '6', '37.77,-122.42', 'output.json'], 'output.json'),
+            (['37.77,-122.42', '--hourly-interval', '6'], None),
+        ]
+        for arguments, output_file in cases:
+            with self.subTest(arguments=arguments):
+                kwargs = self.invoke(
+                    ['point-forecast-conditions'] + arguments,
+                    'get_point_forecast_conditions',
+                )
+                self.assertEqual(kwargs['coordinates'], '37.77,-122.42')
+                self.assertEqual(kwargs['hourly_interval'], 6)
+                self.assertEqual(kwargs['output_file'], output_file)
+                self.assertEqual(kwargs['print_response'], output_file is None)
+
+    def test_conditions_rejects_unknown_options_and_extra_outputs(self):
+        cases = [
+            ['37.77,-122.42', '--unknown'],
+            ['37.77,-122.42', '--unknown', 'output.json'],
+            ['37.77,-122.42', '--hourly-interval', '6', '--unknown', 'output.json'],
+            ['37.77,-122.42', 'first.json', '--hourly-interval', '6', 'second.json'],
+            ['37.77,-122.42', '--hourly-interval', '6', 'first.json', 'second.json'],
+        ]
+        for arguments in cases:
+            with self.subTest(arguments=arguments):
+                with mock.patch('sys.argv', ['windborne', 'point_forecast_conditions'] + arguments), \
+                        mock.patch.object(cli, 'get_point_forecast_conditions') as called, \
+                        contextlib.redirect_stderr(io.StringIO()), \
+                        self.assertRaises(SystemExit) as error:
+                    cli.main()
+                self.assertEqual(error.exception.code, 2)
+                called.assert_not_called()
+
     def test_degree_days_allow_latest_and_explicit_run(self):
         for command, function in [('hdds', 'get_population_weighted_hdds'), ('cdds', 'get_population_weighted_cdds')]:
             with self.subTest(command=command):
@@ -223,7 +259,8 @@ class CliParityTests(unittest.TestCase):
 
     def test_asos_high_frequency_can_be_omitted_true_or_false(self):
         cases = [([], None), (['--include-high-frequency'], True),
-                 (['--include-high-frequency', 'true'], True), (['--include-high-frequency', 'false'], False)]
+                 (['--include-high-frequency', 'true'], True), (['--include-high-frequency', 'false'], False),
+                 (['--include-high-frequency', 'TRUE'], True), (['--include-high-frequency', 'False'], False)]
         for flags, expected in cases:
             with self.subTest(flags=flags):
                 kwargs = self.invoke(['asos_recent', 'KDFW'] + flags, 'get_recent_asos_observations')

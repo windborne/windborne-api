@@ -110,6 +110,24 @@ def test_webhook_list_filters():
     }
 
 
+@pytest.mark.parametrize('value,expected', [('TRUE', 'true'), ('False', 'false')])
+def test_public_boolean_options_accept_mixed_case(value, expected):
+    call = invoke(['webhooks', 'list', '--active', value], webhooks_api, {'webhooks': []})
+    assert call.kwargs['params']['active'] == expected
+
+
+@pytest.mark.parametrize('arguments', [
+    ['webhooks', 'list', '--active', 'maybe'],
+    ['webhooks', 'list', '--unknown', 'output.json'],
+])
+def test_invalid_public_options_fail_before_request(arguments):
+    with patch('sys.argv', ['windborne'] + arguments), \
+            patch.object(webhooks_api, 'make_api_request') as request, pytest.raises(SystemExit) as error:
+        cli.main()
+    assert error.value.code == 2
+    request.assert_not_called()
+
+
 @pytest.mark.parametrize('arguments,body,method,suffix', [
     (['create'], {'url': 'https://example.com/webhook', 'active': False,
                   'subscriptions': {'events.available': {'filters': {'event_type': 'heatwave'}}}},

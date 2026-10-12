@@ -2,8 +2,10 @@
 import argparse
 import inspect
 import json
+import os
 import sys
 
+from .cli_utils import boolean as _boolean
 from .events_api import (
     get_events, get_event_index, get_event, get_event_init_times, get_event_context,
 )
@@ -15,12 +17,6 @@ from .webhooks_api import (
     add_webhook_subscription, update_webhook_subscription,
     delete_webhook_subscription, ping_webhook_subscription,
 )
-
-
-def _boolean(value):
-    if value.lower() in ('true', 'false'):
-        return value.lower() == 'true'
-    raise argparse.ArgumentTypeError('Expected true or false')
 
 
 def _json_object_file(path):
@@ -167,6 +163,14 @@ def run_public_api_command(args):
         # channel so a CLI caller can recover it without repeating the write.
         print('The API request succeeded, but output failed. Recover the response below; '
               'do not repeat the write.', file=sys.stderr)
-        print(json.dumps(error.response, indent=2), file=sys.stderr)
+        print(json.dumps(error.response, indent=2), file=sys.stderr, flush=True)
+        if isinstance(error.__cause__, BrokenPipeError):
+            # Avoid retrying the failed stdout buffer during interpreter exit,
+            # which otherwise replaces our recovery exit code with 120.
+            try:
+                with open(os.devnull, 'w') as sink:
+                    os.dup2(sink.fileno(), sys.stdout.fileno())
+            except (OSError, ValueError):
+                pass
         raise SystemExit(1)
     return True

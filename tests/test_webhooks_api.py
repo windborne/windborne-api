@@ -1,3 +1,4 @@
+import io
 import json
 from unittest import mock
 
@@ -202,3 +203,20 @@ def test_stdout_failure_also_retains_successful_creation():
                 webhooks.create_webhook('https://example.com/webhook', print_response=True)
         request.assert_called_once()
     assert caught.value.response is response
+
+
+def test_buffered_stdout_failure_retains_successful_creation():
+    class BrokenPipeOnFlush(io.StringIO):
+        def flush(self):
+            raise BrokenPipeError('Reader closed before buffered output was flushed')
+
+    response = {'id': 42, 'signing_secret': 'synthetic-secret'}
+    output = BrokenPipeOnFlush()
+    with mock.patch.object(webhooks, 'make_api_request', autospec=True, return_value=response) as request:
+        with mock.patch('sys.stdout', output):
+            with pytest.raises(webhooks.WebhookOutputError) as caught:
+                webhooks.create_webhook('https://example.com/webhook', print_response=True)
+        request.assert_called_once()
+    assert caught.value.response is response
+    assert isinstance(caught.value.__cause__, BrokenPipeError)
+    assert json.loads(output.getvalue()) == response

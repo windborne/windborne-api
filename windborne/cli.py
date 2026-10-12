@@ -3,6 +3,7 @@ import json
 import sys
 
 from .cli_public_api import add_public_api_commands, run_public_api_command
+from .cli_utils import boolean as _boolean
 
 from . import (
     get_super_observations,
@@ -53,13 +54,6 @@ from . import (
 )
 
 from pprint import pprint
-
-def _boolean(value):
-    if value.lower() == 'true':
-        return True
-    if value.lower() == 'false':
-        return False
-    raise argparse.ArgumentTypeError('Expected true or false')
 
 def main():
     # Normalize command to use underscores before parsing (supports both dashes and underscores)
@@ -384,7 +378,15 @@ def main():
     analysis_gridded_parser.add_argument('-f', '--format', help='Output format (zarr or netcdf)')
 
     add_public_api_commands(subparsers)
-    args = parser.parse_args()
+    args, remaining = parser.parse_known_args()
+    # Before Python 3.14, argparse can leave an optional positional unparsed
+    # when options separate it from a required positional. Recover only this
+    # command's single output filename; unknown options must still be errors.
+    if (args.command == 'point_forecast_conditions' and args.output_file is None
+            and len(remaining) == 1 and not remaining[0].startswith('-')):
+        args.output_file = remaining.pop()
+    if remaining:
+        parser.error('unrecognized arguments: {}'.format(' '.join(remaining)))
     if run_public_api_command(args):
         return
 

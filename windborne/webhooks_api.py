@@ -76,7 +76,9 @@ def _result(response, output_file, print_response):
                 json.dump(response, output, indent=2)
                 output.write('\n')
         if print_response:
-            print(json.dumps(response, indent=2))
+            # A pipe can accept the buffered print and fail only at shutdown.
+            # Flush while the response is still available for recovery.
+            print(json.dumps(response, indent=2), flush=True)
     except OSError as error:
         raise WebhookOutputError(response) from error
     return response
