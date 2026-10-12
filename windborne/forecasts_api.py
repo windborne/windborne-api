@@ -665,7 +665,12 @@ def get_point_forecast_conditions(coordinates, hourly_interval=None, model='wm-6
     coordinates accepts a semicolon-separated string or a list of coordinate
     pairs/dictionaries. hourly_interval defaults to 1 on the server; supported
     intervals are 1, 2, 3, 4, 6 and 8 hours.
+    output_file must use .json to preserve the full response, including its
+    nested hourly, daily, and day_night arrays and metadata.
     """
+    output_path = Path(output_file) if output_file is not None else None
+    if output_path is not None and output_path.suffix.lower() != '.json':
+        raise ValueError('Conditions output files must use .json to preserve all forecast periods.')
     coordinates = _format_point_forecast_coordinates(coordinates)
     if not coordinates:
         print('To get forecast conditions you must provide coordinates.')
@@ -674,8 +679,8 @@ def get_point_forecast_conditions(coordinates, hourly_interval=None, model='wm-6
     if hourly_interval is not None:
         params['hourly_interval'] = hourly_interval
     response = make_api_request(f'{FORECASTS_API_BASE_URL}/{model}/point_forecast/conditions', params=params)
-    if output_file and response is not None:
-        save_arbitrary_response(output_file, response, csv_data_key='forecasts')
+    if output_path is not None and response is not None:
+        save_arbitrary_response(str(output_path), response)
     if print_response and response is not None:
         for forecast in response.get('forecasts', []):
             print(f'\nForecast for ({forecast["latitude"]}, {forecast["longitude"]})')
