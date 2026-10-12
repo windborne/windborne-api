@@ -9,7 +9,10 @@ See [https://api.windbornesystems.com/](https://api.windbornesystems.com/) for d
 ## Events and weather context
 
 ```python
-from windborne import get_events, get_event_context, get_climatology, get_weather_context
+from windborne import (
+    get_events, get_event_context, get_climatology, get_climatology_summary,
+    get_weather_context,
+)
 
 # Events from the latest published run, including forecast-hour geometries.
 events = get_events("atmospheric_river", include_details=True)
@@ -25,10 +28,19 @@ normals = get_climatology(
     rolling_average_days=7,
 )
 
+daily_normals = get_climatology_summary(
+    [(32.90, -97.04)],
+    start_date="2026-07-15",
+    end_date="2026-07-21",
+    group_by="week",
+    normal="2016-2025",
+)
+
 weather = get_weather_context(
     stations=["KDFW"],
     include_observations=True,
     include_climatology=True,
+    include_climatology_summary=True,
     min_forecast_hour=0,
     max_forecast_hour=24,
 )
@@ -43,6 +55,14 @@ New helpers are quiet by default. Use `print_response=True` to print their JSON 
 or `output_file="response.json"` to save it. Event list and detail also support
 `format="geojson", output_file="events.geojson"`. Climatology supports CSV exports;
 Weather Context uses JSON to retain its separate forecast, observation, and climatology datasets.
+
+`get_climatology_summary` returns typical daily highs, lows, precipitation, and wind.
+Supply `date="YYYY-MM-DD"` for one day, or an inclusive `start_date`/`end_date` range
+of up to 366 days. Ranges support `group_by="day"`, `"week"`, `"month"`, or `"period"`.
+Dates use each location's fixed standard UTC offset, without daylight saving time.
+JSON retains the full response; CSV exports the summary rows with their coordinates
+and offsets. Weather Context's `include_climatology_summary=True` adds daily normals
+for each location's forecast dates.
 
 Gridded helpers accept `include_deterministic`, `skip_mean`, and `as_url`.
 With `as_url=True`, they return the API's download-URL metadata instead of downloading
@@ -96,7 +116,8 @@ windborne events list atmospheric_river --include-details --format geojson -o ev
 windborne events index heatwave --page 0 --page-size 64
 windborne events context "35,-129;37.77,-122.42"
 windborne climatology "32.90,-97.04" --time 2026-07-15T12:00:00Z
-windborne weather_context --stations KDFW --include-observations --max-forecast-hour 24
+windborne climatology_summary "32.90,-97.04" --start-date 2026-07-15 --end-date 2026-07-21 --group-by week -o normals.json
+windborne weather_context --stations KDFW --include-observations --include-climatology-summary --max-forecast-hour 24
 windborne gridded temperature_2m 2026071512 forecast-url.json --model wm-6 --as-url
 windborne webhooks list --active true
 windborne webhooks update 42 --body changes.json

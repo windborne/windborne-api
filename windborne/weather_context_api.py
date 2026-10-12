@@ -10,7 +10,8 @@ from .utils import parse_time
 
 def get_weather_context(coordinates=None, stations=None, *, include_conditions=None,
                         include_observations=None, include_distribution=None,
-                        include_climatology=None, initialization_time=None,
+                        include_climatology=None, include_climatology_summary=None,
+                        initialization_time=None,
                         min_forecast_hour=None, max_forecast_hour=None,
                         min_forecast_time=None, max_forecast_time=None,
                         observation_hours=None, climatology_normal=None,
@@ -27,6 +28,11 @@ def get_weather_context(coordinates=None, stations=None, *, include_conditions=N
     limit the request to 10 total locations. observation_hours defaults to 48
     (range 1-168); climatology_normal defaults to '1991-2020'. These options are
     used only when their corresponding context is requested.
+
+    include_climatology adds hourly normals; include_climatology_summary adds
+    daily normals covering each location's first through last forecast date in
+    local standard time. Both can be requested together and use the same
+    climatology_normal. Empty forecast groups retain empty summary arrays.
 
     Forecast-hour bounds default to 0 and 360. Time bounds and the station-only
     initialization_time accept ISO 8601 or YYYYMMDDHH; date-only inputs mean
@@ -61,6 +67,7 @@ def get_weather_context(coordinates=None, stations=None, *, include_conditions=N
     for name, value in (
         ('include_conditions', include_conditions), ('include_observations', include_observations),
         ('include_distribution', include_distribution), ('include_climatology', include_climatology),
+        ('include_climatology_summary', include_climatology_summary),
         ('min_forecast_hour', min_forecast_hour), ('max_forecast_hour', max_forecast_hour),
         ('observation_hours', observation_hours), ('climatology_normal', climatology_normal),
     ):

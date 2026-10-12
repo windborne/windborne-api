@@ -33,6 +33,7 @@ class WeatherContextApiTest(TestCase):
             stations=['kdfw', 'kjfk'],
             include_conditions=True, include_observations=False,
             include_distribution=False, include_climatology=True,
+            include_climatology_summary=False,
             initialization_time='2026071500', min_forecast_hour=0, max_forecast_hour=0,
             min_forecast_time='2026-07-15', max_forecast_time='2026-07-15T03:15:05.123-04:00',
             observation_hours=1, climatology_normal='2016-2025',
@@ -41,6 +42,7 @@ class WeatherContextApiTest(TestCase):
             'coordinates': '0,0;32.9,-97.04', 'stations': 'KDFW;KJFK',
             'include_conditions': 'true', 'include_observations': 'false',
             'include_distribution': 'false', 'include_climatology': 'true',
+            'include_climatology_summary': 'false',
             'initialization_time': '2026-07-15T00:00:00Z',
             'min_forecast_hour': 0, 'max_forecast_hour': 0,
             'min_forecast_time': '2026-07-15T00:00:00Z',
@@ -58,6 +60,11 @@ class WeatherContextApiTest(TestCase):
             'observations': [[{'time': '2026-07-15T00:00:00Z', 'temperature_2m': 18}], []],
             'climatology_normal': '1991-2020',
             'climatologies': [[{'time': '2026-07-15T01:00:00Z', 'temperature_2m': 17}], []],
+            'climatology_summaries': [[{
+                'start_date': '2026-07-14', 'end_date': '2026-07-14',
+                'standard_utc_offset_minutes': -360, 'latitude': 32.8998, 'longitude': -97.0403,
+                'temperature_2m_min': 21, 'temperature_2m_max': 32, 'precipitation': None,
+            }], []],
             'units': {'temperature_2m': 'C'},
         }
         original = copy.deepcopy(response)
@@ -67,6 +74,7 @@ class WeatherContextApiTest(TestCase):
             result = weather_context_api.get_weather_context(
                 stations=['KDFW', 'KJFK'], include_conditions=True,
                 include_observations=True, include_climatology=True,
+                include_climatology_summary=True,
                 output_file=path, print_response=True,
             )
             self.assertIs(response, result)

@@ -66,7 +66,7 @@ from .events_api import (
     get_event_init_times,
     get_event_context,
 )
-from .climatology_api import get_climatology
+from .climatology_api import get_climatology, get_climatology_summary
 from .weather_context_api import get_weather_context
 from .webhooks_api import (
     WebhookOutputError,
@@ -139,6 +139,7 @@ __all__ = [
     "get_event_init_times",
     "get_event_context",
     "get_climatology",
+    "get_climatology_summary",
     "get_weather_context",
     "WebhookOutputError",
     "list_webhooks",

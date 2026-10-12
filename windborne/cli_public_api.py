@@ -9,7 +9,7 @@ from .cli_utils import boolean as _boolean
 from .events_api import (
     get_events, get_event_index, get_event, get_event_init_times, get_event_context,
 )
-from .climatology_api import get_climatology
+from .climatology_api import get_climatology, get_climatology_summary
 from .weather_context_api import get_weather_context
 from .webhooks_api import (
     WebhookOutputError,
@@ -93,6 +93,17 @@ def add_public_api_commands(subparsers):
     _optional_boolean(climatology, 'elevation-correction', 'Correct temperature and dewpoint for elevation')
     climatology.add_argument('--water-strategy')
 
+    summary = subparsers.add_parser('climatology_summary', help='Get daily or grouped ERA5 climate normals')
+    _output(summary, get_climatology_summary)
+    summary.add_argument('coordinates', help='Semicolon-separated latitude,longitude pairs')
+    summary.add_argument('--date', help='One local standard calendar date (YYYY-MM-DD)')
+    summary.add_argument('--start-date', help='First date in an inclusive range (YYYY-MM-DD)')
+    summary.add_argument('--end-date', help='Last date in an inclusive range (YYYY-MM-DD)')
+    summary.add_argument('--group-by', choices=['day', 'week', 'month', 'period'])
+    summary.add_argument('--normal')
+    _optional_boolean(summary, 'elevation-correction', 'Correct temperature and dewpoint for elevation')
+    summary.add_argument('--water-strategy')
+
     context = subparsers.add_parser('weather_context', help='Get forecasts with optional weather context')
     _output(context, get_weather_context)
     context.add_argument('coordinates', nargs='?', help='Semicolon-separated latitude,longitude pairs')
@@ -104,7 +115,7 @@ def add_public_api_commands(subparsers):
     context.add_argument('--max-forecast-hour', type=int)
     context.add_argument('--observation-hours', type=int)
     context.add_argument('--climatology-normal')
-    for option in ('conditions', 'observations', 'distribution', 'climatology'):
+    for option in ('conditions', 'observations', 'distribution', 'climatology', 'climatology-summary'):
         _optional_boolean(context, 'include-' + option, 'Include {} (true or false)'.format(option))
 
     webhooks = subparsers.add_parser('webhooks', help='Manage your webhooks and subscriptions')

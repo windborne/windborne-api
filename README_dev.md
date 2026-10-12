@@ -21,7 +21,7 @@ The `windborne` package is a Python library and CLI tool for accessing WindBorne
 - **`observations_api.py`** - Balloon observation data access (observations, missions, flight paths)
 - **`forecasts_api.py`** - Weather forecast data access (point/gridded forecasts, tropical cyclones)
 - **`events_api.py`** - Published weather events, event geometry, and point context
-- **`climatology_api.py` / `weather_context_api.py`** - Hourly normals and combined weather context
+- **`climatology_api.py` / `weather_context_api.py`** - Hourly normals, daily/grouped climatology summaries, and combined weather context
 - **`webhooks_api.py`** - Customer webhook and subscription management
 - **`cli_public_api.py`** - CLI commands for events, context, and webhook management
 - **`utils.py`** - Date parsing, file saving, and output formatting utilities
@@ -63,6 +63,12 @@ Existing positional arguments and
 `print_response` keyword. Multi-location forecast CSVs include every location
 and a `location_index` column referring to its original request position;
 single-location exports retain their existing columns.
+
+Climatology Summary and Weather Context's `include_climatology_summary` support
+use the newer Engine docs at `5e6eda56a9c04f86db459316328c9a812a000094`, checked
+against the gateway and dlviz implementation at
+`69b89d16cdfcab4981ce447499c26d61ee607316`. Tests verify calendar-date query
+parameters and response preservation; the backend computes the normals and groups.
 
 Webhook tests cover HTTP methods, complete nested request bodies, omitted versus
 null fields, authentication, and 204 responses. They also verify that writes are

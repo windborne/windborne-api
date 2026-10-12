@@ -142,7 +142,7 @@ BODY_WRITES = [
 
 
 @pytest.mark.parametrize('helper,args', BODY_WRITES)
-@pytest.mark.parametrize('path_kind', ['directory', 'file_parent', 'unwritable'])
+@pytest.mark.parametrize('path_kind', ['directory', 'file_parent', 'unwritable', 'nul'])
 def test_output_path_errors_are_checked_before_mutation(helper, args, path_kind, tmp_path):
     if path_kind == 'directory':
         output = tmp_path
@@ -152,6 +152,9 @@ def test_output_path_errors_are_checked_before_mutation(helper, args, path_kind,
         parent.write_text('preserve me')
         output = parent / 'response.json'
         expected = NotADirectoryError
+    elif path_kind == 'nul':
+        output = tmp_path / 'response\x00.json'
+        expected = ValueError
     else:
         output = tmp_path / 'response.json'
         expected = PermissionError
@@ -203,6 +206,20 @@ def test_stdout_failure_also_retains_successful_creation():
                 webhooks.create_webhook('https://example.com/webhook', print_response=True)
         request.assert_called_once()
     assert caught.value.response is response
+
+
+def test_closed_stdout_retains_successful_creation_without_retry():
+    response = {'id': 42, 'signing_secret': 'synthetic-secret'}
+    output = io.StringIO()
+    output.close()
+    with mock.patch.object(webhooks, 'make_api_request', autospec=True, return_value=response) as request:
+        with mock.patch('sys.stdout', output):
+            with pytest.raises(webhooks.WebhookOutputError) as caught:
+                webhooks.create_webhook('https://example.com/webhook', print_response=True)
+        request.assert_called_once()
+    assert caught.value.response is response
+    assert isinstance(caught.value.__cause__, ValueError)
+    assert 'synthetic-secret' not in str(caught.value)
 
 
 def test_buffered_stdout_failure_retains_successful_creation():

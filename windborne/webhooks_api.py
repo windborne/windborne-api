@@ -37,6 +37,8 @@ def _preflight_output(output_file):
     if output_file is None:
         return
     path = Path(output_file)
+    if '\x00' in str(path):
+        raise ValueError('output_file must not contain a NUL byte')
     if path.exists():
         if path.is_dir():
             raise IsADirectoryError('output_file must be a file, not a directory')
@@ -79,7 +81,7 @@ def _result(response, output_file, print_response):
             # A pipe can accept the buffered print and fail only at shutdown.
             # Flush while the response is still available for recovery.
             print(json.dumps(response, indent=2), flush=True)
-    except OSError as error:
+    except (OSError, ValueError) as error:
         raise WebhookOutputError(response) from error
     return response
 

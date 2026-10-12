@@ -20,7 +20,7 @@ def invoke(arguments, module, response=None):
 def test_public_helpers_are_exported():
     functions = [
         'get_events', 'get_event_index', 'get_event', 'get_event_init_times', 'get_event_context',
-        'get_climatology', 'get_weather_context', 'list_webhooks', 'get_webhook',
+        'get_climatology', 'get_climatology_summary', 'get_weather_context', 'list_webhooks', 'get_webhook',
         'create_webhook', 'update_webhook', 'delete_webhook', 'add_webhook_subscription',
         'update_webhook_subscription', 'delete_webhook_subscription', 'ping_webhook_subscription',
     ]
@@ -85,18 +85,56 @@ def test_climatology_range_flags_preserve_zero_and_false():
 def test_weather_context_all_optional_datasets_survive(tmp_path):
     output = tmp_path / 'context.json'
     response = {'forecasts': [[], []], 'conditions': [None, None],
-                'observations': [[], []], 'climatologies': [[], []], 'units': {}}
+                'observations': [[], []], 'climatologies': [[], []],
+                'climatology_summaries': [[], []], 'climatology_normal': '2016-2025', 'units': {}}
     call = invoke([
         'weather-context', '32.90,-97.04', '--stations', 'KDFW',
         '--include-conditions', '--include-observations', '--include-distribution', 'false',
-        '--include-climatology', '--min-forecast-hour', '0', '--max-forecast-hour', '0',
+        '--include-climatology', '--include-climatology-summary',
+        '--min-forecast-hour', '0', '--max-forecast-hour', '0',
         '--observation-hours', '24', '--climatology-normal', '2016-2025', '-o', str(output),
     ], weather_context_api, response)
     assert call.args[0].endswith('/forecasts/v1/weather_context')
     assert call.kwargs['params']['max_forecast_hour'] == 0
     assert call.kwargs['params']['include_distribution'] == 'false'
     assert call.kwargs['params']['include_conditions'] == 'true'
+    assert call.kwargs['params']['include_climatology_summary'] == 'true'
     assert json.loads(output.read_text()) == response
+
+
+def test_climatology_summary_single_date_prints_full_response(capsys):
+    response = {'normal': '1991-2020', 'group_by': 'day', 'start_date': '2027-09-28',
+                'end_date': '2027-09-28', 'climatology_summaries': [[], []]}
+    call = invoke([
+        'climatology-summary', '--date', '2027-09-28', '32.9,-97.04;0,0',
+    ], climatology_api, response)
+    assert call.args[0] == climatology_api.API_BASE_URL + '/forecasts/v1/climatology/summary'
+    assert call.kwargs['params'] == {'coordinates': '32.9,-97.04;0,0', 'date': '2027-09-28'}
+    assert json.loads(capsys.readouterr().out) == response
+
+
+def test_climatology_summary_grouped_range_and_output(tmp_path):
+    output = tmp_path / 'summary.json'
+    response = {'normal': '2016-2025', 'group_by': 'period', 'climatology_summaries': [[], []]}
+    call = invoke([
+        'climatology_summary', '32.9,-97.04;0,0', '--start-date', '2027-09-28',
+        '--end-date', '2027-09-29', '--group-by', 'period', '--normal', '2016-2025',
+        '--elevation-correction', 'false', '--water-strategy', 'allow', '-o', str(output),
+    ], climatology_api, response)
+    assert call.args[0] == climatology_api.API_BASE_URL + '/forecasts/v1/climatology/summary'
+    assert call.kwargs['params'] == {
+        'coordinates': '32.9,-97.04;0,0', 'start_date': '2027-09-28', 'end_date': '2027-09-29',
+        'group_by': 'period', 'normal': '2016-2025', 'elevation_correction': 'false',
+        'water_strategy': 'allow',
+    }
+    assert json.loads(output.read_text()) == response
+
+
+def test_weather_context_can_explicitly_disable_summary():
+    call = invoke([
+        'weather_context', '--stations', 'KDFW', '--include-climatology-summary', 'false',
+    ], weather_context_api, {})
+    assert call.kwargs['params']['include_climatology_summary'] == 'false'
 
 
 def test_webhook_list_filters():
