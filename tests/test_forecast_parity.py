@@ -311,7 +311,7 @@ class ForecastParityTests(unittest.TestCase):
         api.get_tropical_cyclone_init_times('AL022026')
         self.assertTrue(self.request.call_args.args[0].endswith('/wm-6/tropical_cyclones/AL022026/init_times'))
         api.get_calculation_times_tropical_cyclones()
-        self.assertTrue(self.request.call_args.args[0].endswith('/insights/v1/wm-6/calculation_times/tropical_cyclones'))
+        self.assertTrue(self.request.call_args.args[0].endswith('/forecasts/v1/wm-6/calculation_times/tropical_cyclones'))
 
     def test_conditions_accept_coordinate_list_and_forward_interval(self):
         response = {'forecasts': [{'latitude': 37.77, 'longitude': -122.42, 'hourly': [{'start_time': 'a', 'end_time': 'b', 'text': 'Clear'}]}]}

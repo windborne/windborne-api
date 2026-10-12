@@ -649,7 +649,7 @@ def get_tropical_cyclone_init_times(tropical_cyclone_id, model='wm-6', print_res
 
 def get_calculation_times_tropical_cyclones(print_response=False, model='wm-6'):
     """Get completed, in-progress and incomplete tropical cyclone calculations."""
-    response = make_api_request(f'{API_BASE_URL}/insights/v1/{model}/calculation_times/tropical_cyclones')
+    response = make_api_request(f'{FORECASTS_API_BASE_URL}/{model}/calculation_times/tropical_cyclones')
     if print_response and response is not None:
         print('Latest calculation time:', response.get('latest'))
         for key in ('available', 'in_progress', 'incomplete'):
@@ -1142,7 +1142,7 @@ def get_calculation_times_degree_days(ens_member=None, print_response=False, mod
     if ens_member is not None:
         params["ens_member"] = ens_member
 
-    response = make_api_request(f"{API_BASE_URL}/insights/v1/{model}/calculation_times/degree_days", params=params, as_json=True)
+    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/calculation_times/degree_days", params=params, as_json=True)
 
     if print_response and response is not None:
         print("Latest calculation time:", response.get('latest'))
