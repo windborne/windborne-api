@@ -488,7 +488,7 @@ def _save_tropical_cyclone_response(output_file, response, format):
     if format == 'deck':
         with open(output_file, 'wb') as f:
             f.write(response.content)
-    elif output_file.lower().endswith(('.json', '.geojson')):
+    elif output_file.lower().endswith('.json') or (format == 'geojson' and output_file.lower().endswith('.geojson')):
         # Preserve the API's envelope, metadata, cones and landfalls.
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(response, f, indent=4)
@@ -536,14 +536,15 @@ def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None
     include_unofficial_ids includes unmatched member tracks. format is json or
     geojson. Existing positional arguments retain their order.
 
-    JSON files retain the full response. A .geojson output requests the native
-    GeoJSON representation. Track exports, including .geojson, request details
-    automatically so that paths are present.
+    format selects the API response and return value. JSON files retain the
+    full response. With format='json', a .geojson file contains locally
+    converted tracks while the return value stays JSON. Use format='geojson'
+    to return and save native GeoJSON, including its additional features and
+    metadata. Track exports, including .geojson, request details automatically.
     """
     if format not in ('json', 'geojson'):
         raise ValueError('format must be json or geojson')
     if output_file and output_file.lower().endswith('.geojson'):
-        format = 'geojson'
         include_details = True
     if output_file and not output_file.lower().endswith(('.json', '.geojson')):
         if format == 'geojson':
@@ -577,14 +578,15 @@ def get_tropical_cyclone(tropical_cyclone_id, initialization_time=None, include_
 
     Returns a dict for json/geojson, or a requests.Response for deck. Omitted
     initialization_time selects the latest published run containing this storm.
-    CSV, GPX, KML and little_r exports request member paths so unmatched
-    cyclones can be exported; matched cyclones still export their mean path.
+    format selects the API response and return value. With format='json', a
+    .geojson file contains locally converted tracks while the return value
+    stays JSON. Use format='geojson' to return and save native GeoJSON intact.
+    Local GeoJSON, CSV, GPX, KML and little_r exports request member paths so
+    unmatched cyclones can be exported; matched cyclones export their mean path.
     """
     if format not in ('json', 'geojson', 'deck'):
         raise ValueError('format must be json, geojson, or deck')
-    if output_file and output_file.lower().endswith('.geojson') and format != 'deck':
-        format = 'geojson'
-    if output_file and format == 'json' and output_file.lower().endswith(('.csv', '.gpx', '.kml', '.little_r')):
+    if output_file and format == 'json' and output_file.lower().endswith(('.geojson', '.csv', '.gpx', '.kml', '.little_r')):
         include_members = True
     params = {
         'include_members': str(include_members).lower(),

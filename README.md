@@ -6,6 +6,36 @@ For CLI usage, run `windborne --help`.
 
 See [https://api.windbornesystems.com/](https://api.windbornesystems.com/) for detailed documentation of all functions and API endpoints.
 
+See the [release notes](https://github.com/windborne/windborne-api/blob/main/CHANGELOG.md)
+for new features and behavior changes to review before upgrading.
+
+## Tropical cyclone output
+
+`format` selects the API response and Python return value. `output_file` selects
+the saved file format. With the default `format="json"`, a `.geojson` filename
+exports tracks locally and keeps the JSON return value:
+
+```python
+from windborne import get_tropical_cyclones
+
+# Existing model routes return a dictionary of storm IDs and tracks.
+storms = get_tropical_cyclones(model="gfs", output_file="storms.geojson")
+
+# Request the API's native GeoJSON, including its detailed features and metadata.
+features = get_tropical_cyclones(
+    model="wm-6", include_details=True,
+    format="geojson", output_file="storms-native.geojson",
+)
+```
+
+The same distinction applies to `get_tropical_cyclone` for an individual storm.
+Default JSON returns preserve the API's response: an ID-to-track dictionary for
+legacy model routes, or the current tracker response for `wm-6`. Local GeoJSON
+exports contain tracks; use explicit `format="geojson"` for the native forecast
+points, cones, landfalls, and metadata available with the requested detail options.
+Track exports use the mean path where available and fall back to member paths
+for unmatched cyclones.
+
 ## Events and weather context
 
 ```python

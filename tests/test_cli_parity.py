@@ -1,9 +1,13 @@
 import contextlib
+import copy
 import io
+import json
+import os
+import tempfile
 import unittest
 from unittest import mock
 
-from windborne import cli
+from windborne import api_request, cli
 
 
 class CliParityTests(unittest.TestCase):
@@ -148,6 +152,93 @@ class CliParityTests(unittest.TestCase):
                 self.assertEqual(kwargs['output_file'], output_file)
                 self.assertEqual(kwargs['print_response'], not output_file)
                 self.assertEqual(kwargs['model'], 'wm')
+
+    def test_tropical_cyclone_filename_only_exports_tracks_from_json(self):
+        track = [
+            {'valid_at': '2026-07-24T18:00:00Z', 'latitude': 20.5, 'longitude': -110.0},
+            {'valid_at': '2026-07-25T00:00:00Z', 'latitude': 21.0, 'longitude': -111.0},
+        ]
+        cases = [
+            ('legacy list', [], ['--model', 'gfs'], '/gfs/tropical_cyclones',
+             {'EP072026': [dict(time=point['valid_at'], latitude=point['latitude'],
+                               longitude=point['longitude']) for point in track]},
+             'EP072026', 'include_details'),
+            ('current list', [], ['--model', 'wm-6'], '/wm-6/tropical_cyclones',
+             {'initialization_time': '2026-07-24T18:00:00Z',
+              'tropical_cyclones': {'EP072026': {'path': track}}},
+             'EP072026', 'include_details'),
+            ('unmatched detail', ['detail', 'generated-unmatched-id'], ['--model', 'wm-6'],
+             '/wm-6/tropical_cyclones/generated-unmatched-id',
+             {'tropical_cyclone_id': 'generated-unmatched-id', 'mean_path': [],
+              'members_path': [{'member': 1, 'path': track}]},
+             'generated-unmatched-id', 'include_members'),
+        ]
+        for name, operation, options, route, payload, cyclone_id, needed_paths in cases:
+            for options_first in (True, False):
+                with self.subTest(case=name, options_first=options_first), tempfile.TemporaryDirectory() as tmp:
+                    output = os.path.join(tmp, 'storm.geojson')
+                    original_payload = copy.deepcopy(payload)
+                    response = mock.Mock(status_code=200)
+                    response.json.return_value = payload
+                    arguments = operation + (options + [output] if options_first else [output] + options)
+                    with mock.patch('sys.argv', ['windborne', 'tropical_cyclones'] + arguments), \
+                            mock.patch.object(api_request, 'get_verified_api_credentials', return_value=('test_client', 's' * 32)), \
+                            mock.patch.object(api_request.requests, 'get', return_value=response) as get, \
+                            contextlib.redirect_stdout(io.StringIO()):
+                        cli.main()
+                    get.assert_called_once()
+                    self.assertEqual(get.call_args.args[0], 'https://api.windbornesystems.com/forecasts/v1' + route)
+                    self.assertEqual(get.call_args.kwargs['params']['format'], 'json')
+                    self.assertEqual(get.call_args.kwargs['params'][needed_paths], 'true')
+                    with open(output, encoding='utf-8') as stream:
+                        exported = json.load(stream)
+                    self.assertEqual(exported['type'], 'FeatureCollection')
+                    self.assertEqual(len(exported['features']), 1)
+                    feature = exported['features'][0]
+                    self.assertEqual(feature['properties']['id'], cyclone_id)
+                    self.assertEqual(feature['geometry'], {
+                        'type': 'MultiLineString',
+                        'coordinates': [[[-110.0, 20.5], [-111.0, 21.0]]],
+                    })
+                    self.assertEqual(payload, original_payload)
+
+    def test_tropical_cyclone_explicit_geojson_preserves_native_response(self):
+        payload = {
+            'type': 'FeatureCollection',
+            'initialization_time': '2026-07-24T18:00:00Z',
+            'features': [
+                {'type': 'Feature', 'geometry': {'type': 'Point', 'coordinates': [-110.0, 20.5]},
+                 'properties': {'tropical_cyclone_id': 'EP072026', 'max_wind_kt': 65,
+                                'landfall': {'country': 'Mexico'}}},
+                {'type': 'Feature', 'geometry': {'type': 'Polygon', 'coordinates': [
+                    [[-111.0, 20.0], [-110.0, 21.0], [-109.0, 20.0], [-111.0, 20.0]]]},
+                 'properties': {'kind': 'cone', 'probability': 0.67}},
+            ],
+        }
+        cases = [
+            ('legacy list', [], ['--model', 'gfs'], '/gfs/tropical_cyclones.geojson'),
+            ('current list', [], ['--model', 'wm-6'], '/wm-6/tropical_cyclones'),
+            ('detail', ['detail', 'EP072026'], ['--model', 'wm-6', '--include-cones'],
+             '/wm-6/tropical_cyclones/EP072026'),
+        ]
+        for name, operation, options, route in cases:
+            options = options + ['--format', 'geojson']
+            for options_first in (True, False):
+                with self.subTest(case=name, options_first=options_first), tempfile.TemporaryDirectory() as tmp:
+                    output = os.path.join(tmp, 'storm.geojson')
+                    response = mock.Mock(status_code=200)
+                    response.json.return_value = copy.deepcopy(payload)
+                    arguments = operation + (options + [output] if options_first else [output] + options)
+                    with mock.patch('sys.argv', ['windborne', 'tropical_cyclones'] + arguments), \
+                            mock.patch.object(api_request, 'get_verified_api_credentials', return_value=('test_client', 's' * 32)), \
+                            mock.patch.object(api_request.requests, 'get', return_value=response) as get, \
+                            contextlib.redirect_stdout(io.StringIO()):
+                        cli.main()
+                    get.assert_called_once()
+                    self.assertEqual(get.call_args.args[0], 'https://api.windbornesystems.com/forecasts/v1' + route)
+                    self.assertEqual(get.call_args.kwargs['params']['format'], 'geojson')
+                    with open(output, encoding='utf-8') as stream:
+                        self.assertEqual(json.load(stream), payload)
 
     def test_tropical_cyclone_index(self):
         kwargs = self.invoke(

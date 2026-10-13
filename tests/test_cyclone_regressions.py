@@ -28,12 +28,13 @@ def test_legacy_route_rejects_unsupported_central_pacific_before_request():
 
 
 @pytest.mark.parametrize('model', ['gfs', 'ecmwf-det', 'wm', 'wm6', 'wm-6'])
-@pytest.mark.parametrize('output', [True, False])
-def test_geojson_uses_legacy_extension_route_or_new_tracker_format(model, output, tmp_path):
+@pytest.mark.parametrize('extension', [None, 'json', 'geojson'])
+def test_explicit_geojson_uses_legacy_extension_route_or_new_tracker_format(model, extension, tmp_path):
     native_geojson = {
         'type': 'FeatureCollection',
         'features': [{'type': 'Feature', 'properties': {'id': 'storm'},
                       'geometry': {'type': 'LineString', 'coordinates': [[-60, 20], [-61, 21]]}}],
+        'initialization_time': '2026-10-12T00:00:00Z',
     }
 
     def gateway_response(url, params):
@@ -46,13 +47,66 @@ def test_geojson_uses_legacy_extension_route_or_new_tracker_format(model, output
             return native_geojson
         return {'storm': [{'latitude': 20, 'longitude': -60}]}
 
-    output_path = tmp_path / 'cyclones.geojson'
-    with patch.object(api, 'make_api_request', side_effect=gateway_response):
-        result = api.get_tropical_cyclones(model=model, **(
-            {'output_file': str(output_path)} if output else {'format': 'geojson'}))
-    assert result == native_geojson
-    if output:
+    output_path = tmp_path / f'cyclones.{extension}' if extension else None
+    with patch.object(api, 'make_api_request', side_effect=gateway_response) as request:
+        result = api.get_tropical_cyclones(model=model, format='geojson',
+                                          output_file=str(output_path) if output_path else None)
+    request.assert_called_once()
+    assert request.call_args.kwargs['params']['include_details'] == ('true' if extension == 'geojson' else 'false')
+    assert result is native_geojson
+    if output_path:
         assert json.loads(output_path.read_text()) == native_geojson
+
+
+@pytest.mark.parametrize('model', ['gfs', 'ecmwf-det', 'wm', 'wm6', 'wm-6'])
+@pytest.mark.parametrize('format_options', [{}, {'format': 'json'}], ids=['default', 'explicit-json'])
+def test_geojson_filename_preserves_json_return_and_exports_tracks(model, format_options, tmp_path):
+    track = [
+        {'time': '2026-10-12T00:00:00Z', 'latitude': 20, 'longitude': -60},
+        {'time': '2026-10-12T06:00:00Z', 'latitude': 21, 'longitude': -61},
+    ]
+    response = {'AL012026': track}
+    if model == 'wm-6':
+        response = {
+            'initialization_time': '2026-10-12T00:00:00Z',
+            'tropical_cyclones': {'AL012026': {'path': [
+                {'valid_at': point['time'], 'latitude': point['latitude'], 'longitude': point['longitude']}
+                for point in track
+            ], 'storm_name': 'Fixture'}},
+            'total': 1,
+        }
+    original = copy.deepcopy(response)
+    output_path = tmp_path / 'cyclones.GEOJSON'
+    with patch.object(api, 'make_api_request', return_value=response) as request:
+        result = api.get_tropical_cyclones(model=model, output_file=str(output_path), **format_options)
+    request.assert_called_once()
+    assert request.call_args.args[0].endswith(f'/{model}/tropical_cyclones')
+    assert request.call_args.kwargs['params']['format'] == 'json'
+    assert request.call_args.kwargs['params']['include_details'] == 'true'
+    assert result is response
+    assert response == original
+    if model != 'wm-6':
+        # Existing callers can continue indexing the returned storm map after export.
+        assert result['AL012026'] is track
+    saved = json.loads(output_path.read_text())
+    assert saved == {
+        'type': 'FeatureCollection',
+        'features': [{
+            'type': 'Feature',
+            'properties': {'id': 'AL012026', 'start_time': track[0]['time'], 'end_time': track[-1]['time']},
+            'geometry': {'type': 'MultiLineString', 'coordinates': [[[-60, 20], [-61, 21]]]},
+        }],
+    }
+
+
+@pytest.mark.parametrize('model,response', [
+    ('gfs', {}), ('wm-6', {'tropical_cyclones': {}, 'total': 0}),
+])
+def test_empty_json_list_exports_empty_geojson_without_changing_return(model, response, tmp_path):
+    output_path = tmp_path / 'empty.geojson'
+    with patch.object(api, 'make_api_request', return_value=response):
+        assert api.get_tropical_cyclones(model=model, output_file=str(output_path)) is response
+    assert json.loads(output_path.read_text()) == {'type': 'FeatureCollection', 'features': []}
 
 
 def cyclone_detail(matched=False):
@@ -68,7 +122,7 @@ def cyclone_detail(matched=False):
 
 
 @pytest.mark.parametrize('matched', [False, True])
-@pytest.mark.parametrize('extension', ['csv', 'gpx', 'kml'])
+@pytest.mark.parametrize('extension', ['csv', 'gpx', 'kml', 'geojson'])
 def test_detail_export_retains_unmatched_track_and_matched_mean(matched, extension, tmp_path):
     response = cyclone_detail(matched)
     original = copy.deepcopy(response)
@@ -78,6 +132,8 @@ def test_detail_export_retains_unmatched_track_and_matched_mean(matched, extensi
     with patch.object(api, 'make_api_request', return_value=response) as request:
         result = api.get_tropical_cyclone(cyclone_id, output_file=str(output_path))
     assert request.call_args.kwargs['params']['include_members'] == 'true'
+    assert request.call_args.kwargs['params']['format'] == 'json'
+    request.assert_called_once()
     assert result is response
     assert response == original
 
@@ -87,6 +143,20 @@ def test_detail_export_retains_unmatched_track_and_matched_mean(matched, extensi
         assert [row['id'] for row in rows] == [cyclone_id, cyclone_id]
         assert [float(row['latitude']) for row in rows] == [point['latitude'] for point in expected_points]
         assert [row['time'] for row in rows] == [point['valid_at'] for point in expected_points]
+    elif extension == 'geojson':
+        saved = json.loads(output_path.read_text())
+        assert saved['type'] == 'FeatureCollection'
+        assert len(saved['features']) == 1
+        feature = saved['features'][0]
+        assert feature['properties'] == {
+            'id': cyclone_id,
+            'start_time': expected_points[0]['valid_at'],
+            'end_time': expected_points[-1]['valid_at'],
+        }
+        assert feature['geometry'] == {
+            'type': 'MultiLineString',
+            'coordinates': [[[point['longitude'], point['latitude']] for point in expected_points]],
+        }
     else:
         root = ET.fromstring(output_path.read_text())
         assert root.find('.//{*}name').text == cyclone_id
@@ -114,7 +184,7 @@ def test_fallback_does_not_merge_multiple_member_paths(tmp_path):
     ]
 
 
-@pytest.mark.parametrize('extension', ['csv', 'gpx', 'kml'])
+@pytest.mark.parametrize('extension', ['csv', 'gpx', 'kml', 'geojson'])
 def test_unavailable_track_raises_without_overwriting_output(extension, tmp_path):
     response = cyclone_detail()
     del response['members_path']
@@ -133,4 +203,32 @@ def test_json_detail_does_not_implicitly_request_or_transform_members(tmp_path):
         result = api.get_tropical_cyclone(response['tropical_cyclone_id'], output_file=str(output_path))
     assert request.call_args.kwargs['params']['include_members'] == 'false'
     assert result is response
+    assert json.loads(output_path.read_text()) == response
+
+
+@pytest.mark.parametrize('extension', ['json', 'geojson'])
+def test_explicit_native_detail_preserves_features_and_metadata(extension, tmp_path):
+    response = {
+        'type': 'FeatureCollection',
+        'features': [
+            {'type': 'Feature', 'properties': {'kind': 'mean_path'},
+             'geometry': {'type': 'LineString', 'coordinates': [[-60, 20], [-61, 21]]}},
+            {'type': 'Feature', 'properties': {'kind': 'forecast_point', 'valid_at': '2026-10-12T00:00:00Z'},
+             'geometry': {'type': 'Point', 'coordinates': [-60, 20]}},
+            {'type': 'Feature', 'properties': {'kind': 'cone'},
+             'geometry': {'type': 'Polygon', 'coordinates': [[[-60, 20], [-61, 21], [-60, 22], [-60, 20]]]}},
+        ],
+        'initialization_time': '2026-10-12T00:00:00Z',
+    }
+    original = copy.deepcopy(response)
+    output_path = tmp_path / f'native.{extension}'
+    with patch.object(api, 'make_api_request', return_value=response) as request:
+        result = api.get_tropical_cyclone('AL012026', format='geojson', include_cones=True,
+                                          output_file=str(output_path))
+    request.assert_called_once()
+    assert request.call_args.kwargs['params']['format'] == 'geojson'
+    assert request.call_args.kwargs['params']['include_cones'] == 'true'
+    assert request.call_args.kwargs['params']['include_members'] == 'false'
+    assert result is response
+    assert response == original
     assert json.loads(output_path.read_text()) == response

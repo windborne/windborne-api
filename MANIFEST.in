@@ -1,0 +1,2 @@
+include CHANGELOG.md README_dev.md
+include tests/conftest.py

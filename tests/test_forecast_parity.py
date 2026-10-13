@@ -272,7 +272,7 @@ class ForecastParityTests(unittest.TestCase):
         self.request.return_value = response
         with tempfile.TemporaryDirectory() as directory:
             output = str(Path(directory) / 'cyclones.geojson')
-            self.assertIs(api.get_tropical_cyclones(model='wm-6', output_file=output), response)
+            self.assertIs(api.get_tropical_cyclones(model='wm-6', format='geojson', output_file=output), response)
             self.assertEqual(self.params()['format'], 'geojson')
             self.assertEqual(self.params()['include_details'], 'true')
             self.assertEqual(json.loads(Path(output).read_text()), response)

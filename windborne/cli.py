@@ -295,7 +295,7 @@ def main():
     tropical_cyclones_parser.add_argument('--max-time', help='Index: maximum lifetime time (ISO 8601 or YYYYMMDDHH)')
     tropical_cyclones_parser.add_argument('--page', type=int, help='Index page number (default 0)')
     tropical_cyclones_parser.add_argument('--page-size', type=int, help='Index results per page (default 64)')
-    tropical_cyclones_parser.add_argument('-f', '--format', choices=['json', 'geojson', 'deck'], default='json', help='Response format (deck is available for detail)')
+    tropical_cyclones_parser.add_argument('-f', '--format', choices=['json', 'geojson', 'deck'], default='json', help='API response format (default: json; deck is available for detail). A .geojson filename alone exports tracks locally; use --format geojson for the complete native GeoJSON response')
     tropical_cyclones_parser.add_argument('args', nargs='*',
                                  help='[initialization_time] [output_file], index [output_file], detail ID [output_file], or init_times ID')
 

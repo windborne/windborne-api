@@ -36,10 +36,51 @@ The `windborne` package is a Python library and CLI tool for accessing WindBorne
 - Handles large datasets with bucketing and pagination
 - Includes retry logic and comprehensive error messages
 
-## Pushing a new version
-1. Make sure you've been added to the pypi organization
-2. Increment the version in pyproject.toml
-3. Run `bash deploy.sh` which will push the pip package
+## Publishing a new version
+
+Merging a PR does not publish the package. Include the version change in
+`pyproject.toml` and release notes in `CHANGELOG.md` in the release PR. Keep the
+release marked `Unreleased` until publication. A maintainer with permission to
+publish `windborne` on PyPI uploads the package separately after merge.
+
+From a clean checkout of the merged release commit, build and check the artifacts:
+
+```bash
+bash deploy.sh --build-only
+.venv/bin/python -m twine check dist/*
+```
+
+Install the built wheel in a fresh environment, outside the checkout, so validation
+uses the packaged code rather than an editable source install. For example:
+
+```bash
+release_check_dir="$(mktemp -d)"
+python3 -m venv "$release_check_dir/venv"
+"$release_check_dir/venv/bin/python" -m pip install dist/*.whl pytest
+cp -R tests "$release_check_dir/tests"
+(
+    cd "$release_check_dir"
+    venv/bin/python -m pytest tests -q
+    venv/bin/windborne --help
+)
+```
+
+Repeat the packaged tests on Python 3.11 and 3.14, the runtimes used for this
+release's regression checks. The tests mock API requests; they do not validate
+live service behavior.
+
+Upload those same validated artifacts, without rebuilding, using your PyPI API
+token through Twine's authentication prompt or your configured credential store:
+
+```bash
+.venv/bin/python -m twine upload dist/*
+```
+
+Running `bash deploy.sh` without `--build-only` rebuilds and uploads immediately;
+use the separate build, validation, and upload steps above for a release. After
+confirming the release on PyPI, record its publication date in `CHANGELOG.md`.
+Publishing makes the new version available to install; existing installations
+change only when their environment installs or upgrades it.
 
 ## Unit testing
 
