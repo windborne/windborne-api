@@ -114,7 +114,7 @@ def get_verified_api_credentials():
     return VERIFIED_WB_CLIENT_ID, VERIFIED_WB_API_KEY
 
 
-def make_api_request(url, params=None, as_json=True, retry_counter=0):
+def make_api_request(url, params=None, as_json=True, retry_counter=0, *, method='GET', json=None):
     """
     Make an authenticated request to the WindBorne API.
 
@@ -125,8 +125,11 @@ def make_api_request(url, params=None, as_json=True, retry_counter=0):
     :param params: The parameters to pass to the request
     :param as_json: Whether to return the response as JSON or as a requests.Response object
     :param retry_counter: The number of times the request has been retried
+    :param method: HTTP method. Only GET requests are automatically retried.
+    :param json: Optional JSON request body
     :return:
     """
+    method = method.upper()
     if retry_counter >= 5:
         raise ConnectionError("Max retries to API reached.")
 
@@ -138,19 +141,34 @@ def make_api_request(url, params=None, as_json=True, retry_counter=0):
     }, api_key, algorithm='HS256')
 
     try:
+        request_options = {'auth': (client_id, signed_token)}
         if params:
-            response = requests.get(url, auth=(client_id, signed_token), params=params)
+            request_options['params'] = params
+        if json is not None:
+            request_options['json'] = json
+        if method == 'GET':
+            response = requests.get(url, **request_options)
         else:
-            response = requests.get(url, auth=(client_id, signed_token))
+            # A redirect can replay a write or change its method. The caller must
+            # decide whether another request is safe, just as with retries.
+            response = requests.request(method, url, allow_redirects=False, **request_options)
+            if 300 <= response.status_code < 400:
+                raise requests.exceptions.HTTPError(
+                    'Redirect refused for an API write request.', response=response
+                )
 
         response.raise_for_status()
 
         if as_json:
+            if response.status_code == 204:
+                return None
             return response.json()
         else:
             return response
 
     except requests.exceptions.HTTPError as http_err:
+        if method != 'GET':
+            raise
         if http_err.response.status_code == 403:
             print("--------------------------------------")
             print("We couldn't authenticate your request.")
@@ -181,19 +199,25 @@ def make_api_request(url, params=None, as_json=True, retry_counter=0):
             print(f"Temporary connection failure; sleeping for {2**retry_counter}s before retrying")
             print(f"Underlying error: 502 Bad Gateway")
             time.sleep(2**retry_counter)
-            return make_api_request(url, params, as_json, retry_counter + 1)
+            return make_api_request(url, params, as_json, retry_counter + 1, method=method, json=json)
         else:
             # Re-raise the HTTP error instead of exiting
             raise http_err
     except requests.exceptions.ConnectionError as conn_err:
+        if method != 'GET':
+            raise
         print(f"Temporary connection failure; sleeping for {2**retry_counter}s before retrying")
         print(f"Underlying error: \n\n{conn_err}")
         time.sleep(2**retry_counter)
-        return make_api_request(url, params, as_json, retry_counter + 1)
+        return make_api_request(url, params, as_json, retry_counter + 1, method=method, json=json)
     except requests.exceptions.Timeout as timeout_err:
+        if method != 'GET':
+            raise
         print(f"Temporary connection failure; sleeping for {2**retry_counter}s before retrying")
         print(f"Underlying error: \n\n{timeout_err}")
         time.sleep(2**retry_counter)
-        return make_api_request(url, params, as_json, retry_counter + 1)
+        return make_api_request(url, params, as_json, retry_counter + 1, method=method, json=json)
     except requests.exceptions.RequestException as req_err:
+        if method != 'GET':
+            raise
         print(f"An error occurred\n\n{req_err}")

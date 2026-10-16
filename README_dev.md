@@ -20,6 +20,10 @@ The `windborne` package is a Python library and CLI tool for accessing WindBorne
 - **`cli.py`** - Command-line interface implementation using argparse
 - **`observations_api.py`** - Balloon observation data access (observations, missions, flight paths)
 - **`forecasts_api.py`** - Weather forecast data access (point/gridded forecasts, tropical cyclones)
+- **`events_api.py`** - Published weather events, event geometry, and point context
+- **`climatology_api.py` / `weather_context_api.py`** - Hourly normals, daily/grouped climatology summaries, and combined weather context
+- **`webhooks_api.py`** - Customer webhook and subscription management
+- **`cli_public_api.py`** - CLI commands for events, context, and webhook management
 - **`utils.py`** - Date parsing, file saving, and output formatting utilities
 - **`observation_formatting.py`** - Data format conversions (netCDF, little_r)
 - **`track_formatting.py`** - Trajectory format conversions (CSV, GeoJSON, GPX, KML)
@@ -32,16 +36,85 @@ The `windborne` package is a Python library and CLI tool for accessing WindBorne
 - Handles large datasets with bucketing and pagination
 - Includes retry logic and comprehensive error messages
 
-## Pushing a new version
-1. Make sure you've been added to the pypi organization
-2. Increment the version in pyproject.toml
-3. Run `bash deploy.sh` which will push the pip package
+## Publishing a new version
+
+Merging a PR does not publish the package. Include the version change in
+`pyproject.toml` and release notes in `CHANGELOG.md` in the release PR. Keep the
+release marked `Unreleased` until publication. A maintainer with permission to
+publish `windborne` on PyPI uploads the package separately after merge.
+
+From a clean checkout of the merged release commit, build and check the artifacts:
+
+```bash
+bash deploy.sh --build-only
+.venv/bin/python -m twine check dist/*
+```
+
+Install the built wheel in a fresh environment, outside the checkout, so validation
+uses the packaged code rather than an editable source install. For example:
+
+```bash
+release_check_dir="$(mktemp -d)"
+python3 -m venv "$release_check_dir/venv"
+"$release_check_dir/venv/bin/python" -m pip install dist/*.whl pytest
+cp -R tests "$release_check_dir/tests"
+(
+    cd "$release_check_dir"
+    venv/bin/python -m pytest tests -q
+    venv/bin/windborne --help
+)
+```
+
+Repeat the packaged tests on Python 3.11 and 3.14, the runtimes used for this
+release's regression checks. The tests mock API requests; they do not validate
+live service behavior.
+
+Upload those same validated artifacts, without rebuilding, using your PyPI API
+token through Twine's authentication prompt or your configured credential store:
+
+```bash
+.venv/bin/python -m twine upload dist/*
+```
+
+Running `bash deploy.sh` without `--build-only` rebuilds and uploads immediately;
+use the separate build, validation, and upload steps above for a release. After
+confirming the release on PyPI, record its publication date in `CHANGELOG.md`.
+Publishing makes the new version available to install; existing installations
+change only when their environment installs or upgrades it.
 
 ## Unit testing
 
-`pytest` tests are in the folder `pytest/`. To run, do `pytest pytest/ -v`. Currently just minimal testing is implemented for recent changes.
+Install the package and pytest in a virtual environment, then run:
 
-You may need to run `pip3 install pytest` to install.
+```bash
+python -m pip install -e . pytest
+python -m pytest tests -q
+```
+
+These tests cover the documented SDK and CLI arguments, request parameters,
+response handling, and file exports. API responses are mocked; unexpected HTTP
+requests fail the tests, so credentials are not required.
+
+The docs parity tests use the Engine API docs at commit
+`0c10589de758f9ef4c91a0fcb48480eac71989a4`. Coverage includes public endpoints whose
+docs currently show only cURL examples, including Events, webhook management,
+climatology, and Weather Context. Internal employee-only endpoints are excluded.
+Existing positional arguments and
+`print_result` / `print_results` remain supported alongside the documented
+`print_response` keyword. Multi-location forecast CSVs include every location
+and a `location_index` column referring to its original request position;
+single-location exports retain their existing columns.
+
+Climatology Summary and Weather Context's `include_climatology_summary` support
+use the newer Engine docs at `5e6eda56a9c04f86db459316328c9a812a000094`, checked
+against the gateway and dlviz implementation at
+`69b89d16cdfcab4981ce447499c26d61ee607316`. Tests verify calendar-date query
+parameters and response preservation; the backend computes the normals and groups.
+
+Webhook tests cover HTTP methods, complete nested request bodies, omitted versus
+null fields, authentication, and 204 responses. They also verify that writes are
+not automatically retried after HTTP errors, redirects, timeouts, or connection
+failures. The test suite never creates a live webhook or sends a test delivery.
 
 ## Integration testing
 These are end-to-end tests, designed primarily to test that the backend gives expected responses when accessed through the cli.
