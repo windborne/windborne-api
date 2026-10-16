@@ -44,6 +44,14 @@ behavior can still affect scripts that relied on the previous results:
   process. Atlantic basin aliases are mapped for the selected model route.
 - The CLI accepts options between positional arguments, including an output
   filename after an option, consistently on Python 3.11 and 3.14.
+- Continuous observation and super-observation polling advances the cursor
+  after reaching the latest page, avoiding repeated processing of that page.
+- Observation CSV exports retain `updated_at` when `include_updated_at=True`;
+  exports without that option retain their existing columns.
+- Constellation output prints restricted locations instead of failing while
+  formatting their coordinates.
+- `get_interpolated_sounding` accepts the documented `(latitude, longitude)`
+  tuple as well as a coordinate string.
 
 For tropical cyclones, `format` selects the response representation and
 `output_file` selects the saved file format. A filename ending in `.geojson` with

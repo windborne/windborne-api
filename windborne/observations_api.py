@@ -391,6 +391,9 @@ def iterate_through_observations(get_page, args, callback=None, batch_callback=N
             if clear_batches:
                 batched_observations = []
 
+        # The final page also supplies a cursor for polling newly available data.
+        since = response['next_since']
+
         if not response['has_next_page']:
             print("No more data available.")
             if exit_at_end:
@@ -398,8 +401,6 @@ def iterate_through_observations(get_page, args, callback=None, batch_callback=N
 
             time.sleep(60)
             continue
-
-        since = response['next_since']
 
     if batch_callback and len(batched_observations) > 0:
         batch_callback(batched_observations)
@@ -459,6 +460,8 @@ def get_observations(start_time, end_time=None, include_updated_at=None, mission
         "timestamp", "id", "time", "latitude", "longitude", "altitude", "humidity",
         "pressure", "specific_humidity", "speed_u", "speed_v", "temperature", "mission_name", "mission_id"
     ]
+    if include_updated_at:
+        csv_headers.append("updated_at")
 
     api_args = {
         'min_time': start_time,
@@ -891,6 +894,14 @@ def get_constellation_status(output_file=None, print_results=False, *, print_res
             # Define headers and data - show key fields for terminal readability
             headers = ["Index", "Name", "Latitude", "Longitude", "Altitude", "Ascent Rate"]
             rows = []
+
+            def format_value(value, precision):
+                if value is None:
+                    return 'N/A'
+                if isinstance(value, str):
+                    return value  # The API may withhold coordinates as "restricted".
+                return f"{value:.{precision}f}"
+
             for i, mission in enumerate(missions, start=1):
                 lat = mission.get('latitude')
                 lon = mission.get('longitude')
@@ -900,10 +911,10 @@ def get_constellation_status(output_file=None, print_results=False, *, print_res
                 rows.append([
                     str(i),
                     str(mission.get('name', 'N/A')),
-                    f"{lat:.4f}" if lat is not None else 'N/A',
-                    f"{lon:.4f}" if lon is not None else 'N/A',
-                    f"{alt:.1f}" if alt is not None else 'N/A',
-                    f"{asc:.2f}" if asc is not None else 'N/A'
+                    format_value(lat, 4),
+                    format_value(lon, 4),
+                    format_value(alt, 1),
+                    format_value(asc, 2)
                 ])
 
             # Calculate column widths

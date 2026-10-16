@@ -1244,7 +1244,7 @@ def get_interpolated_sounding(coordinates, time=None, initialization_time=None, 
     Get an interpolated forecast sounding (vertical atmospheric profile) for a coordinate.
 
     Args:
-        coordinates (str): Coordinates as "latitude,longitude"
+        coordinates (str | tuple): Coordinates as "latitude,longitude" or a (latitude, longitude) pair.
         time (str, optional): Forecast valid time (ISO 8601). Use instead of initialization_time + forecast_hour.
         initialization_time (str, optional): Model initialization time (ISO 8601). Use with forecast_hour.
         forecast_hour (int, optional): Forecast hour offset from initialization_time.
@@ -1256,6 +1256,11 @@ def get_interpolated_sounding(coordinates, time=None, initialization_time=None, 
         dict: Sounding data including initialization_time, forecast_zero, time,
               forecast_hour, latitude, longitude, and data array of vertical levels
     """
+    if isinstance(coordinates, tuple):
+        if len(coordinates) != 2:
+            raise ValueError('coordinates must contain exactly latitude and longitude')
+        coordinates = f'{coordinates[0]},{coordinates[1]}'
+
     if not coordinates:
         print("To get an interpolated sounding you must provide coordinates.")
         return
