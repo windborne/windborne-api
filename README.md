@@ -38,6 +38,11 @@ points, cones, landfalls, and metadata available with the requested detail optio
 Track exports use the mean path where available and fall back to member paths
 for unmatched cyclones.
 
+A cyclone's mean path can legitimately be empty. List exports warn which
+cyclones have no track points and export the other available tracks; the complete
+JSON return remains unchanged. If none of the listed cyclones has an exportable
+track, the export fails without overwriting the destination.
+
 Explicit `model="gfs"` or `model="ecmwf-det"` selections (CLI: `--model`) still
 support legacy cyclone lists and track exports. Their JSON response is a
 storm-ID-to-track dictionary containing time, latitude, and longitude. They do
@@ -145,7 +150,12 @@ may already have applied the request. Existing GET retry behavior is retained.
 If the API succeeds but saving or printing its response fails, `WebhookOutputError`
 retains the successful result in its `.response` attribute, including any one-time
 signing secret. Recover that result instead of repeating the write. The CLI emits
-this recovery response on stderr and exits with status 1.
+this recovery response on stderr and exits with status 1, so stderr logs may
+contain the signing secret.
+
+On POSIX systems, webhook response files use owner-only permissions (`0600`).
+The complete response is written to a private temporary file before replacing
+the destination, including an existing file with broader permissions.
 
 ## CLI commands
 
@@ -159,6 +169,21 @@ windborne weather_context --stations KDFW --include-observations --include-clima
 windborne gridded temperature_2m 2026071512 forecast-url.json --model wm-6 --as-url
 windborne webhooks list --active true
 windborne webhooks update 42 --body changes.json
+```
+
+When coordinates start with a negative latitude, put `--` before them and all
+options before `--`. This also applies to `climatology`, `events context`, and
+`weather_context`:
+
+```bash
+windborne points --model metamesh -- "-30.5,150.2"
+```
+
+Boolean options such as `--include-details` accept an optional value. If one
+comes before a positional argument, supply `true` or `false` explicitly:
+
+```bash
+windborne events list --include-details true atmospheric_river
 ```
 
 Webhook create, update, and subscription updates accept their documented JSON request

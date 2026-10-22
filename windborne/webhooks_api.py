@@ -12,6 +12,7 @@ import json
 import os
 from pathlib import Path
 import re
+import tempfile
 
 from .api_request import API_BASE_URL, make_api_request
 
@@ -39,6 +40,8 @@ def _preflight_output(output_file):
     path = Path(output_file)
     if '\x00' in str(path):
         raise ValueError('output_file must not contain a NUL byte')
+    if path.is_symlink():
+        raise OSError('output_file must not be a symbolic link')
     if path.exists():
         if path.is_dir():
             raise IsADirectoryError('output_file must be a file, not a directory')
@@ -46,7 +49,6 @@ def _preflight_output(output_file):
             raise OSError('output_file must be a regular file')
         if not os.access(path, os.W_OK):
             raise PermissionError('output_file is not writable')
-        return
     parent = path.parent
     while not parent.exists():
         parent = parent.parent
@@ -67,21 +69,52 @@ def _body(**fields):
     return {key: value for key, value in fields.items() if value is not UNSET}
 
 
+def _save_response(response, output_file):
+    """Write privately, then replace the destination with the complete result."""
+    path = Path(output_file)
+    _preflight_output(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor = None
+    temporary_path = None
+    try:
+        # mkstemp creates with 0600, so secrets are never briefly world-readable.
+        descriptor, temporary_path = tempfile.mkstemp(
+            prefix='.windborne-webhook-', suffix='.json', dir=str(path.parent),
+        )
+        if hasattr(os, 'fchmod'):
+            os.fchmod(descriptor, 0o600)
+        with os.fdopen(descriptor, 'w', encoding='utf-8') as output:
+            descriptor = None  # The stream now owns and closes the descriptor.
+            json.dump(response, output, indent=2)
+            output.write('\n')
+        # Check again in case the destination changed while writing the response.
+        _preflight_output(path)
+        os.replace(temporary_path, str(path))
+        temporary_path = None
+    finally:
+        if descriptor is not None:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass  # Preserve the original output failure for recovery.
+        if temporary_path is not None:
+            try:
+                os.unlink(temporary_path)
+            except OSError:
+                pass  # Cleanup must not hide the original output failure.
+
+
 def _result(response, output_file, print_response):
     if response is None:
         return None
     try:
         if output_file is not None:
-            path = Path(output_file)
-            path.parent.mkdir(parents=True, exist_ok=True)
-            with path.open('w', encoding='utf-8') as output:
-                json.dump(response, output, indent=2)
-                output.write('\n')
+            _save_response(response, output_file)
         if print_response:
             # A pipe can accept the buffered print and fail only at shutdown.
             # Flush while the response is still available for recovery.
             print(json.dumps(response, indent=2), flush=True)
-    except (OSError, ValueError) as error:
+    except (OSError, ValueError, TypeError) as error:
         raise WebhookOutputError(response) from error
     return response
 

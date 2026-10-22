@@ -1,4 +1,5 @@
 import json
+import warnings
 from pathlib import Path
 from urllib.parse import quote
 
@@ -473,14 +474,21 @@ def _tropical_cyclone_basin(basin, legacy=False):
 
 def _tropical_cyclone_tracks(response):
     """Adapt current envelopes and legacy ID-to-track maps to file exporters."""
-    if 'tropical_cyclones' in response:
+    is_list_response = 'tropical_cyclones' in response
+    if is_list_response:
         cyclones = response['tropical_cyclones']
     elif 'tropical_cyclone_id' in response:
         cyclones = {response['tropical_cyclone_id']: response}
     else:
         cyclones = response
     tracks = {}
+    empty_paths = []
     for cyclone_id, cyclone in cyclones.items():
+        # A listed cyclone can legitimately have no predicted track. Only an
+        # explicit empty list has this meaning; absent detail is still an error.
+        if is_list_response and isinstance(cyclone, dict) and cyclone.get('path') == []:
+            empty_paths.append(cyclone_id)
+            continue
         path = cyclone if isinstance(cyclone, list) else cyclone.get('path') or cyclone.get('mean_path')
         if path:
             paths = [(cyclone_id, path)]
@@ -497,6 +505,15 @@ def _tropical_cyclone_tracks(response):
             ]
         for track_id, path in paths:
             tracks[track_id] = [dict(point, time=point.get('valid_at', point.get('time'))) for point in path]
+    if empty_paths:
+        if not tracks:
+            raise ValueError('No track points available: all returned cyclones have empty paths.')
+        warnings.warn(
+            f'Skipping cyclones with empty paths in track export: {", ".join(empty_paths)}. '
+            'The complete JSON response is unchanged.',
+            UserWarning,
+            stacklevel=3,
+        )
     return tracks
 
 
@@ -561,6 +578,9 @@ def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None
     converted tracks while the return value stays JSON. Use format='geojson'
     to return and save native GeoJSON, including its additional features and
     metadata. Track exports, including .geojson, request details automatically.
+    Cyclones with explicit empty paths are omitted from track exports with a
+    warning; if every returned cyclone has an empty path, export raises an
+    error without overwriting the output file. JSON retains all cyclones.
     """
     if format not in ('json', 'geojson'):
         raise ValueError('format must be json or geojson')

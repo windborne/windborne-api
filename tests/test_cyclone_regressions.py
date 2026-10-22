@@ -2,6 +2,7 @@
 import copy
 import csv
 import json
+import warnings
 from unittest.mock import patch
 import xml.etree.ElementTree as ET
 
@@ -137,6 +138,114 @@ def test_empty_json_list_exports_empty_geojson_without_changing_return(model, re
     with patch.object(api, 'make_api_request', return_value=response):
         assert api.get_tropical_cyclones(model=model, output_file=str(output_path)) is response
     assert json.loads(output_path.read_text()) == {'type': 'FeatureCollection', 'features': []}
+
+
+def cyclone_list_with_empty_paths():
+    return {
+        'initialization_time': '2026-10-22T21:00:00Z',
+        'total': 4,
+        'tropical_cyclones': {
+            'WP292026': {'storm_name': 'No forecast track', 'path': []},
+            'EP222026': {'path': [
+                {'valid_at': '2026-10-22T21:00:00Z', 'latitude': 20, 'longitude': -60},
+                {'valid_at': '2026-10-23T03:00:00Z', 'latitude': 21, 'longitude': -61},
+            ]},
+            'SH022027': {'path': [
+                {'valid_at': '2026-10-22T21:00:00Z', 'latitude': -15, 'longitude': 150},
+                {'valid_at': '2026-10-23T03:00:00Z', 'latitude': -16, 'longitude': 151},
+            ]},
+            'AL012026': {'storm_name': 'Also empty', 'path': []},
+        },
+    }
+
+
+@pytest.mark.parametrize('extension', ['csv', 'geojson', 'gpx', 'kml', 'little_r'])
+def test_list_export_warns_for_empty_paths_and_preserves_every_available_point(extension, tmp_path):
+    response = cyclone_list_with_empty_paths()
+    original = copy.deepcopy(response)
+    output_path = tmp_path / f'cyclones.{extension}'
+    with patch.object(api, 'make_api_request', return_value=response) as request:
+        with pytest.warns(UserWarning, match='empty paths.*WP292026, AL012026') as warning:
+            result = api.get_tropical_cyclones(output_file=str(output_path))
+    assert len(warning) == 1
+    request.assert_called_once()
+    assert request.call_args.kwargs['params']['include_details'] == 'true'
+    assert result is response
+    assert response == original
+    expected = [
+        (cyclone_id, point['latitude'], point['longitude'])
+        for cyclone_id, cyclone in response['tropical_cyclones'].items()
+        for point in cyclone['path']
+    ]
+    if extension == 'csv':
+        with output_path.open() as file:
+            points = [(row['id'], float(row['latitude']), float(row['longitude']))
+                      for row in csv.DictReader(file)]
+    elif extension == 'geojson':
+        saved = json.loads(output_path.read_text())
+        points = [(feature['properties']['id'], latitude, longitude)
+                  for feature in saved['features']
+                  for segment in feature['geometry']['coordinates']
+                  for longitude, latitude in segment]
+    elif extension == 'gpx':
+        root = ET.fromstring(output_path.read_text())
+        points = [(track.find('{*}name').text, float(point.attrib['lat']), float(point.attrib['lon']))
+                  for track in root.findall('{*}trk') for point in track.findall('.//{*}trkpt')]
+    elif extension == 'kml':
+        root = ET.fromstring(output_path.read_text())
+        points = [(track.find('{*}name').text, float(point.split(',')[1]), float(point.split(',')[0]))
+                  for track in root.findall('.//{*}Placemark')
+                  for coordinates in track.findall('.//{*}coordinates')
+                  for point in coordinates.text.split()]
+    else:
+        # Each little_r position record has four lines and fixed-width headers.
+        lines = output_path.read_text().splitlines()
+        assert len(lines) == 4 * len(expected)
+        points = [(header[180:220].strip(), float(header[:20]), float(header[20:40]))
+                  for header in lines[::4]]
+    assert points == expected
+
+
+@pytest.mark.parametrize('extension', ['csv', 'geojson', 'gpx', 'kml', 'little_r'])
+def test_all_empty_list_paths_raise_without_overwriting_output(extension, tmp_path):
+    response = cyclone_list_with_empty_paths()
+    for cyclone in response['tropical_cyclones'].values():
+        cyclone['path'] = []
+    output_path = tmp_path / f'cyclones.{extension}'
+    output_path.write_text('existing export')
+    with patch.object(api, 'make_api_request', return_value=response):
+        with pytest.raises(ValueError, match='all returned cyclones have empty paths'):
+            api.get_tropical_cyclones(output_file=str(output_path))
+    assert output_path.read_text() == 'existing export'
+
+
+@pytest.mark.parametrize('missing_path', [{}, {'path': None}])
+def test_list_missing_path_is_not_treated_as_an_empty_track(missing_path, tmp_path):
+    response = cyclone_list_with_empty_paths()
+    response['tropical_cyclones']['WP292026'] = missing_path
+    output_path = tmp_path / 'cyclones.csv'
+    output_path.write_text('existing export')
+    with patch.object(api, 'make_api_request', return_value=response):
+        with pytest.raises(ValueError, match='No track points available for WP292026'):
+            api.get_tropical_cyclones(output_file=str(output_path))
+    assert output_path.read_text() == 'existing export'
+
+
+@pytest.mark.parametrize('all_empty', [False, True])
+def test_json_list_retains_empty_paths_without_warning_or_mutation(all_empty, tmp_path):
+    response = cyclone_list_with_empty_paths()
+    if all_empty:
+        for cyclone in response['tropical_cyclones'].values():
+            cyclone['path'] = []
+    original = copy.deepcopy(response)
+    output_path = tmp_path / 'cyclones.json'
+    with patch.object(api, 'make_api_request', return_value=response):
+        with warnings.catch_warnings(record=True) as caught:
+            result = api.get_tropical_cyclones(output_file=str(output_path))
+    assert not caught
+    assert result is response
+    assert response == original
+    assert json.loads(output_path.read_text()) == original
 
 
 def cyclone_detail(matched=False):

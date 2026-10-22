@@ -1,6 +1,6 @@
 # Release notes
 
-## 1.8.0 — Unreleased
+## 2.0.0 — Unreleased
 
 ### Added
 
@@ -10,12 +10,18 @@
   automatically retried. If a successful write's output cannot be saved or
   printed, `WebhookOutputError.response` retains the result, including any
   one-time signing secret; the CLI writes that recovery response to stderr.
+  Response files are written privately with mode `0600` on POSIX systems and
+  replace an existing file only after the complete response has been written.
 - Hourly climatology, daily and grouped climatology summaries, and Weather Context
   with optional observations and climatology.
 - Point forecast conditions with complete JSON output.
 - Current tropical cyclone tracker support: detail, index, initialization times,
   calculation times, native GeoJSON, and A-deck exports. Unmatched cyclone track
   exports use member paths when no mean path exists.
+  List exports retain available tracks when other cyclones have an explicitly
+  empty mean path, with a warning naming those cyclones. The returned JSON is
+  unchanged. If storms exist but none have exportable tracks, the export fails
+  without overwriting the destination.
 - Documented gridded forecast options for format, regional domain, deterministic
   output, ensemble mean selection, and download-URL metadata. Archive pagination,
   sounding length filters, ASOS high-frequency observations, and documented
@@ -23,8 +29,9 @@
 
 ### Upgrading from 1.7.0
 
-Existing function names and positional argument order are retained. Corrected
-behavior can still affect scripts that relied on the previous results:
+This is a major release because the default tropical cyclone model and return
+shape change. Existing function names and positional argument order are retained,
+but review the following behavior changes before upgrading:
 
 - Multi-location forecast CSV exports now include every returned location,
   instead of only the first, with a `location_index` column identifying its
@@ -49,6 +56,9 @@ behavior can still affect scripts that relied on the previous results:
   `ecmwf-det` continue to support legacy cyclone lists and track exports.
 - The CLI accepts options between positional arguments, including an output
   filename after an option, consistently on Python 3.11 and 3.14.
+  Negative leading coordinates still require `--`; Boolean options before
+  positional arguments need an explicit `true` or `false`. The README includes
+  examples of both forms.
 - Continuous observation and super-observation polling advances the cursor
   after reaching the latest page, avoiding repeated processing of that page.
 - Observation CSV exports retain `updated_at` when `include_updated_at=True`;
