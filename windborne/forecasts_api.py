@@ -542,15 +542,19 @@ def _print_tropical_cyclone_response(response):
                 print_table(path, keys=['valid_at', 'latitude', 'longitude'], headers=['Time', 'Latitude', 'Longitude'])
 
 
-def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None, print_response=False, model='wm', include_details=False, include_unofficial_ids=False, format='json'):
+def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None, print_response=False, model='wm-6', include_details=False, include_unofficial_ids=False, format='json'):
     """Get the published cyclone summary or detailed tracks for a model run.
 
-    Use model='wm-6' for the current tracker. initialization_time defaults to the
-    latest published run. basin accepts AL, EP, CP, WP, NI, SI, AU, SP, and the
-    legacy alias NA for AL. Older model routes use NA for the Atlantic instead
-    and do not support CP. include_details adds paths, landfalls and cones;
-    include_unofficial_ids includes unmatched member tracks. format is json or
-    geojson. Existing positional arguments retain their order.
+    model defaults to 'wm-6', the current tracker. initialization_time defaults
+    to the latest published run. basin accepts AL, EP, CP, WP, NI, SI, AU, SP, and the
+    legacy alias NA for AL. For wm-6, include_details adds paths, landfalls and
+    cones; include_unofficial_ids includes unmatched member tracks. format is
+    json or geojson. Existing positional arguments retain their order.
+
+    Explicit model='gfs' or model='ecmwf-det' selects legacy tracks, returned as
+    an ID-to-track dictionary with time, latitude and longitude. These routes
+    ignore include_details and include_unofficial_ids, use NA for the Atlantic
+    instead of AL, and do not support CP.
 
     format selects the API response and return value. JSON files retain the
     full response. With format='json', a .geojson file contains locally

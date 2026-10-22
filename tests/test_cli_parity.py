@@ -151,7 +151,7 @@ class CliParityTests(unittest.TestCase):
                 self.assertEqual(kwargs['initialization_time'], initialization_time)
                 self.assertEqual(kwargs['output_file'], output_file)
                 self.assertEqual(kwargs['print_response'], not output_file)
-                self.assertEqual(kwargs['model'], 'wm')
+                self.assertEqual(kwargs['model'], 'wm-6')
 
     def test_tropical_cyclone_filename_only_exports_tracks_from_json(self):
         track = [

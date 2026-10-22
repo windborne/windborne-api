@@ -11,6 +11,8 @@ for new features and behavior changes to review before upgrading.
 
 ## Tropical cyclone output
 
+The SDK and CLI default to `wm-6`, the current tropical cyclone tracker.
+
 `format` selects the API response and Python return value. `output_file` selects
 the saved file format. With the default `format="json"`, a `.geojson` filename
 exports tracks locally and keeps the JSON return value:
@@ -18,8 +20,8 @@ exports tracks locally and keeps the JSON return value:
 ```python
 from windborne import get_tropical_cyclones
 
-# Existing model routes return a dictionary of storm IDs and tracks.
-storms = get_tropical_cyclones(model="gfs", output_file="storms.geojson")
+# Save tracks locally while retaining the current tracker's JSON response.
+storms = get_tropical_cyclones(model="wm-6", output_file="storms.geojson")
 
 # Request the API's native GeoJSON, including its detailed features and metadata.
 features = get_tropical_cyclones(
@@ -35,6 +37,12 @@ exports contain tracks; use explicit `format="geojson"` for the native forecast
 points, cones, landfalls, and metadata available with the requested detail options.
 Track exports use the mean path where available and fall back to member paths
 for unmatched cyclones.
+
+Explicit `model="gfs"` or `model="ecmwf-det"` selections (CLI: `--model`) still
+support legacy cyclone lists and track exports. Their JSON response is a
+storm-ID-to-track dictionary containing time, latitude, and longitude. They do
+not support the current tracker's detail, index, or initialization-time helpers;
+their list routes ignore `include_details` and `include_unofficial_ids`.
 
 ## Events and weather context
 

@@ -7,7 +7,37 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from windborne import forecasts_api as api
+from windborne import cli, forecasts_api as api
+
+
+@pytest.mark.parametrize('interface', ['sdk', 'cli'])
+@pytest.mark.parametrize('include_details', [False, True])
+def test_default_model_uses_current_tracker_and_preserves_response(interface, include_details, tmp_path):
+    response = {
+        'forecast_zero': 0,
+        'initialization_time': '2026-10-22T00:00:00Z',
+        'total': 1,
+        'tropical_cyclones': {'AL012026': {'storm_name': 'Fixture'}},
+    }
+    output_path = tmp_path / 'cyclones.json'
+    with patch.object(api, 'make_api_request', return_value=response) as request:
+        if interface == 'sdk':
+            result = api.get_tropical_cyclones(
+                basin='NA', include_details=include_details, output_file=str(output_path),
+            )
+            assert result is response
+        else:
+            arguments = ['windborne', 'tropical_cyclones', '--basin', 'NA']
+            if include_details:
+                arguments += ['--include-details', 'true']
+            with patch('sys.argv', arguments + [str(output_path)]):
+                cli.main()
+    request.assert_called_once_with(
+        'https://api.windbornesystems.com/forecasts/v1/wm-6/tropical_cyclones',
+        params={'basin': 'AL', 'include_details': str(include_details).lower(),
+                'include_unofficial_ids': 'false', 'format': 'json'},
+    )
+    assert json.loads(output_path.read_text()) == response
 
 
 @pytest.mark.parametrize('model,basin,expected', [

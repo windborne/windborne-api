@@ -6,7 +6,7 @@ import os
 import base64
 
 API_BASE_URL = "https://api.windbornesystems.com"
-AUTH_DOCS_URL = "https://api.windbornesystems.com/technical-guides/authentication/basic-auth/"
+AUTH_DOCS_URL = "https://api.windbornesystems.com/technical-guides/authentication/auth/"
 
 
 def is_valid_uuid_v4(client_id):
@@ -91,13 +91,13 @@ def verify_api_credentials(client_id, api_key):
             raise ValueError(
                 f"Your API key is misformatted. "
                 "Check that you copied it exactly as provided and try again. "
-                "For instructions, refer to {AUTH_DOCS_URL}"
+                f"For instructions, refer to {AUTH_DOCS_URL}"
             )
     elif len(api_key) != 32:  # For early tokens
         raise ValueError(
             f"Your API key is misformatted. "
             "Check that you copied it exactly as provided and try again. "
-            "For instructions, refer to {AUTH_DOCS_URL}"
+            f"For instructions, refer to {AUTH_DOCS_URL}"
         )
 
 

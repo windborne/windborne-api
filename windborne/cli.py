@@ -285,10 +285,10 @@ def main():
     # Tropical Cyclones Command
     tropical_cyclones_parser = subparsers.add_parser('tropical_cyclones', help='Get tropical cyclone forecasts')
     tropical_cyclones_parser.add_argument('-b', '--basin', help='Filter by basin (AL, EP, CP, WP, NI, SI, AU, SP; NA is an alias for AL)')
-    tropical_cyclones_parser.add_argument('-m', '--model', help='Forecast model (e.g., wm, wm4, wm-4.5-ens, ecmwf-det)')
+    tropical_cyclones_parser.add_argument('-m', '--model', help='Forecast model (default: wm-6; gfs and ecmwf-det support legacy list tracks only)')
     tropical_cyclones_parser.add_argument('--initialization-time', help='Select a forecast initialization time')
-    tropical_cyclones_parser.add_argument('--include-details', type=_boolean, nargs='?', const=True, default=False, help='Include paths, landfalls, and cones in the list (true or false)')
-    tropical_cyclones_parser.add_argument('--include-unofficial-ids', type=_boolean, nargs='?', const=True, default=False, help='Include unmatched tracks (true or false)')
+    tropical_cyclones_parser.add_argument('--include-details', type=_boolean, nargs='?', const=True, default=False, help='Include paths, landfalls, and cones in the wm-6 list (true or false)')
+    tropical_cyclones_parser.add_argument('--include-unofficial-ids', type=_boolean, nargs='?', const=True, default=False, help='Include unmatched wm-6 tracks (true or false)')
     tropical_cyclones_parser.add_argument('--include-members', type=_boolean, nargs='?', const=True, default=False, help='Include member paths in detail (true or false)')
     tropical_cyclones_parser.add_argument('--include-cones', type=_boolean, nargs='?', const=True, default=False, help='Include cones in detail (true or false)')
     tropical_cyclones_parser.add_argument('--min-time', help='Index: minimum lifetime time (ISO 8601 or YYYYMMDDHH)')
@@ -801,7 +801,7 @@ def main():
             get_tropical_cyclones(
                 initialization_time=initialization_time, basin=args.basin,
                 include_details=args.include_details, include_unofficial_ids=args.include_unofficial_ids,
-                format=args.format, model=args.model or 'wm',
+                format=args.format, model=args.model or 'wm-6',
                 output_file=output_file, print_response=(not output_file)
             )
 

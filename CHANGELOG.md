@@ -42,6 +42,11 @@ behavior can still affect scripts that relied on the previous results:
   forecast namespace for calculation times.
 - Invalid tropical cyclone basins raise `ValueError` rather than exiting the
   process. Atlantic basin aliases are mapped for the selected model route.
+- `get_tropical_cyclones()` and `windborne tropical_cyclones` now default to
+  `wm-6` instead of `wm`. Calls that omit the model return the current tracker
+  envelope rather than a legacy storm-ID-to-track dictionary. Explicit model
+  selections retain their existing routes and response shapes; `gfs` and
+  `ecmwf-det` continue to support legacy cyclone lists and track exports.
 - The CLI accepts options between positional arguments, including an output
   filename after an option, consistently on Python 3.11 and 3.14.
 - Continuous observation and super-observation polling advances the cursor
@@ -56,6 +61,8 @@ behavior can still affect scripts that relied on the previous results:
   variables and distribution selections. The returned catalog is unchanged.
 - Conditions CLI help now includes `metamesh`; existing model selection already
   supports it, and its documented invocation is covered by regression tests.
+- Credential errors link to the current authentication guide and interpolate
+  the URL correctly for malformed API keys.
 
 For tropical cyclones, `format` selects the response representation and
 `output_file` selects the saved file format. A filename ending in `.geojson` with
