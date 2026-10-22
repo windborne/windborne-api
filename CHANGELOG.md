@@ -52,6 +52,10 @@ behavior can still affect scripts that relied on the previous results:
   formatting their coordinates.
 - `get_interpolated_sounding` accepts the documented `(latitude, longitude)`
   tuple as well as a coordinate string.
+- The Variables CLI and `get_variables(print_response=True)` include derived
+  variables and distribution selections. The returned catalog is unchanged.
+- Conditions CLI help now includes `metamesh`; existing model selection already
+  supports it, and its documented invocation is covered by regression tests.
 
 For tropical cyclones, `format` selects the response representation and
 `output_file` selects the saved file format. A filename ending in `.geojson` with

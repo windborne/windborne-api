@@ -236,7 +236,7 @@ def main():
 
     conditions_parser = subparsers.add_parser('point_forecast_conditions', help='Get ranked weather conditions for given point(s)')
     conditions_parser.add_argument('coordinates', help='Coordinate pairs in format "latitudeA,longitudeA;latitudeB,longitudeB"')
-    conditions_parser.add_argument('-m', '--model', default='wm-6', help='Forecast model (wm-6)')
+    conditions_parser.add_argument('-m', '--model', default='wm-6', help='Forecast model (wm-6 or metamesh)')
     conditions_parser.add_argument('--hourly-interval', type=int, choices=[1, 2, 3, 4, 6, 8], help='Hours per condition block (default 1)')
     conditions_parser.add_argument('output_file', nargs='?', help='Output JSON file; omitted to print the response')
 

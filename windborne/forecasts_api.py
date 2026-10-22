@@ -85,7 +85,8 @@ def get_variables(print_response=False, model='wm'):
         model (str, optional): Forecast model (e.g., wm, wm4, wm4-intra, ecmwf-det)
 
     Returns:
-        dict: API response containing sfc_variables, upper_variables, and levels
+        dict: Complete API catalog, including native and derived variables,
+              levels, and available distribution selections.
     """
 
     response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/variables")
@@ -112,6 +113,21 @@ def get_variables(print_response=False, model='wm'):
                 print(f" - {lvl}")
         else:
             print("No levels available")
+
+        for field, title in (
+            ('derived_sfc_variables', 'Derived surface variables:'),
+            ('derived_upper_variables', 'Derived upper variables:'),
+        ):
+            variables = response.get(field, [])
+            if not variables:
+                continue
+            print(title)
+            for variable in variables:
+                print(f" - {variable}")
+
+        if response.get('distribution_details'):
+            print('Distribution details:')
+            print(json.dumps(response['distribution_details'], indent=2))
 
     return response
 
