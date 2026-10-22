@@ -1,5 +1,5 @@
 # WindBorne API
-A Python library for WindBorne observations, forecasts, weather events, and webhook management.
+A Python library for WindBorne observations, forecasts, custom calculations, weather events, and webhook management.
 This may be imported and used as a python library, or be called directly as a cli.
 
 For CLI usage, run `windborne --help`.
@@ -98,6 +98,71 @@ Gridded helpers accept `include_deterministic`, `skip_mean`, and `as_url`.
 With `as_url=True`, they return the API's download-URL metadata instead of downloading
 the archive. `output_file` can save this metadata to a `.json` file, including any
 subset byte-range instructions returned by the API.
+
+## Custom calculations
+
+Four Python helpers support the
+[Custom Calculations API](https://api.windbornesystems.com/insights/version_1/custom-calculations/about/).
+Expressions run on the server. Inputs retain their native units; for example,
+subtract `273.15` to convert `temperature_2m` from kelvin to Celsius.
+
+```python
+from windborne import (
+    validate_calculation, calculate_points, calculate_gridded,
+    calculate_threshold,
+)
+
+calculation = "[temperature_2m] - 273.15"
+validation = validate_calculation(calculation)
+# Check validation["valid"]; syntax validation does not check data availability.
+
+points = calculate_points(
+    calculation, "37.7749,-122.4194;34.0522,-118.2437", forecast_hours=6,
+)
+# Each grid's values follow coordinate order. Skipped hours are reported in
+# points["forecast_hour_errors"], and unavailable point values are None.
+
+archive = calculate_gridded(
+    calculation, forecast_hours=[0, 6, 12],
+    lat_range=[37, 38], lon_range=[-123, -122], output_file="temperature.zarr.zip",
+)
+
+areas = calculate_threshold(
+    calculation,
+    bounds={"min_lat": 37, "max_lat": 38, "min_lon": -123, "max_lon": -122},
+    threshold={"kind": "absolute", "value": 25, "comparison": "at_or_above"},
+    forecast_hours=6, output_file="warm-areas.geojson",
+)
+# areas["forecast_hour_errors"] reports skipped hours. The Zarr archive records skipped
+# hours in its root attributes under "forecast_hour_errors".
+```
+
+The calculation endpoints support `wm-6` and `wm-6-3km`. The SDK defaults to
+`wm-6`. Omit `initialization_time` to use the latest complete update, or pass an
+ISO 8601 initialization time to select a specific run. An omitted
+`forecast_hours` selects every available hour; an integer or list selects specific hours.
+
+`calculate_gridded` returns ZIP bytes. With `as_url=True`, it returns temporary
+download-URL metadata instead, and `output_file` must use `.json` if supplied.
+Validation and point responses can be saved as `.json`; threshold responses as
+`.json` or `.geojson`. All JSON responses retain their complete metadata and errors.
+
+The CLI reads the API's JSON request body from a file or stdin:
+
+```bash
+windborne custom_calculations points --body - <<'JSON'
+{
+  "model": "wm-6",
+  "calculation": "[temperature_2m] - 273.15",
+  "forecast_hours": 6,
+  "coordinates": "37.7749,-122.4194;34.0522,-118.2437"
+}
+JSON
+```
+
+The other subcommands are `validate`, `gridded`, and `threshold`. Use
+`--body request.json` to read a file. Gridded ZIP output requires
+`-o result.zarr.zip`; use `"as_url": true` in the body to print URL metadata instead.
 
 ## Webhook management
 
