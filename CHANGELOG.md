@@ -1,6 +1,6 @@
 # Release notes
 
-## 2.0.0 — Unreleased
+## 2.0.0
 
 ### Added
 
