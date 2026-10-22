@@ -75,6 +75,13 @@ but review the following behavior changes before upgrading:
   supports it, and its documented invocation is covered by regression tests.
 - Credential errors link to the current authentication guide and interpolate
   the URL correctly for malformed API keys.
+- Analysis-variable discovery translates the ECMWF analysis-source names to
+  the model catalog's names, fixing the default SDK and CLI request.
+- Station forecasts for `wm`, `mm`, and `metamesh` use the current MetaMesh
+  station-query endpoint, while preserving the helper's single-station return
+  format, JSON/CSV exports, and complete forecast fields. Other explicit models
+  retain their legacy routes. The default `wm` now selects MetaMesh station data,
+  consistent with the documented point-forecast endpoint.
 
 For tropical cyclones, `format` selects the response representation and
 `output_file` selects the saved file format. A filename ending in `.geojson` with

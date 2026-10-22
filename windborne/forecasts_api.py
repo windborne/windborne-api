@@ -1036,7 +1036,9 @@ def get_analysis_variables(source='ecmwf_det_anl', print_response=False):
     Returns:
         dict: API response with analysis variables, levels
     """
-    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{source}/variables")
+    # The variables catalog uses model names, unlike the analysis data routes.
+    model = {'ecmwf_det_anl': 'ifs_anl', 'ecmwf_ens_anl': 'ens_anl'}.get(source, source)
+    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/variables")
 
     if print_response and response is not None:
         analysis = response.get('analysis', response)
@@ -1250,7 +1252,8 @@ def get_station_forecast(station_id, initialization_time=None, output_file=None,
                                               If omitted, latest is used.
         output_file (str, optional): Path to save the response data (.json or .csv)
         print_response (bool, optional): Whether to print a formatted table
-        model (str, optional): Forecast model (e.g., wm, wm4)
+        model (str, optional): wm, mm, and metamesh select current MetaMesh station
+                               forecasts; other explicit models retain their legacy routes.
 
     Returns:
         dict: Forecast data including station_id, latitude, longitude, model,
@@ -1264,7 +1267,35 @@ def get_station_forecast(station_id, initialization_time=None, output_file=None,
     if initialization_time:
         params['initialization_time'] = parse_time(initialization_time, init_time_flag=True)
 
-    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/point_forecast/stations/{station_id}", params=params)
+    if model in ('wm', 'mm', 'metamesh'):
+        station_id = station_id.strip().upper()
+        if not station_id or ';' in station_id or ',' in station_id:
+            raise ValueError('Provide one station ID; use get_point_forecasts for multiple stations.')
+        params['stations'] = station_id
+        response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/point_forecast", params=params)
+        if response is None:
+            return None
+
+        forecasts = response['forecasts']
+        if len(forecasts) > 1:
+            raise ValueError('Expected a forecast for exactly one station.')
+        if not forecasts or not forecasts[0]:
+            print(f"No point forecasts found for station {station_id}.")
+            return None
+
+        # Keep the single-station helper's existing envelope and all forecast fields.
+        forecast = forecasts[0]
+        response = dict(response)
+        del response['forecasts']
+        response.update(
+            station_id=station_id, latitude=forecast[0]['latitude'], longitude=forecast[0]['longitude'],
+            model='metamesh', forecast=forecast,
+        )
+    else:
+        response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/point_forecast/stations/{station_id}", params=params)
+
+    if response is None:
+        return None
 
     if output_file:
         save_arbitrary_response(output_file, response, csv_data_key='forecast')
