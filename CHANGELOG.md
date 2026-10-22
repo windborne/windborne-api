@@ -1,5 +1,12 @@
 # Release notes
 
+## Unreleased — Custom Calculations
+
+- Custom Calculation validation, gridded Zarr downloads or temporary download
+  URLs, point values, and threshold GeoJSON, through Python helpers and the
+  `custom_calculations` CLI commands. Complete responses retain partial errors
+  and metadata. These helpers use the existing authentication configuration.
+
 ## 1.8.0 — Unreleased
 
 ### Added
