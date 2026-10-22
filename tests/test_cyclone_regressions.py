@@ -140,6 +140,62 @@ def test_empty_json_list_exports_empty_geojson_without_changing_return(model, re
     assert json.loads(output_path.read_text()) == {'type': 'FeatureCollection', 'features': []}
 
 
+@pytest.mark.parametrize('interface', ['sdk', 'cli'])
+@pytest.mark.parametrize('cyclones', [{}, []], ids=['mapping', 'list'])
+@pytest.mark.parametrize('existing_file', [False, True])
+def test_empty_index_csv_returns_normally_without_overwriting_file(interface, cyclones, existing_file, tmp_path, capsys):
+    response = {'tropical_cyclones': cyclones, 'total': 0, 'page': 0, 'page_size': 64}
+    original = copy.deepcopy(response)
+    output_path = tmp_path / 'storms.CSV'
+    if existing_file:
+        output_path.write_text('previous export\n')
+    with patch.object(api, 'make_api_request', return_value=response) as request:
+        if interface == 'sdk':
+            assert api.get_tropical_cyclone_index(output_file=str(output_path)) is response
+        else:
+            with patch('sys.argv', ['windborne', 'tropical_cyclones', 'index', str(output_path)]):
+                cli.main()
+    request.assert_called_once()
+    assert response == original
+    assert 'No data available to save to CSV.' in capsys.readouterr().out
+    if existing_file:
+        assert output_path.read_text() == 'previous export\n'
+    else:
+        assert not output_path.exists()
+
+
+@pytest.mark.parametrize('cyclones', [{}, []], ids=['mapping', 'list'])
+def test_empty_index_json_preserves_pagination_envelope(cyclones, tmp_path):
+    response = {'tropical_cyclones': cyclones, 'total': 0, 'page': 0, 'page_size': 64}
+    output_path = tmp_path / 'storms.json'
+    with patch.object(api, 'make_api_request', return_value=response):
+        assert api.get_tropical_cyclone_index(output_file=str(output_path)) is response
+    assert json.loads(output_path.read_text()) == response
+
+
+@pytest.mark.parametrize('collection', ['mapping', 'list'])
+@pytest.mark.parametrize('extension', ['csv', 'json'])
+def test_populated_index_export_preserves_rows_and_return_envelope(collection, extension, tmp_path):
+    rows = [
+        {'tropical_cyclone_id': 'AL012026', 'storm_name': 'First',
+         'start_time': '2026-06-01T00:00:00Z', 'end_time': '2026-06-03T00:00:00Z'},
+        {'tropical_cyclone_id': 'EP072026', 'storm_name': 'Second',
+         'start_time': '2026-07-01T00:00:00Z', 'end_time': '2026-07-03T00:00:00Z'},
+    ]
+    cyclones = {row['tropical_cyclone_id']: row for row in rows} if collection == 'mapping' else rows
+    response = {'tropical_cyclones': cyclones, 'total': 12, 'page': 2, 'page_size': 2}
+    original = copy.deepcopy(response)
+    output_path = tmp_path / ('storms.' + extension)
+    with patch.object(api, 'make_api_request', return_value=response):
+        assert api.get_tropical_cyclone_index(page=2, page_size=2, output_file=str(output_path)) is response
+    assert response == original
+    if extension == 'csv':
+        with output_path.open() as handle:
+            assert list(csv.DictReader(handle)) == rows
+    else:
+        assert json.loads(output_path.read_text()) == response
+
+
 def cyclone_list_with_empty_paths():
     return {
         'initialization_time': '2026-10-22T21:00:00Z',

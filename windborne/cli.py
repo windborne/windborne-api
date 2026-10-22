@@ -703,6 +703,17 @@ def main():
         get_variables(print_response=True, model=args.model)
 
     elif args.command == 'gridded':
+        gridded_options = {
+            'ens_member': args.ens_member,
+            'model': args.model,
+            'include_distribution': args.include_distribution,
+            'include_members': args.include_members,
+            'format': args.format,
+            'domain': args.domain,
+            'as_url': args.as_url,
+            'include_deterministic': args.include_deterministic,
+            'skip_mean': args.skip_mean,
+        }
         if len(args.args) in [0,1,2]:
             print(f"To get the gridded forecast for a variable you need to provide the variable, time (or initialization time and forecast hour), and an output file.")
             print(f"\nUsage: windborne gridded variable time output_file or")
@@ -710,7 +721,10 @@ def main():
             print(f"\n       windborne gridded variable level time output_file")
             print(f"\n       windborne gridded variable level initialization_time forecast_hour output_file")
         elif len(args.args) == 3:
-            get_gridded_forecast(variable=args.args[0], time=args.args[1], output_file=args.args[2], ens_member=args.ens_member, model=args.model, include_distribution=args.include_distribution, include_members=args.include_members, format=args.format, domain=args.domain, as_url=args.as_url, include_deterministic=args.include_deterministic, skip_mean=args.skip_mean)
+            get_gridded_forecast(
+                variable=args.args[0], time=args.args[1], output_file=args.args[2],
+                **gridded_options
+            )
         elif len(args.args) == 4:
             # Support both historical form: variable initialization_time forecast_hour output
             # and alternate "variable level time output" form by detecting numeric level
@@ -732,9 +746,15 @@ def main():
 
             if is_level and looks_like_time(a2):
                 # Map to level/variable with time
-                get_gridded_forecast(variable=f"{a1}/{a0}", time=a2, output_file=a3, ens_member=args.ens_member, model=args.model, include_distribution=args.include_distribution, include_members=args.include_members, format=args.format, domain=args.domain, as_url=args.as_url, include_deterministic=args.include_deterministic, skip_mean=args.skip_mean)
+                get_gridded_forecast(
+                    variable=f"{a1}/{a0}", time=a2, output_file=a3,
+                    **gridded_options
+                )
             else:
-                get_gridded_forecast(variable=a0, initialization_time=a1, forecast_hour=a2, output_file=a3, ens_member=args.ens_member, model=args.model, include_distribution=args.include_distribution, include_members=args.include_members, format=args.format, domain=args.domain, as_url=args.as_url, include_deterministic=args.include_deterministic, skip_mean=args.skip_mean)
+                get_gridded_forecast(
+                    variable=a0, initialization_time=a1, forecast_hour=a2, output_file=a3,
+                    **gridded_options
+                )
         elif len(args.args) == 5:
             # Support historical variable level syntax:
             #   windborne gridded variable level initialization_time forecast_hour output_file
@@ -746,7 +766,10 @@ def main():
                 variable = a0
             else:
                 variable = f"{a1}/{a0}"
-            get_gridded_forecast(variable=variable, initialization_time=a2, forecast_hour=a3, output_file=a4, ens_member=args.ens_member, model=args.model, include_distribution=args.include_distribution, include_members=args.include_members, format=args.format, domain=args.domain, as_url=args.as_url, include_deterministic=args.include_deterministic, skip_mean=args.skip_mean)
+            get_gridded_forecast(
+                variable=variable, initialization_time=a2, forecast_hour=a3, output_file=a4,
+                **gridded_options
+            )
         else:
             print("Too many arguments")
 

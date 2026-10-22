@@ -653,6 +653,8 @@ def get_tropical_cyclone_index(basin=None, include_unofficial_ids=False, min_tim
     """Get one page of published cyclones whose lifetimes overlap the time bounds.
 
     page defaults to 0 and page_size to 64 on the server (maximum 500).
+    An empty CSV page reports no data and leaves the output file untouched;
+    the complete pagination response is still returned.
     """
     params = {'include_unofficial_ids': str(include_unofficial_ids).lower()}
     if basin is not None:
@@ -670,7 +672,10 @@ def get_tropical_cyclone_index(basin=None, include_unofficial_ids=False, min_tim
     if isinstance(cyclones, dict):
         cyclones = list(cyclones.values())
     if output_file:
-        save_arbitrary_response(output_file, cyclones if output_file.lower().endswith('.csv') else response)
+        if output_file.lower().endswith('.csv'):
+            save_arbitrary_response(output_file, {'tropical_cyclones': cyclones}, csv_data_key='tropical_cyclones')
+        else:
+            save_arbitrary_response(output_file, response)
     if print_response:
         print_table(cyclones, keys=['tropical_cyclone_id', 'storm_name', 'start_time', 'end_time'],
                     headers=['Cyclone ID', 'Storm', 'Start', 'End'])

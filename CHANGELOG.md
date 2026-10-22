@@ -22,6 +22,8 @@
   empty mean path, with a warning naming those cyclones. The returned JSON is
   unchanged. If storms exist but none have exportable tracks, the export fails
   without overwriting the destination.
+  An empty cyclone-index CSV page returns normally without creating or
+  overwriting a file, preserving the full pagination response for the caller.
 - Documented gridded forecast options for format, regional domain, deterministic
   output, ensemble mean selection, and download-URL metadata. Archive pagination,
   sounding length filters, ASOS high-frequency observations, and documented
