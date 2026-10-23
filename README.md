@@ -5,7 +5,7 @@
 </picture>
 </p>
 
-A Python library for the [WindBorne API](https://api.windbornesystems.com/). Import it in
+A Python library for the WindBorne API. Import it in
 Python, or run it from the command line as `windborne`.
 
 The [API documentation](https://api.windbornesystems.com/) covers every endpoint's
