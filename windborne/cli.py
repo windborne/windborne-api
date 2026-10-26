@@ -252,7 +252,7 @@ def main():
     station_forecast_parser = subparsers.add_parser('station_forecast', help='Get weather forecast for a specific station')
     station_forecast_parser.add_argument('station_id', help='ICAO station identifier (e.g., PANC, KJFK, SFO)')
     station_forecast_parser.add_argument('-i', '--init-time', help='Initialization time (ISO 8601)')
-    station_forecast_parser.add_argument('-m', '--model', default='wm', help='Forecast model (e.g., wm, wm4, wm-4.5-ens)')
+    station_forecast_parser.add_argument('-m', '--model', default='wm', help='wm/mm/metamesh use MetaMesh; other explicit models retain legacy station forecasts')
     station_forecast_parser.add_argument('output_file', nargs='?', help='Output file (.csv or .json)')
 
     # Interpolated Sounding Command
@@ -285,10 +285,10 @@ def main():
     # Tropical Cyclones Command
     tropical_cyclones_parser = subparsers.add_parser('tropical_cyclones', help='Get tropical cyclone forecasts')
     tropical_cyclones_parser.add_argument('-b', '--basin', help='Filter by basin (AL, EP, CP, WP, NI, SI, AU, SP; NA is an alias for AL)')
-    tropical_cyclones_parser.add_argument('-m', '--model', help='Forecast model (e.g., wm, wm4, wm-4.5-ens, ecmwf-det)')
+    tropical_cyclones_parser.add_argument('-m', '--model', help='Forecast model (default: wm-6; gfs and ecmwf-det support legacy list tracks only)')
     tropical_cyclones_parser.add_argument('--initialization-time', help='Select a forecast initialization time')
-    tropical_cyclones_parser.add_argument('--include-details', type=_boolean, nargs='?', const=True, default=False, help='Include paths, landfalls, and cones in the list (true or false)')
-    tropical_cyclones_parser.add_argument('--include-unofficial-ids', type=_boolean, nargs='?', const=True, default=False, help='Include unmatched tracks (true or false)')
+    tropical_cyclones_parser.add_argument('--include-details', type=_boolean, nargs='?', const=True, default=False, help='Include paths, landfalls, and cones in the wm-6 list (true or false)')
+    tropical_cyclones_parser.add_argument('--include-unofficial-ids', type=_boolean, nargs='?', const=True, default=False, help='Include unmatched wm-6 tracks (true or false)')
     tropical_cyclones_parser.add_argument('--include-members', type=_boolean, nargs='?', const=True, default=False, help='Include member paths in detail (true or false)')
     tropical_cyclones_parser.add_argument('--include-cones', type=_boolean, nargs='?', const=True, default=False, help='Include cones in detail (true or false)')
     tropical_cyclones_parser.add_argument('--min-time', help='Index: minimum lifetime time (ISO 8601 or YYYYMMDDHH)')
@@ -703,6 +703,17 @@ def main():
         get_variables(print_response=True, model=args.model)
 
     elif args.command == 'gridded':
+        gridded_options = {
+            'ens_member': args.ens_member,
+            'model': args.model,
+            'include_distribution': args.include_distribution,
+            'include_members': args.include_members,
+            'format': args.format,
+            'domain': args.domain,
+            'as_url': args.as_url,
+            'include_deterministic': args.include_deterministic,
+            'skip_mean': args.skip_mean,
+        }
         if len(args.args) in [0,1,2]:
             print(f"To get the gridded forecast for a variable you need to provide the variable, time (or initialization time and forecast hour), and an output file.")
             print(f"\nUsage: windborne gridded variable time output_file or")
@@ -710,7 +721,10 @@ def main():
             print(f"\n       windborne gridded variable level time output_file")
             print(f"\n       windborne gridded variable level initialization_time forecast_hour output_file")
         elif len(args.args) == 3:
-            get_gridded_forecast(variable=args.args[0], time=args.args[1], output_file=args.args[2], ens_member=args.ens_member, model=args.model, include_distribution=args.include_distribution, include_members=args.include_members, format=args.format, domain=args.domain, as_url=args.as_url, include_deterministic=args.include_deterministic, skip_mean=args.skip_mean)
+            get_gridded_forecast(
+                variable=args.args[0], time=args.args[1], output_file=args.args[2],
+                **gridded_options
+            )
         elif len(args.args) == 4:
             # Support both historical form: variable initialization_time forecast_hour output
             # and alternate "variable level time output" form by detecting numeric level
@@ -732,9 +746,15 @@ def main():
 
             if is_level and looks_like_time(a2):
                 # Map to level/variable with time
-                get_gridded_forecast(variable=f"{a1}/{a0}", time=a2, output_file=a3, ens_member=args.ens_member, model=args.model, include_distribution=args.include_distribution, include_members=args.include_members, format=args.format, domain=args.domain, as_url=args.as_url, include_deterministic=args.include_deterministic, skip_mean=args.skip_mean)
+                get_gridded_forecast(
+                    variable=f"{a1}/{a0}", time=a2, output_file=a3,
+                    **gridded_options
+                )
             else:
-                get_gridded_forecast(variable=a0, initialization_time=a1, forecast_hour=a2, output_file=a3, ens_member=args.ens_member, model=args.model, include_distribution=args.include_distribution, include_members=args.include_members, format=args.format, domain=args.domain, as_url=args.as_url, include_deterministic=args.include_deterministic, skip_mean=args.skip_mean)
+                get_gridded_forecast(
+                    variable=a0, initialization_time=a1, forecast_hour=a2, output_file=a3,
+                    **gridded_options
+                )
         elif len(args.args) == 5:
             # Support historical variable level syntax:
             #   windborne gridded variable level initialization_time forecast_hour output_file
@@ -746,7 +766,10 @@ def main():
                 variable = a0
             else:
                 variable = f"{a1}/{a0}"
-            get_gridded_forecast(variable=variable, initialization_time=a2, forecast_hour=a3, output_file=a4, ens_member=args.ens_member, model=args.model, include_distribution=args.include_distribution, include_members=args.include_members, format=args.format, domain=args.domain, as_url=args.as_url, include_deterministic=args.include_deterministic, skip_mean=args.skip_mean)
+            get_gridded_forecast(
+                variable=variable, initialization_time=a2, forecast_hour=a3, output_file=a4,
+                **gridded_options
+            )
         else:
             print("Too many arguments")
 
@@ -801,7 +824,7 @@ def main():
             get_tropical_cyclones(
                 initialization_time=initialization_time, basin=args.basin,
                 include_details=args.include_details, include_unofficial_ids=args.include_unofficial_ids,
-                format=args.format, model=args.model or 'wm',
+                format=args.format, model=args.model or 'wm-6',
                 output_file=output_file, print_response=(not output_file)
             )
 

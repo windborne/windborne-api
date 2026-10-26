@@ -131,6 +131,56 @@ def test_legacy_get_error_return_remains_none(status):
         assert api_request.make_api_request(URL) is None
 
 
+@pytest.mark.parametrize('status', [400, 401, 403, 404])
+def test_strict_get_http_errors_raise_without_retry(status, capsys):
+    failed = response(status, {'error': 'unavailable'})
+    with mock.patch.object(api_request.requests, 'get', return_value=failed) as get:
+        with mock.patch.object(api_request.time, 'sleep') as sleep:
+            with pytest.raises(requests.HTTPError) as caught:
+                api_request.make_api_request(URL, raise_errors=True)
+            assert caught.value.response is failed
+            get.assert_called_once()
+            sleep.assert_not_called()
+    assert capsys.readouterr().out == ''
+
+
+@pytest.mark.parametrize('failure', [response(502), requests.Timeout('timeout'), requests.ConnectionError('connection')])
+@pytest.mark.parametrize('status', [403, 404])
+def test_strict_get_keeps_error_behavior_after_transient_retry(failure, status):
+    failed = response(status)
+    with mock.patch.object(api_request.requests, 'get', side_effect=[failure, failed]) as get:
+        with mock.patch.object(api_request.time, 'sleep') as sleep:
+            with pytest.raises(requests.HTTPError) as caught:
+                api_request.make_api_request(URL, raise_errors=True)
+            assert caught.value.response is failed
+            assert get.call_count == 2
+            sleep.assert_called_once_with(1)
+
+
+@pytest.mark.parametrize('failure', [response(502), requests.Timeout('timeout'), requests.ConnectionError('connection')])
+def test_strict_get_transient_retries_are_bounded(failure):
+    with mock.patch.object(api_request.requests, 'get', side_effect=[failure] * 5) as get:
+        with mock.patch.object(api_request.time, 'sleep'):
+            with pytest.raises(ConnectionError, match='Max retries'):
+                api_request.make_api_request(URL, raise_errors=True)
+    assert get.call_count == 5
+
+
+@pytest.mark.parametrize('raise_errors', [False, True])
+def test_other_get_request_failures_only_raise_when_requested(raise_errors):
+    error = requests.RequestException('Synthetic request failure')
+    with mock.patch.object(api_request.requests, 'get', side_effect=error) as get:
+        with mock.patch.object(api_request.time, 'sleep') as sleep:
+            if raise_errors:
+                with pytest.raises(requests.RequestException) as caught:
+                    api_request.make_api_request(URL, raise_errors=True)
+                assert caught.value is error
+            else:
+                assert api_request.make_api_request(URL) is None
+            get.assert_called_once()
+            sleep.assert_not_called()
+
+
 def test_as_json_false_keeps_raw_response_contract():
     result = response(204)
     with mock.patch.object(api_request.requests, 'request', return_value=result):

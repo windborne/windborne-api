@@ -187,7 +187,7 @@ def test_preflight_neither_truncates_existing_output_nor_creates_directories(tmp
 def test_output_io_error_retains_successful_response_without_repeating_write(helper, args, tmp_path, capsys):
     response = {'id': 42, 'signing_secret': 'synthetic-secret', 'subscriptions': [{'id': 81}]}
     with mock.patch.object(webhooks, 'make_api_request', autospec=True, return_value=response) as request:
-        with mock.patch.object(webhooks.Path, 'open', side_effect=OSError('Synthetic disk failure')):
+        with mock.patch.object(webhooks.os, 'fdopen', side_effect=OSError('Synthetic disk failure')):
             with pytest.raises(webhooks.WebhookOutputError) as caught:
                 helper(*args, output_file=tmp_path / 'response.json')
         request.assert_called_once()

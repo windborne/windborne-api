@@ -46,7 +46,7 @@ def archive():
                 'calculation': EXPRESSION,
                 'grid_calculations': [EXPRESSION],
                 'evaluations': [{'forecast_hour': 6}, {'forecast_hour': 12}],
-                'forecast_hour_errors': [{'forecast_hour': 0, 'code': 'MISSING_DATA', 'message': 'Input unavailable'}],
+                'forecast_hour_errors': [{'forecast_hour': 0, 'code': 'MISSING_INPUT_DATA', 'message': 'Input unavailable'}],
             },
         }))
         output.writestr('result/c/0/0/0/0/0', b'\x00\xff\x80\x00\x01')
@@ -155,27 +155,30 @@ def test_points_omits_initialization_and_hours_for_latest_complete_update():
     })
 
 
-def test_points_keeps_nulls_grid_order_and_partial_failures(tmp_path, capsys):
+def test_points_keeps_raw_member_grid_order_nulls_and_partial_failures(tmp_path, capsys):
+    expression = '  [temperature_2m(members)]\n'
     payload = {
-        'model': 'wm-6-3km', 'initialization_time': INITIALIZATION,
+        'model': 'wm-6', 'initialization_time': INITIALIZATION,
         'forecast_zero': '2026-10-16T12:00:00Z', 'forecast_hours': [0, 6],
-        'calculation': EXPRESSION, 'grid_calculations': [EXPRESSION, 'another grid'],
+        'calculation': expression, 'grid_calculations': [
+            '[temperature_2m(members=7)]', '[temperature_2m(members=9)]',
+        ],
         'coordinates': COORDINATES,
-        'forecast_hour_errors': [{'forecast_hour': 0, 'code': 'MISSING_DATA', 'message': 'Unavailable input'}],
+        'forecast_hour_errors': [{'forecast_hour': 0, 'code': 'MISSING_INPUT_DATA', 'message': 'Unavailable input'}],
         'results': [{'forecast_hour': 6, 'grids': [
             {'valid_from': '2026-10-16T18:00:00Z', 'valid_to': '2026-10-16T18:00:00Z', 'values': [1.25, None]},
-            {'valid_from': None, 'valid_to': None, 'values': [None, 0]},
+            {'valid_from': '2026-10-16T18:00:00Z', 'valid_to': '2026-10-16T18:00:00Z', 'values': [None, 0]},
         ]}],
     }
     output = tmp_path / 'nested' / 'points.json'
     with patch.object(api_request.requests, 'request', return_value=response(payload)) as request:
         result = windborne.calculate_points(
-            EXPRESSION, COORDINATES, model='wm-6-3km', initialization_time=INITIALIZATION,
+            expression, COORDINATES, initialization_time=INITIALIZATION,
             forecast_hours=[0, 6], output_file=output, print_response=True,
         )
     assert_post(request, 'points', {
-        'model': 'wm-6-3km', 'initialization_time': INITIALIZATION,
-        'calculation': EXPRESSION, 'coordinates': COORDINATES, 'forecast_hours': [0, 6],
+        'model': 'wm-6', 'initialization_time': INITIALIZATION,
+        'calculation': expression, 'coordinates': COORDINATES, 'forecast_hours': [0, 6],
     })
     assert result == json.loads(output.read_text()) == payload
     assert json.loads(capsys.readouterr().out) == payload
@@ -192,16 +195,15 @@ def test_threshold_preserves_geometry_metadata_partial_errors_and_input(threshol
         'model': 'wm-6-3km', 'initialization_time': INITIALIZATION,
         'forecast_zero': '2026-10-16T12:00:00Z', 'forecast_hours': [0, 6],
         'calculation': EXPRESSION, 'grid_calculations': [EXPRESSION],
+        'threshold': threshold,
         'type': 'FeatureCollection', 'features': [{
             'type': 'Feature',
             'geometry': {'type': 'MultiPolygon', 'coordinates': [[[[-123, 37], [-122, 37], [-122, 38], [-123, 37]]]]},
             'properties': {
                 'forecast_hour': 0, 'grid_calculation': EXPRESSION,
-                'time': {'kind': 'mixed'}, 'level': {'kind': 'reduced'},
-                'member': {'kind': 'exact', 'member': 0}, 'threshold': threshold,
-                'resolved_threshold': 0, 'comparison': '<=', 'finite_cell_count': 25, 'selected_cell_count': 3,
+                'valid_from': '2026-10-16T12:00:00Z', 'valid_to': '2026-10-16T12:00:00Z',
             },
-        }], 'forecast_hour_errors': [{'forecast_hour': 6, 'code': 'MISSING_DATA', 'message': 'Unavailable input'}],
+        }], 'forecast_hour_errors': [{'forecast_hour': 6, 'code': 'MISSING_INPUT_DATA', 'message': 'Unavailable input'}],
     }
     output = tmp_path / 'nested' / ('threshold' + extension)
     with patch.object(api_request.requests, 'request', return_value=response(payload)) as request:
@@ -299,10 +301,10 @@ def test_http_failure_preserves_error_response_and_existing_file_without_retry(
     payload = {'error': 'Request failed'}
     if status == 400 and helper is not windborne.validate_calculation:
         payload = {
-            'error': 'No selected hour can be calculated',
+            'error': 'No requested forecast hours could be calculated.',
             'forecast_hour_errors': [
-                {'forecast_hour': 0, 'code': 'MISSING_DATA', 'message': 'Unavailable input'},
-                {'forecast_hour': 6, 'code': 'MISSING_DATA', 'message': 'Unavailable input'},
+                {'forecast_hour': 0, 'code': 'MISSING_INPUT_DATA', 'message': 'Unavailable input'},
+                {'forecast_hour': 6, 'code': 'MISSING_INPUT_DATA', 'message': 'Unavailable input'},
             ],
         }
     failed = response(payload, status=status)
@@ -357,6 +359,7 @@ def test_threshold_no_matches_is_a_successful_empty_collection(tmp_path):
         'model': 'wm-6', 'initialization_time': INITIALIZATION,
         'forecast_zero': '2026-10-16T12:00:00Z', 'forecast_hours': [0],
         'calculation': EXPRESSION, 'grid_calculations': [EXPRESSION],
+        'threshold': THRESHOLD,
         'forecast_hour_errors': [],
     }
     output = tmp_path / 'no-matches.geojson'

@@ -69,7 +69,7 @@ def get_observations_page(since=None, min_time=None, max_time=None, include_ids=
 
     params = {k: v for k, v in params.items() if v is not None}
     
-    response = make_api_request(url, params=params)
+    response = make_api_request(url, params=params, raise_errors=True)
 
     if output_file:
         save_arbitrary_response(output_file, response, csv_data_key='observations')
@@ -128,7 +128,7 @@ def get_super_observations_page(since=None, min_time=None, max_time=None, includ
 
     params = {k: v for k, v in params.items() if v is not None}
 
-    response = make_api_request(url, params=params)
+    response = make_api_request(url, params=params, raise_errors=True)
     if output_file:
         save_arbitrary_response(output_file, response, csv_data_key='observations')
 
@@ -298,12 +298,11 @@ def get_observations_core(api_args, csv_headers, get_page, start_time=None, end_
     if output_file and not custom_save:
         verify_observations_output_format(output_file.split('.')[-1])
 
-    # When we don't clear batches, we can safely overwrite the output files; this is nice
-    # However, it also holds everything in memory, so we should only do this when we're not going to run indefinitely
+    # Finite exports already retain every row. Save them once at the end so
+    # sorting by observation time also handles older measurements on later pages.
+    # Polling and custom writers continue to receive intermediate batches.
     clear_batches = not exit_at_end
-    batch_size = 10_000
-    if not batch_size: # save less frequently
-        batch_size = 100_000
+    batch_size = 10_000 if clear_batches or custom_save is not None else None
 
     if start_time is not None:
         start_time = to_unix_timestamp(start_time)
@@ -346,7 +345,8 @@ def iterate_through_observations(get_page, args, callback=None, batch_callback=N
         callback (callable): Function to call with each page of observations
         batch_callback (callable): Function to call with a batch of observations
         exit_at_end (bool): Whether to exit after fetching all observations or keep polling
-        batch_size (int): Number of observations to accumulate before calling `batch_callback`
+        batch_size (int | None): Number of observations before calling `batch_callback`;
+            None saves only when the API reports no more pages.
         clear_batches (bool): Whether to clear the batched observations after calling `batch_callback`
     """
 
@@ -366,9 +366,9 @@ def iterate_through_observations(get_page, args, callback=None, batch_callback=N
         args = {**args, 'since': since}
         response = get_page(**args)
         if not response:
-            print("Received null response from API. Retrying in 10 seconds...")
-            time.sleep(10)
-            continue
+            # Transport retries are bounded by make_api_request. Retrying a
+            # missing page here could loop forever or hide a failed download.
+            raise ValueError("Invalid observations response: expected a page, received no data.")
 
         observations = response.get('observations', [])
 
@@ -386,7 +386,10 @@ def iterate_through_observations(get_page, args, callback=None, batch_callback=N
 
         processed_count += len(observations)
 
-        if batch_callback and (len(batched_observations) >= batch_size or not response['has_next_page']):
+        if batch_callback and (
+            (batch_size is not None and len(batched_observations) >= batch_size)
+            or not response['has_next_page']
+        ):
             batch_callback(batched_observations)
             if clear_batches:
                 batched_observations = []
@@ -401,11 +404,6 @@ def iterate_through_observations(get_page, args, callback=None, batch_callback=N
 
             time.sleep(60)
             continue
-
-    if batch_callback and len(batched_observations) > 0:
-        batch_callback(batched_observations)
-        if clear_batches:
-            batched_observations = []
 
     if batch_callback:
         return processed_count
@@ -968,6 +966,10 @@ def get_soundings(
 
     Returns:
         list: List of sounding metadata dicts.
+
+    Raises:
+        requests.HTTPError: The API rejected the request.
+        ValueError: The API did not return a soundings list.
     """
     if print_response is not None:
         print_results = print_response
@@ -999,12 +1001,11 @@ def get_soundings(
     if page_size is not None:
         params["page_size"] = page_size
 
-    response = make_api_request(url, params=params)
+    response = make_api_request(url, params=params, raise_errors=True)
+    if not isinstance(response, dict) or not isinstance(response.get('soundings'), list):
+        raise ValueError("Invalid soundings response: expected a 'soundings' list.")
 
-    if response is None:
-        return []
-
-    soundings = response.get('soundings', [])
+    soundings = response['soundings']
 
     if print_results:
         if soundings:

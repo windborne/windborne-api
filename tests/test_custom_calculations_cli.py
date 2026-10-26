@@ -86,7 +86,7 @@ def test_points_preserves_forecast_hour_forms_and_partial_results(http, capsys, 
         'coordinates': COORDINATES,
         'results': [{'forecast_hour': 0, 'grids': [
             {'valid_from': None, 'valid_to': None, 'values': [0, None]}]}],
-        'forecast_hour_errors': [{'forecast_hour': 12, 'code': 'DATA_UNAVAILABLE',
+        'forecast_hour_errors': [{'forecast_hour': 12, 'code': 'MISSING_INPUT_DATA',
                                  'message': 'Required input is unavailable'}],
     }
     response._content = json.dumps(result).encode()
@@ -106,6 +106,44 @@ def test_points_body_model_and_initialization_are_honored_in_json_output(http, t
     output = tmp_path / 'nested' / 'points.json'
     invoke('points', body, '--output', str(output))
     assert_request(request, 'points', body)
+    assert json.loads(output.read_text()) == result
+
+
+@pytest.mark.parametrize('calculation,source,valid_from', [
+    ('aggregate_forecast_hours([temperature_2m], min, 0)', 'stdin',
+     '2026-10-21T18:00:00Z'),
+    ('aggregate_members([temperature_2m(members)], p90)', 'file',
+     '2026-10-22T00:00:00Z'),
+])
+def test_aggregation_expressions_need_no_extra_request_fields(
+        http, tmp_path, calculation, source, valid_from):
+    request, response = http
+    expression = '\n  ' + calculation + '\n'
+    body = {'calculation': expression, 'coordinates': COORDINATES,
+            'forecast_hours': [12, 6, 12]}
+    result = {
+        'model': 'wm-6', 'initialization_time': INITIALIZATION,
+        'forecast_zero': '2026-10-21T18:00:00Z', 'forecast_hours': [6, 12],
+        'calculation': expression, 'grid_calculations': [calculation],
+        'coordinates': COORDINATES,
+        'results': [{'forecast_hour': 6, 'grids': [{
+            'valid_from': valid_from, 'valid_to': '2026-10-22T00:00:00Z',
+            'values': [275.25, None],
+        }]}],
+        'forecast_hour_errors': [{'forecast_hour': 12, 'code': 'MISSING_INPUT_DATA',
+                                 'message': 'Required input is unavailable'}],
+    }
+    response._content = json.dumps(result).encode()
+    output = tmp_path / 'aggregation.json'
+    if source == 'stdin':
+        invoke('points', body, '-o', str(output))
+    else:
+        body_file = tmp_path / 'request.json'
+        body_file.write_text(json.dumps(body))
+        with patch('sys.argv', ['windborne', 'custom_calculations', 'points',
+                                '--body', str(body_file), '-o', str(output)]):
+            cli.main()
+    assert_request(request, 'points', dict(body, model='wm-6'))
     assert json.loads(output.read_text()) == result
 
 
@@ -165,6 +203,7 @@ def test_threshold_preserves_nested_fields_geojson_and_skipped_hours(
         'type': 'FeatureCollection', 'model': 'wm-6', 'initialization_time': INITIALIZATION,
         'forecast_zero': '2026-10-21T18:00:00Z', 'forecast_hours': [0, 12],
         'calculation': CALCULATION, 'grid_calculations': [CALCULATION],
+        'threshold': threshold,
         'features': [{
             'type': 'Feature',
             'geometry': {'type': 'MultiPolygon', 'coordinates': [[[
@@ -172,13 +211,10 @@ def test_threshold_preserves_nested_fields_geojson_and_skipped_hours(
                 [-122.375, 38], [-122.375, 37.875],
             ]]]},
             'properties': {'forecast_hour': 0, 'grid_calculation': CALCULATION,
-                           'time': {'kind': 'valid_at', 'valid_at': '2026-10-21T18:00:00Z'},
-                           'level': {'kind': 'surface'}, 'threshold': threshold,
-                           'resolved_threshold': 0,
-                           'comparison': '<=' if threshold['kind'] == 'absolute' else '>=',
-                           'finite_cell_count': 25, 'selected_cell_count': 3},
+                           'valid_from': '2026-10-21T18:00:00Z',
+                           'valid_to': '2026-10-21T18:00:00Z'},
         }],
-        'forecast_hour_errors': [{'forecast_hour': 12, 'code': 'MISSING_DATA',
+        'forecast_hour_errors': [{'forecast_hour': 12, 'code': 'MISSING_INPUT_DATA',
                                  'message': 'Missing variable'}],
     }
     response._content = json.dumps(result).encode()

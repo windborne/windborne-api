@@ -131,6 +131,7 @@ class ObservationRequestOptionsTest(unittest.TestCase):
                     observations_api.DATA_API_BASE_URL + "/soundings",
                     params={"min_altitude": 0, "min_length": minimum,
                             "page": 0, "page_size": 20},
+                    raise_errors=True,
                 )
                 self.assertEqual([{"id": "sounding"}], result)
         observations_api.get_soundings()

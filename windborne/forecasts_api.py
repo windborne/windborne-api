@@ -1,4 +1,5 @@
 import json
+import warnings
 from pathlib import Path
 from urllib.parse import quote
 
@@ -473,14 +474,21 @@ def _tropical_cyclone_basin(basin, legacy=False):
 
 def _tropical_cyclone_tracks(response):
     """Adapt current envelopes and legacy ID-to-track maps to file exporters."""
-    if 'tropical_cyclones' in response:
+    is_list_response = 'tropical_cyclones' in response
+    if is_list_response:
         cyclones = response['tropical_cyclones']
     elif 'tropical_cyclone_id' in response:
         cyclones = {response['tropical_cyclone_id']: response}
     else:
         cyclones = response
     tracks = {}
+    empty_paths = []
     for cyclone_id, cyclone in cyclones.items():
+        # A listed cyclone can legitimately have no predicted track. Only an
+        # explicit empty list has this meaning; absent detail is still an error.
+        if is_list_response and isinstance(cyclone, dict) and cyclone.get('path') == []:
+            empty_paths.append(cyclone_id)
+            continue
         path = cyclone if isinstance(cyclone, list) else cyclone.get('path') or cyclone.get('mean_path')
         if path:
             paths = [(cyclone_id, path)]
@@ -497,6 +505,15 @@ def _tropical_cyclone_tracks(response):
             ]
         for track_id, path in paths:
             tracks[track_id] = [dict(point, time=point.get('valid_at', point.get('time'))) for point in path]
+    if empty_paths:
+        if not tracks:
+            raise ValueError('No track points available: all returned cyclones have empty paths.')
+        warnings.warn(
+            f'Skipping cyclones with empty paths in track export: {", ".join(empty_paths)}. '
+            'The complete JSON response is unchanged.',
+            UserWarning,
+            stacklevel=3,
+        )
     return tracks
 
 
@@ -542,21 +559,28 @@ def _print_tropical_cyclone_response(response):
                 print_table(path, keys=['valid_at', 'latitude', 'longitude'], headers=['Time', 'Latitude', 'Longitude'])
 
 
-def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None, print_response=False, model='wm', include_details=False, include_unofficial_ids=False, format='json'):
+def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None, print_response=False, model='wm-6', include_details=False, include_unofficial_ids=False, format='json'):
     """Get the published cyclone summary or detailed tracks for a model run.
 
-    Use model='wm-6' for the current tracker. initialization_time defaults to the
-    latest published run. basin accepts AL, EP, CP, WP, NI, SI, AU, SP, and the
-    legacy alias NA for AL. Older model routes use NA for the Atlantic instead
-    and do not support CP. include_details adds paths, landfalls and cones;
-    include_unofficial_ids includes unmatched member tracks. format is json or
-    geojson. Existing positional arguments retain their order.
+    model defaults to 'wm-6', the current tracker. initialization_time defaults
+    to the latest published run. basin accepts AL, EP, CP, WP, NI, SI, AU, SP, and the
+    legacy alias NA for AL. For wm-6, include_details adds paths, landfalls and
+    cones; include_unofficial_ids includes unmatched member tracks. format is
+    json or geojson. Existing positional arguments retain their order.
+
+    Explicit model='gfs' or model='ecmwf-det' selects legacy tracks, returned as
+    an ID-to-track dictionary with time, latitude and longitude. These routes
+    ignore include_details and include_unofficial_ids, use NA for the Atlantic
+    instead of AL, and do not support CP.
 
     format selects the API response and return value. JSON files retain the
     full response. With format='json', a .geojson file contains locally
     converted tracks while the return value stays JSON. Use format='geojson'
     to return and save native GeoJSON, including its additional features and
     metadata. Track exports, including .geojson, request details automatically.
+    Cyclones with explicit empty paths are omitted from track exports with a
+    warning; if every returned cyclone has an empty path, export raises an
+    error without overwriting the output file. JSON retains all cyclones.
     """
     if format not in ('json', 'geojson'):
         raise ValueError('format must be json or geojson')
@@ -629,6 +653,8 @@ def get_tropical_cyclone_index(basin=None, include_unofficial_ids=False, min_tim
     """Get one page of published cyclones whose lifetimes overlap the time bounds.
 
     page defaults to 0 and page_size to 64 on the server (maximum 500).
+    An empty CSV page reports no data and leaves the output file untouched;
+    the complete pagination response is still returned.
     """
     params = {'include_unofficial_ids': str(include_unofficial_ids).lower()}
     if basin is not None:
@@ -646,7 +672,10 @@ def get_tropical_cyclone_index(basin=None, include_unofficial_ids=False, min_tim
     if isinstance(cyclones, dict):
         cyclones = list(cyclones.values())
     if output_file:
-        save_arbitrary_response(output_file, cyclones if output_file.lower().endswith('.csv') else response)
+        if output_file.lower().endswith('.csv'):
+            save_arbitrary_response(output_file, {'tropical_cyclones': cyclones}, csv_data_key='tropical_cyclones')
+        else:
+            save_arbitrary_response(output_file, response)
     if print_response:
         print_table(cyclones, keys=['tropical_cyclone_id', 'storm_name', 'start_time', 'end_time'],
                     headers=['Cyclone ID', 'Storm', 'Start', 'End'])
@@ -1007,7 +1036,9 @@ def get_analysis_variables(source='ecmwf_det_anl', print_response=False):
     Returns:
         dict: API response with analysis variables, levels
     """
-    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{source}/variables")
+    # The variables catalog uses model names, unlike the analysis data routes.
+    model = {'ecmwf_det_anl': 'ifs_anl', 'ecmwf_ens_anl': 'ens_anl'}.get(source, source)
+    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/variables")
 
     if print_response and response is not None:
         analysis = response.get('analysis', response)
@@ -1221,7 +1252,8 @@ def get_station_forecast(station_id, initialization_time=None, output_file=None,
                                               If omitted, latest is used.
         output_file (str, optional): Path to save the response data (.json or .csv)
         print_response (bool, optional): Whether to print a formatted table
-        model (str, optional): Forecast model (e.g., wm, wm4)
+        model (str, optional): wm, mm, and metamesh select current MetaMesh station
+                               forecasts; other explicit models retain their legacy routes.
 
     Returns:
         dict: Forecast data including station_id, latitude, longitude, model,
@@ -1235,7 +1267,35 @@ def get_station_forecast(station_id, initialization_time=None, output_file=None,
     if initialization_time:
         params['initialization_time'] = parse_time(initialization_time, init_time_flag=True)
 
-    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/point_forecast/stations/{station_id}", params=params)
+    if model in ('wm', 'mm', 'metamesh'):
+        station_id = station_id.strip().upper()
+        if not station_id or ';' in station_id or ',' in station_id:
+            raise ValueError('Provide one station ID; use get_point_forecasts for multiple stations.')
+        params['stations'] = station_id
+        response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/point_forecast", params=params)
+        if response is None:
+            return None
+
+        forecasts = response['forecasts']
+        if len(forecasts) > 1:
+            raise ValueError('Expected a forecast for exactly one station.')
+        if not forecasts or not forecasts[0]:
+            print(f"No point forecasts found for station {station_id}.")
+            return None
+
+        # Keep the single-station helper's existing envelope and all forecast fields.
+        forecast = forecasts[0]
+        response = dict(response)
+        del response['forecasts']
+        response.update(
+            station_id=station_id, latitude=forecast[0]['latitude'], longitude=forecast[0]['longitude'],
+            model='metamesh', forecast=forecast,
+        )
+    else:
+        response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/point_forecast/stations/{station_id}", params=params)
+
+    if response is None:
+        return None
 
     if output_file:
         save_arbitrary_response(output_file, response, csv_data_key='forecast')

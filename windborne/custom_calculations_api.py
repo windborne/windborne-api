@@ -1,4 +1,12 @@
-"""Run server-side calculations over WindBorne forecast data."""
+"""Run server-side calculations over WindBorne forecast data.
+
+Calculation expressions are sent unchanged. This includes member selectors such
+as ``[temperature_2m(members=42)]`` and ``[temperature_2m(members)]``, and
+``aggregate_members`` / ``aggregate_forecast_hours`` expressions. A reference
+without selectors uses the ensemble mean. Syntax and availability are validated
+by the API, not parsed locally:
+https://api.windbornesystems.com/insights/version_1/custom-calculations/about/
+"""
 
 import json
 from pathlib import Path
@@ -50,7 +58,8 @@ def calculate_gridded(calculation, initialization_time=None, *, model='wm-6',
 
     The ZIP contains results and metadata, including model, initialization_time,
     forecast_zero, forecast_hours, calculation, grid_calculations and
-    forecast_hour_errors for skipped hours. With as_url=True, return the
+    forecast_hour_errors for skipped hours. Raw all-member results retain
+    the archive's ensemble_member dimension. With as_url=True, return the
     complete JSON response containing the temporary URL,
     expiration, content type and size. This helper does not download that URL.
     Output files must use .zip for bytes or .json for URL metadata. Binary data
@@ -101,8 +110,10 @@ def calculate_points(calculation, coordinates, *, model='wm-6',
     ISO 8601 initialization_time to use the latest complete update. forecast_hours
     accepts an integer or a nonempty list; omit it to calculate every available
     hour. The complete JSON response retains coordinate order, null values,
-    grid metadata and forecast_hour_errors for skipped hours. Output files must
-    use .json. Calculation syntax and data availability are checked by the API.
+    grid metadata and forecast_hour_errors for skipped hours. The API evaluates
+    the expression on the grids before interpolating results to the coordinates.
+    Output files must use .json. Calculation syntax and data availability are
+    checked by the API.
     """
     if not isinstance(coordinates, str) or not coordinates.strip():
         raise ValueError('coordinates must be a nonempty string of latitude,longitude pairs.')
@@ -138,7 +149,8 @@ def calculate_threshold(calculation, bounds, threshold, *,
 
     forecast_hours accepts an integer or a nonempty list; omission means every
     available hour. Return the full FeatureCollection with calculation metadata,
-    each feature's grid_calculation, and forecast_hour_errors for skipped hours.
+    the top-level threshold, each feature's grid_calculation and valid-time
+    bounds, and forecast_hour_errors for skipped hours.
     Output files may use .json or .geojson. The API validates bounds, thresholds
     and calculation syntax.
     """

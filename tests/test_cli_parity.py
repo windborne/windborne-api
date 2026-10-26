@@ -93,7 +93,7 @@ class CliParityTests(unittest.TestCase):
                 self.assertEqual(kwargs['domain'], 'europe')
                 self.assertEqual(kwargs['model'], 'wm-6-3km')
 
-    def test_gridded_url_and_ensemble_options_in_every_positional_form(self):
+    def test_gridded_shared_options_in_every_positional_form(self):
         cases = [
             ['temperature_2m', '2026100100', 'url.json'],
             ['temperature_2m', '2026100100', '0', 'url.json'],
@@ -104,9 +104,17 @@ class CliParityTests(unittest.TestCase):
             with self.subTest(positional=positional):
                 kwargs = self.invoke(
                     ['gridded'] + positional + [
-                        '--model', 'wm-6', '--as-url', '--include-deterministic', 'false', '--skip-mean',
+                        '--model', 'wm-6-3km', '--ens-member', '3', '--domain', 'europe',
+                        '--format', 'netcdf', '--include-distribution', '--include-members',
+                        '--as-url', '--include-deterministic', 'false', '--skip-mean',
                     ], 'get_gridded_forecast',
                 )
+                self.assertEqual(kwargs['model'], 'wm-6-3km')
+                self.assertEqual(kwargs['ens_member'], '3')
+                self.assertEqual(kwargs['domain'], 'europe')
+                self.assertEqual(kwargs['format'], 'netcdf')
+                self.assertTrue(kwargs['include_distribution'])
+                self.assertTrue(kwargs['include_members'])
                 self.assertTrue(kwargs['as_url'])
                 self.assertFalse(kwargs['include_deterministic'])
                 self.assertTrue(kwargs['skip_mean'])
@@ -151,7 +159,7 @@ class CliParityTests(unittest.TestCase):
                 self.assertEqual(kwargs['initialization_time'], initialization_time)
                 self.assertEqual(kwargs['output_file'], output_file)
                 self.assertEqual(kwargs['print_response'], not output_file)
-                self.assertEqual(kwargs['model'], 'wm')
+                self.assertEqual(kwargs['model'], 'wm-6')
 
     def test_tropical_cyclone_filename_only_exports_tracks_from_json(self):
         track = [
