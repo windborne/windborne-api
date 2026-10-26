@@ -1,5 +1,20 @@
 # Release notes
 
+## 2.0.1
+
+- Observation and super-observation downloads and polling raise authentication,
+  permission, and other request errors instead of retrying missing pages forever.
+  Temporary gateway, connection, and timeout failures retain the five-attempt
+  limit; the pagination loop no longer restarts retries after a failed request.
+- Sounding-list requests raise on failed or malformed pages instead of returning
+  an empty list that could make an incomplete download look finished. Successful
+  empty pages still return an empty list.
+- Finite observation and super-observation exports sort and save once after all
+  pages succeed, avoiding repeated rewrites of the accumulated data. Output files
+  are now written at completion, with the same formats, columns, timestamp order,
+  and processed counts. Memory usage is unchanged. Continuous polling and custom
+  save callbacks retain intermediate batches, without a duplicate final save.
+
 ## 2.0.0
 
 ### Added

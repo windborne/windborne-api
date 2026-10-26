@@ -69,8 +69,9 @@ def test_public_pollers_advance_at_end_and_after_empty_pages(
     requested = []
     callbacks = []
 
-    def request(url, params):
+    def request(url, params, raise_errors):
         assert url == observations_api.DATA_API_BASE_URL + "/" + endpoint
+        assert raise_errors is True
         assert params["include_updated_at"] is True
         requested.append(params["since"])
         if len(requested) == 5:
@@ -127,8 +128,8 @@ def test_finite_fetch_still_stops_after_last_page(name, tmp_path):
 
 
 @pytest.mark.parametrize("name", ["poll_observations", "poll_super_observations"])
-def test_poll_retry_keeps_cursor_and_missing_observations_still_advance(name, tmp_path):
-    responses = [None, page([observation(1)], START + 10),
+def test_poll_empty_pages_still_advance(name, tmp_path):
+    responses = [page([observation(1)], START + 10),
                  {"next_since": START + 20, "has_next_page": False}, StopPolling()]
     callbacks = []
     with patch.object(observations_api, "make_api_request", side_effect=responses) as request:
@@ -141,10 +142,10 @@ def test_poll_retry_keeps_cursor_and_missing_observations_still_advance(name, tm
                     verbose=False,
                 )
     assert [args.kwargs["params"]["since"] for args in request.call_args_list] == [
-        START, START, START + 10, START + 20,
+        START, START + 10, START + 20,
     ]
-    assert len(callbacks) == 2  # A null response is retried without invoking the callback.
-    assert sleep.call_args_list == [call(10), call(60), call(60)]
+    assert len(callbacks) == 2
+    assert sleep.call_args_list == [call(60), call(60)]
     files = list(tmp_path.glob("*.json"))
     assert len(files) == 1
     assert json.loads(files[0].read_text()) == [observation(1)]
