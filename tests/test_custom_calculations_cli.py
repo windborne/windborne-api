@@ -73,7 +73,7 @@ def test_validation_reads_json_file_and_writes_complete_result(http, tmp_path, c
     assert capsys.readouterr().out == ''
 
 
-@pytest.mark.parametrize('hours', [None, 0, 6, [0, 6, 12]])
+@pytest.mark.parametrize('hours', [None, 0, 6, [0, 6, 12], {'start': 0, 'end': 12}])
 def test_points_preserves_forecast_hour_forms_and_partial_results(http, capsys, hours):
     request, response = http
     body = {'calculation': CALCULATION, 'coordinates': COORDINATES}
@@ -82,9 +82,9 @@ def test_points_preserves_forecast_hour_forms_and_partial_results(http, capsys, 
     result = {
         'model': 'wm-6', 'initialization_time': INITIALIZATION,
         'forecast_zero': '2026-10-21T18:00:00Z', 'forecast_hours': [0, 6, 12],
-        'calculation': CALCULATION, 'grid_calculations': [CALCULATION],
+        'calculation': CALCULATION, 'output_calculations': [CALCULATION],
         'coordinates': COORDINATES,
-        'results': [{'forecast_hour': 0, 'grids': [
+        'results': [{'forecast_hour': 0, 'outputs': [
             {'valid_from': None, 'valid_to': None, 'values': [0, None]}]}],
         'forecast_hour_errors': [{'forecast_hour': 12, 'code': 'MISSING_INPUT_DATA',
                                  'message': 'Required input is unavailable'}],
@@ -124,9 +124,9 @@ def test_aggregation_expressions_need_no_extra_request_fields(
     result = {
         'model': 'wm-6', 'initialization_time': INITIALIZATION,
         'forecast_zero': '2026-10-21T18:00:00Z', 'forecast_hours': [6, 12],
-        'calculation': expression, 'grid_calculations': [calculation],
+        'calculation': expression, 'output_calculations': [calculation],
         'coordinates': COORDINATES,
-        'results': [{'forecast_hour': 6, 'grids': [{
+        'results': [{'forecast_hour': 6, 'outputs': [{
             'valid_from': valid_from, 'valid_to': '2026-10-22T00:00:00Z',
             'values': [275.25, None],
         }]}],
@@ -160,7 +160,8 @@ def test_gridded_zip_written_without_printing_or_decoding(http, tmp_path, capsys
     response._content = archive.getvalue()
     response.headers['Content-Type'] = 'application/zip'
     body = {'model': 'wm-6', 'calculation': CALCULATION, 'forecast_hours': [0, 6, 12],
-            'lat_range': [0, 50], 'lon_range': [170, -170], 'as_url': False}
+            'bounds': {'min_latitude': 0, 'max_latitude': 50,
+                       'min_longitude': 170, 'max_longitude': -170}, 'as_url': False}
     if initialization_time is not None:
         body['initialization_time'] = initialization_time
     output = tmp_path / 'result.zarr.zip'
@@ -186,6 +187,21 @@ def test_gridded_download_url_preserves_full_envelope(http, tmp_path, capsys, sa
     assert json.loads(text) == result
 
 
+@pytest.mark.parametrize('operation,fields', [
+    ('gridded', {'bounds': {'min_latitude': 0, 'max_latitude': 38}, 'as_url': True}),
+    ('threshold', {
+        'bounds': {'min_latitude': 0, 'max_latitude': 38, 'min_longitude': -123, 'max_longitude': 0},
+        'threshold': {'kind': 'absolute', 'value': 0, 'comparison': 'at_or_below'},
+    }),
+])
+def test_forecast_hour_range_reaches_calculation_with_nested_fields(http, capsys, operation, fields):
+    request, _ = http
+    body = dict(fields, calculation=CALCULATION, forecast_hours={'start': 0, 'end': 12})
+    invoke(operation, body)
+    assert_request(request, operation, dict(body, model='wm-6'))
+    assert json.loads(capsys.readouterr().out) == {}
+
+
 @pytest.mark.parametrize('threshold', [
     {'kind': 'absolute', 'value': 0, 'comparison': 'at_or_below'},
     {'kind': 'percentile', 'percentile': 10, 'direction': 'highest'},
@@ -195,14 +211,14 @@ def test_threshold_preserves_nested_fields_geojson_and_skipped_hours(
         http, tmp_path, threshold, initialization_time):
     request, response = http
     body = {'calculation': CALCULATION, 'forecast_hours': [0, 12],
-            'bounds': {'min_lat': 0, 'max_lat': 38, 'min_lon': -123, 'max_lon': 0},
+            'bounds': {'min_latitude': 0, 'max_latitude': 38, 'min_longitude': -123, 'max_longitude': 0},
             'threshold': threshold}
     if initialization_time is not None:
         body['initialization_time'] = initialization_time
     result = {
         'type': 'FeatureCollection', 'model': 'wm-6', 'initialization_time': INITIALIZATION,
         'forecast_zero': '2026-10-21T18:00:00Z', 'forecast_hours': [0, 12],
-        'calculation': CALCULATION, 'grid_calculations': [CALCULATION],
+        'calculation': CALCULATION, 'output_calculations': [CALCULATION],
         'threshold': threshold,
         'features': [{
             'type': 'Feature',
@@ -210,7 +226,7 @@ def test_threshold_preserves_nested_fields_geojson_and_skipped_hours(
                 [-122.375, 37.875], [-122.125, 37.875], [-122.125, 38],
                 [-122.375, 38], [-122.375, 37.875],
             ]]]},
-            'properties': {'forecast_hour': 0, 'grid_calculation': CALCULATION,
+            'properties': {'forecast_hour': 0, 'output_calculation': CALCULATION,
                            'valid_from': '2026-10-21T18:00:00Z',
                            'valid_to': '2026-10-21T18:00:00Z'},
         }],
@@ -241,7 +257,7 @@ def test_threshold_preserves_nested_fields_geojson_and_skipped_hours(
     ('points', {'calculation': CALCULATION, 'coordinates': COORDINATES}, ['-o', 'unused.csv'], '.json'),
     ('threshold', {'calculation': CALCULATION, 'initialization_time': INITIALIZATION}, [], 'bounds'),
     ('threshold', {'calculation': CALCULATION,
-                   'bounds': {'min_lat': 0, 'max_lat': 38, 'min_lon': -123, 'max_lon': 0}},
+                   'bounds': {'min_latitude': 0, 'max_latitude': 38, 'min_longitude': -123, 'max_longitude': 0}},
      [], 'threshold'),
 ])
 def test_invalid_bodies_and_output_options_fail_before_http(http, capsys, operation, body, arguments, message):

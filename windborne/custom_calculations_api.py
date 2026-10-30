@@ -46,18 +46,19 @@ def validate_calculation(calculation, *, output_file=None, print_response=False)
 
 
 def calculate_gridded(calculation, initialization_time=None, *, model='wm-6',
-                      forecast_hours=None, lat_range=None, lon_range=None,
+                      forecast_hours=None, bounds=None,
                       as_url=False, output_file=None, print_response=False):
     """Return a calculation's Zarr ZIP bytes, or download metadata with as_url=True.
 
     Omit the ISO 8601 initialization_time to use the latest complete update.
-    forecast_hours accepts one nonnegative integer or a nonempty list; omit it
-    to calculate every available hour. lat_range and lon_range are optional
-    two-number bounds for wm-6 only.
-    A west-to-east lon_range that crosses the dateline is supported.
+    forecast_hours accepts an integer, a nonempty list, or {'start': 0, 'end': 12}
+    to select available hours in an inclusive range. Omit it for every available
+    hour. For wm-6, bounds may contain min_latitude/max_latitude and/or
+    min_longitude/max_longitude pairs; omitted pairs leave that axis unrestricted.
+    Longitude bounds may cross the dateline. Omit bounds for wm-6-3km.
 
     The ZIP contains results and metadata, including model, initialization_time,
-    forecast_zero, forecast_hours, calculation, grid_calculations and
+    forecast_zero, forecast_hours, calculation, output_calculations and
     forecast_hour_errors for skipped hours. Raw all-member results retain
     the archive's ensemble_member dimension. With as_url=True, return the
     complete JSON response containing the temporary URL,
@@ -81,7 +82,7 @@ def calculate_gridded(calculation, initialization_time=None, *, model='wm-6',
     }
     for name, value in (
         ('initialization_time', initialization_time),
-        ('forecast_hours', forecast_hours), ('lat_range', lat_range), ('lon_range', lon_range),
+        ('forecast_hours', forecast_hours), ('bounds', bounds),
     ):
         if value is not None:
             body[name] = value
@@ -108,10 +109,12 @@ def calculate_points(calculation, coordinates, *, model='wm-6',
 
     coordinates is a string such as '37.77,-122.42;34.05,-118.24'. Omit the
     ISO 8601 initialization_time to use the latest complete update. forecast_hours
-    accepts an integer or a nonempty list; omit it to calculate every available
-    hour. The complete JSON response retains coordinate order, null values,
-    grid metadata and forecast_hour_errors for skipped hours. The API evaluates
-    the expression on the grids before interpolating results to the coordinates.
+    accepts an integer, a nonempty list, or {'start': 0, 'end': 12} to select
+    available hours in an inclusive range; omit it for every available hour.
+    The complete JSON response retains coordinate order, null values,
+    output_calculations, outputs and forecast_hour_errors for skipped hours.
+    The API evaluates the expression on the grids before interpolating results
+    to the coordinates.
     Output files must use .json. Calculation syntax and data availability are
     checked by the API.
     """
@@ -141,15 +144,16 @@ def calculate_threshold(calculation, bounds, threshold, *,
     """Return GeoJSON polygons meeting an absolute or percentile threshold.
 
     Omit the ISO 8601 initialization_time to use the latest complete update.
-    bounds contains min_lat, max_lat, min_lon and max_lon; unlike gridded
-    subsetting, it cannot cross the dateline.
+    bounds contains min_latitude, max_latitude, min_longitude and max_longitude;
+    unlike gridded subsetting, it cannot cross the dateline.
     threshold is either {'kind': 'absolute', 'value': number, 'comparison':
     'at_or_above' or 'at_or_below'}, or {'kind': 'percentile', 'percentile': number,
     'direction': 'highest' or 'lowest'}.
 
-    forecast_hours accepts an integer or a nonempty list; omission means every
-    available hour. Return the full FeatureCollection with calculation metadata,
-    the top-level threshold, each feature's grid_calculation and valid-time
+    forecast_hours accepts an integer, a nonempty list, or {'start': 0, 'end': 12}
+    to select available hours in an inclusive range; omit it for every available
+    hour. Return the full FeatureCollection with calculation metadata,
+    the top-level threshold, each feature's output_calculation and valid-time
     bounds, and forecast_hour_errors for skipped hours.
     Output files may use .json or .geojson. The API validates bounds, thresholds
     and calculation syntax.

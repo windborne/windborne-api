@@ -706,12 +706,14 @@ def get_calculation_times_tropical_cyclones(print_response=False, model='wm-6'):
     return response
 
 
-def get_point_forecast_conditions(coordinates, hourly_interval=None, model='wm-6', output_file=None, print_response=False):
+def get_point_forecast_conditions(coordinates, hourly_interval=None, model='wm-6', output_file=None, print_response=False, include_sky_state_icon=False):
     """Get hourly, daily and day/night conditions for up to ten locations.
 
     coordinates accepts a semicolon-separated string or a list of coordinate
     pairs/dictionaries. hourly_interval defaults to 1 on the server; supported
     intervals are 1, 2, 3, 4, 6 and 8 hours.
+    include_sky_state_icon adds sky_state_icon_url and sky_state_condition to
+    each block when True; it defaults to False.
     output_file must use .json to preserve the full response, including its
     nested hourly, daily, and day_night arrays and metadata.
     """
@@ -725,6 +727,8 @@ def get_point_forecast_conditions(coordinates, hourly_interval=None, model='wm-6
     params = {'coordinates': coordinates}
     if hourly_interval is not None:
         params['hourly_interval'] = hourly_interval
+    if include_sky_state_icon:
+        params['include_sky_state_icon'] = 'true'
     response = make_api_request(f'{FORECASTS_API_BASE_URL}/{model}/point_forecast/conditions', params=params)
     if output_path is not None and response is not None:
         save_arbitrary_response(str(output_path), response)

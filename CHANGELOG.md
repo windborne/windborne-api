@@ -7,10 +7,15 @@
   `custom_calculations` CLI commands. Complete responses retain partial errors
   and metadata. These helpers use the existing authentication configuration.
   Expressions, including ensemble-member and forecast-hour aggregations, are
-  passed unchanged to the API for evaluation.
+  passed unchanged to the API for evaluation. Requests support geographic
+  `bounds` and forecast-hour selections as a single hour, list, or inclusive
+  `{"start": 0, "end": 12}` range.
 
 ## 2.0.1
 
+- Point forecast conditions accept `include_sky_state_icon=True` in Python and
+  `--include-sky-state-icon` in the CLI, preserving the additional sky-state
+  fields in the response. The option defaults to off.
 - Observation and super-observation downloads and polling raise authentication,
   permission, and other request errors instead of retrying missing pages forever.
   Temporary gateway, connection, and timeout failures retain the five-attempt

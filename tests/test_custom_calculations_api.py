@@ -18,7 +18,7 @@ BASE = 'https://api.windbornesystems.com/insights/v1/custom-calculations'
 INITIALIZATION = '2026-10-16T18:00:00Z'
 EXPRESSION = '[max_temperature_2m_3h] - [min_temperature_2m_3h]'
 COORDINATES = '37.7749,-122.4194;34.0522,-118.2437'
-BOUNDS = {'min_lat': 37, 'max_lat': 38, 'min_lon': -123, 'max_lon': -122}
+BOUNDS = {'min_latitude': 37, 'max_latitude': 38, 'min_longitude': -123, 'max_longitude': -122}
 THRESHOLD = {'kind': 'percentile', 'percentile': 10, 'direction': 'highest'}
 
 
@@ -44,7 +44,7 @@ def archive():
                 'model': 'wm-6', 'initialization_time': INITIALIZATION,
                 'forecast_zero': '2026-10-16T12:00:00Z', 'forecast_hours': [0, 6, 12],
                 'calculation': EXPRESSION,
-                'grid_calculations': [EXPRESSION],
+                'output_calculations': [EXPRESSION],
                 'evaluations': [{'forecast_hour': 6}, {'forecast_hour': 12}],
                 'forecast_hour_errors': [{'forecast_hour': 0, 'code': 'MISSING_INPUT_DATA', 'message': 'Input unavailable'}],
             },
@@ -92,15 +92,17 @@ def test_validation_preserves_http_200_result_and_expression(payload, tmp_path, 
 
 def test_gridded_binary_preserves_archive_and_all_documented_options(archive, tmp_path, capsys):
     output = tmp_path / 'nested' / 'result.zarr.zip'
-    hours, lat_range, lon_range = [0, 6, 12], [24, 50], [170, -170]
+    hours = [0, 6, 12]
+    bounds = {'min_latitude': 0, 'max_latitude': 50, 'min_longitude': 170, 'max_longitude': -170}
+    original_bounds = bounds.copy()
     with patch.object(api_request.requests, 'request', return_value=response(content=archive)) as request:
         result = windborne.calculate_gridded(
             EXPRESSION, INITIALIZATION, forecast_hours=hours,
-            lat_range=lat_range, lon_range=lon_range, output_file=output,
+            bounds=bounds, output_file=output,
         )
     assert_post(request, 'gridded', {
         'model': 'wm-6', 'initialization_time': INITIALIZATION, 'calculation': EXPRESSION,
-        'forecast_hours': [0, 6, 12], 'lat_range': [24, 50], 'lon_range': [170, -170],
+        'forecast_hours': [0, 6, 12], 'bounds': original_bounds,
         'as_url': False,
     })
     assert isinstance(result, bytes)
@@ -110,10 +112,9 @@ def test_gridded_binary_preserves_archive_and_all_documented_options(archive, tm
         metadata = json.loads(saved.read('zarr.json'))['attributes']
         assert metadata['forecast_hour_errors'][0]['forecast_hour'] == 0
         assert metadata['forecast_hours'] == [0, 6, 12]
-        assert metadata['grid_calculations'] == [EXPRESSION]
+        assert metadata['output_calculations'] == [EXPRESSION]
     assert hours == [0, 6, 12]
-    assert lat_range == [24, 50]
-    assert lon_range == [170, -170]
+    assert bounds == original_bounds
     assert capsys.readouterr().out == ''
 
 
@@ -124,6 +125,21 @@ def test_gridded_default_returns_bytes_without_requiring_a_file(archive):
     assert_post(request, 'gridded', {
         'model': 'wm-6-3km', 'calculation': EXPRESSION, 'as_url': False,
     })
+
+
+@pytest.mark.parametrize('bounds', [
+    None, {}, {'min_latitude': 0, 'max_latitude': 0},
+    {'min_longitude': 170, 'max_longitude': -170},
+])
+def test_gridded_preserves_optional_bounds_without_filling_missing_axes(bounds):
+    original_bounds = copy.deepcopy(bounds)
+    with patch.object(api_request.requests, 'request', return_value=response({})) as request:
+        windborne.calculate_gridded(EXPRESSION, bounds=bounds, as_url=True)
+    body = {'model': 'wm-6', 'calculation': EXPRESSION, 'as_url': True}
+    if bounds is not None:
+        body['bounds'] = original_bounds
+    assert_post(request, 'gridded', body)
+    assert bounds == original_bounds
 
 
 def test_gridded_url_returns_metadata_without_following_signed_url(tmp_path, capsys):
@@ -160,12 +176,12 @@ def test_points_keeps_raw_member_grid_order_nulls_and_partial_failures(tmp_path,
     payload = {
         'model': 'wm-6', 'initialization_time': INITIALIZATION,
         'forecast_zero': '2026-10-16T12:00:00Z', 'forecast_hours': [0, 6],
-        'calculation': expression, 'grid_calculations': [
+        'calculation': expression, 'output_calculations': [
             '[temperature_2m(members=7)]', '[temperature_2m(members=9)]',
         ],
         'coordinates': COORDINATES,
         'forecast_hour_errors': [{'forecast_hour': 0, 'code': 'MISSING_INPUT_DATA', 'message': 'Unavailable input'}],
-        'results': [{'forecast_hour': 6, 'grids': [
+        'results': [{'forecast_hour': 6, 'outputs': [
             {'valid_from': '2026-10-16T18:00:00Z', 'valid_to': '2026-10-16T18:00:00Z', 'values': [1.25, None]},
             {'valid_from': '2026-10-16T18:00:00Z', 'valid_to': '2026-10-16T18:00:00Z', 'values': [None, 0]},
         ]}],
@@ -194,13 +210,13 @@ def test_threshold_preserves_geometry_metadata_partial_errors_and_input(threshol
     payload = {
         'model': 'wm-6-3km', 'initialization_time': INITIALIZATION,
         'forecast_zero': '2026-10-16T12:00:00Z', 'forecast_hours': [0, 6],
-        'calculation': EXPRESSION, 'grid_calculations': [EXPRESSION],
+        'calculation': EXPRESSION, 'output_calculations': [EXPRESSION],
         'threshold': threshold,
         'type': 'FeatureCollection', 'features': [{
             'type': 'Feature',
             'geometry': {'type': 'MultiPolygon', 'coordinates': [[[[-123, 37], [-122, 37], [-122, 38], [-123, 37]]]]},
             'properties': {
-                'forecast_hour': 0, 'grid_calculation': EXPRESSION,
+                'forecast_hour': 0, 'output_calculation': EXPRESSION,
                 'valid_from': '2026-10-16T12:00:00Z', 'valid_to': '2026-10-16T12:00:00Z',
             },
         }], 'forecast_hour_errors': [{'forecast_hour': 6, 'code': 'MISSING_INPUT_DATA', 'message': 'Unavailable input'}],
@@ -240,16 +256,18 @@ def test_all_calculations_omit_unspecified_initialization_for_latest_complete_up
     (windborne.calculate_points, {'coordinates': COORDINATES}),
     (windborne.calculate_threshold, {'initialization_time': INITIALIZATION, 'bounds': BOUNDS, 'threshold': THRESHOLD}),
 ])
-@pytest.mark.parametrize('hours', [None, 0, [0], [0, 6, 12]])
-def test_hour_selection_preserves_omitted_integer_zero_and_list(helper, arguments, hours):
+@pytest.mark.parametrize('hours', [None, 0, [0], [0, 6, 12], {'start': 0, 'end': 12}])
+def test_hour_selection_preserves_omitted_integer_zero_list_and_range(helper, arguments, hours):
+    original_hours = copy.deepcopy(hours)
     with patch.object(api_request.requests, 'request', return_value=response({})) as request:
         helper(EXPRESSION, forecast_hours=hours, **arguments)
     body = request.call_args.kwargs['json']
     if hours is None:
         assert 'forecast_hours' not in body
         return
-    assert body['forecast_hours'] == hours
+    assert body['forecast_hours'] == original_hours
     assert type(body['forecast_hours']) is type(hours)
+    assert hours == original_hours
 
 
 CASES = [
@@ -358,7 +376,7 @@ def test_threshold_no_matches_is_a_successful_empty_collection(tmp_path):
         'type': 'FeatureCollection', 'features': [],
         'model': 'wm-6', 'initialization_time': INITIALIZATION,
         'forecast_zero': '2026-10-16T12:00:00Z', 'forecast_hours': [0],
-        'calculation': EXPRESSION, 'grid_calculations': [EXPRESSION],
+        'calculation': EXPRESSION, 'output_calculations': [EXPRESSION],
         'threshold': THRESHOLD,
         'forecast_hour_errors': [],
     }
