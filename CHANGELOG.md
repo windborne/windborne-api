@@ -2,6 +2,9 @@
 
 ## 2.0.1
 
+- Point forecast conditions accept `include_sky_state_icon=True` in Python and
+  `--include-sky-state-icon` in the CLI, preserving the additional sky-state
+  fields in the response. The option defaults to off.
 - Observation and super-observation downloads and polling raise authentication,
   permission, and other request errors instead of retrying missing pages forever.
   Temporary gateway, connection, and timeout failures retain the five-attempt
