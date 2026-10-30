@@ -50,7 +50,7 @@ def http(monkeypatch, include_sky_state_icon, model):
 def assert_request(request, include_sky_state_icon, model):
     request.assert_called_once()
     args, kwargs = request.call_args
-    assert args == (f'https://api.windbornesystems.com/forecasts/v1/{model}/point_forecast/conditions',)
+    assert args == (f'https://api.windbornesystems.com/models/v1/{model}/point_forecast/conditions',)
     expected = {'coordinates': '37.77,-122.42;40.7,-74.0', 'hourly_interval': 6}
     if include_sky_state_icon:
         expected['include_sky_state_icon'] = 'true'

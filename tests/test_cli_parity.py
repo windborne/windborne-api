@@ -167,16 +167,16 @@ class CliParityTests(unittest.TestCase):
             {'valid_at': '2026-07-25T00:00:00Z', 'latitude': 21.0, 'longitude': -111.0},
         ]
         cases = [
-            ('legacy list', [], ['--model', 'gfs'], '/gfs/tropical_cyclones',
+            ('legacy list', [], ['--model', 'gfs'], '/forecasts/v1/gfs/tropical_cyclones',
              {'EP072026': [dict(time=point['valid_at'], latitude=point['latitude'],
                                longitude=point['longitude']) for point in track]},
              'EP072026', 'include_details'),
-            ('current list', [], ['--model', 'wm-6'], '/wm-6/tropical_cyclones',
+            ('current list', [], ['--model', 'wm-6'], '/weather/v1/events/tropical_cyclones',
              {'initialization_time': '2026-07-24T18:00:00Z',
               'tropical_cyclones': {'EP072026': {'path': track}}},
              'EP072026', 'include_details'),
             ('unmatched detail', ['detail', 'generated-unmatched-id'], ['--model', 'wm-6'],
-             '/wm-6/tropical_cyclones/generated-unmatched-id',
+             '/weather/v1/events/tropical_cyclones/generated-unmatched-id',
              {'tropical_cyclone_id': 'generated-unmatched-id', 'mean_path': [],
               'members_path': [{'member': 1, 'path': track}]},
              'generated-unmatched-id', 'include_members'),
@@ -195,7 +195,7 @@ class CliParityTests(unittest.TestCase):
                             contextlib.redirect_stdout(io.StringIO()):
                         cli.main()
                     get.assert_called_once()
-                    self.assertEqual(get.call_args.args[0], 'https://api.windbornesystems.com/forecasts/v1' + route)
+                    self.assertEqual(get.call_args.args[0], 'https://api.windbornesystems.com' + route)
                     self.assertEqual(get.call_args.kwargs['params']['format'], 'json')
                     self.assertEqual(get.call_args.kwargs['params'][needed_paths], 'true')
                     with open(output, encoding='utf-8') as stream:
@@ -224,10 +224,10 @@ class CliParityTests(unittest.TestCase):
             ],
         }
         cases = [
-            ('legacy list', [], ['--model', 'gfs'], '/gfs/tropical_cyclones.geojson'),
-            ('current list', [], ['--model', 'wm-6'], '/wm-6/tropical_cyclones'),
+            ('legacy list', [], ['--model', 'gfs'], '/forecasts/v1/gfs/tropical_cyclones.geojson'),
+            ('current list', [], ['--model', 'wm-6'], '/weather/v1/events/tropical_cyclones'),
             ('detail', ['detail', 'EP072026'], ['--model', 'wm-6', '--include-cones'],
-             '/wm-6/tropical_cyclones/EP072026'),
+             '/weather/v1/events/tropical_cyclones/EP072026'),
         ]
         for name, operation, options, route in cases:
             options = options + ['--format', 'geojson']
@@ -243,7 +243,7 @@ class CliParityTests(unittest.TestCase):
                             contextlib.redirect_stdout(io.StringIO()):
                         cli.main()
                     get.assert_called_once()
-                    self.assertEqual(get.call_args.args[0], 'https://api.windbornesystems.com/forecasts/v1' + route)
+                    self.assertEqual(get.call_args.args[0], 'https://api.windbornesystems.com' + route)
                     self.assertEqual(get.call_args.kwargs['params']['format'], 'geojson')
                     with open(output, encoding='utf-8') as stream:
                         self.assertEqual(json.load(stream), payload)

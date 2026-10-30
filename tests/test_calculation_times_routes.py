@@ -1,7 +1,7 @@
 """Exercise public calculation-times routes through SDK and CLI to HTTP.
 
 Contract: Engine's forecast-availability/calculation_times.astro documents
-/forecasts/v1/{model}/calculation_times/{calculation_type}; api_infra/nginx.conf
+/models/v1/{model}/calculation_times/{calculation_type}; api_infra/nginx.conf
 routes that namespace for both degree_days and tropical_cyclones.
 """
 import json
@@ -15,10 +15,10 @@ from windborne import api_request, cli, forecasts_api
 
 @pytest.mark.parametrize('entrypoint', ['sdk', 'cli'])
 @pytest.mark.parametrize('product,model,expected_path', [
-    ('tropical_cyclones', None, '/forecasts/v1/wm-6/calculation_times/tropical_cyclones'),
-    ('degree_days', None, '/forecasts/v1/wm/calculation_times/degree_days'),
-    ('degree_days', 'wm-6', '/forecasts/v1/wm-6/calculation_times/degree_days'),
-    ('degree_days', 'gfs', '/forecasts/v1/gfs/calculation_times/degree_days'),
+    ('tropical_cyclones', None, '/models/v1/wm-6/calculation_times/tropical_cyclones'),
+    ('degree_days', None, '/models/v1/wm/calculation_times/degree_days'),
+    ('degree_days', 'wm-6', '/models/v1/wm-6/calculation_times/degree_days'),
+    ('degree_days', 'gfs', '/models/v1/gfs/calculation_times/degree_days'),
 ])
 def test_calculation_times_reaches_public_http_route(entrypoint, product, model, expected_path, capsys):
     payload = {

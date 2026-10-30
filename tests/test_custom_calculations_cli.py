@@ -11,7 +11,7 @@ import requests
 from windborne import api_request, cli
 
 
-BASE_URL = 'https://api.windbornesystems.com/insights/v1/custom-calculations'
+BASE_URL = 'https://api.windbornesystems.com/weather/v1/custom-calculations'
 CALCULATION = '[temperature_2m] - 273.15'
 INITIALIZATION = '2026-10-21T23:00:00Z'
 COORDINATES = '37.7749,-122.4194;34.0522,-118.2437'

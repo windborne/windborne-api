@@ -81,7 +81,7 @@ def get_weather_context(coordinates=None, stations=None, *, include_conditions=N
             normalized = parse_time(value)
             params[name] = normalized if normalized.endswith('Z') else normalized + 'Z'
 
-    response = make_api_request(f'{API_BASE_URL}/forecasts/v1/weather_context', params=params)
+    response = make_api_request(f'{API_BASE_URL}/weather/v1/context', params=params)
     if response is None:
         return None
     if output_path is not None:

@@ -38,7 +38,7 @@ def validate_calculation(calculation, *, output_file=None, print_response=False)
         raise ValueError('Calculation validation output files must use .json.')
 
     response = make_api_request(
-        f'{API_BASE_URL}/insights/v1/custom-calculations/validate',
+        f'{API_BASE_URL}/weather/v1/custom-calculations/validate',
         method='POST', json={'calculation': calculation},
     )
     _write_json_response(response, output_path, print_response)
@@ -88,7 +88,7 @@ def calculate_gridded(calculation, initialization_time=None, *, model='wm-6',
             body[name] = value
 
     response = make_api_request(
-        f'{API_BASE_URL}/insights/v1/custom-calculations/gridded',
+        f'{API_BASE_URL}/weather/v1/custom-calculations/gridded',
         method='POST', json=body, as_json=as_url,
     )
     if as_url:
@@ -131,7 +131,7 @@ def calculate_points(calculation, coordinates, *, model='wm-6',
         body['forecast_hours'] = forecast_hours
 
     response = make_api_request(
-        f'{API_BASE_URL}/insights/v1/custom-calculations/points',
+        f'{API_BASE_URL}/weather/v1/custom-calculations/points',
         method='POST', json=body,
     )
     _write_json_response(response, output_path, print_response)
@@ -174,7 +174,7 @@ def calculate_threshold(calculation, bounds, threshold, *,
         body['forecast_hours'] = forecast_hours
 
     response = make_api_request(
-        f'{API_BASE_URL}/insights/v1/custom-calculations/threshold',
+        f'{API_BASE_URL}/weather/v1/custom-calculations/threshold',
         method='POST', json=body,
     )
     _write_json_response(response, output_path, print_response)

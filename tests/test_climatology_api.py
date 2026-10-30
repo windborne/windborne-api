@@ -19,7 +19,7 @@ class ClimatologyApiTest(TestCase):
         request.return_value = response
         result = climatology_api.get_climatology('32.9, -97.04; 0, 0', time='2026-07-15')
         request.assert_called_once_with(
-            climatology_api.API_BASE_URL + '/forecasts/v1/climatology',
+            climatology_api.API_BASE_URL + '/weather/v1/climatology/point',
             params={'coordinates': '32.9,-97.04;0,0', 'time': '2026-07-15T00:00:00Z'},
         )
         self.assertIs(response, result)
@@ -34,7 +34,7 @@ class ClimatologyApiTest(TestCase):
         )
         self.assertEqual({
             'coordinates': '32.9,-97.04;0,0',
-            'start_time': '2026-07-15T00:00:00Z', 'end_time': '2026-07-15T08:00:00Z',
+            'min_time': '2026-07-15T00:00:00Z', 'max_time': '2026-07-15T08:00:00Z',
             'normal': '2016-2025', 'rolling_average_days': 0,
             'elevation_correction': 'false', 'water_strategy': 'allow',
         }, request.call_args.kwargs['params'])
@@ -46,9 +46,39 @@ class ClimatologyApiTest(TestCase):
                          request.call_args.kwargs['params']['time'])
 
     @patch.object(climatology_api, 'make_api_request')
+    def test_new_and_legacy_bound_names_make_identical_requests(self, request):
+        response = {'start_time': '2026-07-15T00:00:00Z',
+                    'end_time': '2026-07-15T01:00:00Z', 'climatologies': [[]]}
+        request.return_value = response
+        for lower in ('min_time', 'start_time'):
+            for upper in ('max_time', 'end_time'):
+                with self.subTest(lower=lower, upper=upper):
+                    result = climatology_api.get_climatology(
+                        '0,0', **{lower: '2026071500', upper: '2026-07-15T01:00:00Z'},
+                    )
+                    self.assertIs(response, result)
+                    self.assertEqual({
+                        'coordinates': '0,0', 'min_time': '2026-07-15T00:00:00Z',
+                        'max_time': '2026-07-15T01:00:00Z',
+                    }, request.call_args.kwargs['params'])
+
+    @patch.object(climatology_api, 'make_api_request')
+    def test_duplicate_bound_names_fail_before_request(self, request):
+        for canonical, legacy in (('min_time', 'start_time'), ('max_time', 'end_time')):
+            with self.subTest(bound=canonical), self.assertRaisesRegex(ValueError, 'not both'):
+                climatology_api.get_climatology(
+                    '0,0', **{canonical: '2026-07-15', legacy: '2026-07-16'},
+                )
+        request.assert_not_called()
+
+    @patch.object(climatology_api, 'make_api_request')
     def test_invalid_time_choice_or_empty_coordinates_make_no_request(self, request):
         cases = [
             {'coordinates': '0,0'},
+            {'coordinates': '0,0', 'min_time': '2026-07-15'},
+            {'coordinates': '0,0', 'max_time': '2026-07-15'},
+            {'coordinates': '0,0', 'time': '2026-07-15', 'min_time': '2026-07-15'},
+            {'coordinates': '0,0', 'time': '2026-07-15', 'max_time': '2026-07-15'},
             {'coordinates': '0,0', 'start_time': '2026-07-15'},
             {'coordinates': '0,0', 'end_time': '2026-07-15'},
             {'coordinates': '0,0', 'time': '2026-07-15', 'start_time': '2026-07-15'},
@@ -124,7 +154,7 @@ class ClimatologySummaryApiTest(TestCase):
         request.return_value = response
         result = climatology_api.get_climatology_summary('32.9, -97.04; 0, 0', date='2027-09-28')
         request.assert_called_once_with(
-            climatology_api.API_BASE_URL + '/forecasts/v1/climatology/summary',
+            climatology_api.API_BASE_URL + '/weather/v1/climatology/summary',
             params={'coordinates': '32.9,-97.04;0,0', 'date': '2027-09-28'},
         )
         self.assertIs(response, result)

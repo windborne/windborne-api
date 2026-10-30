@@ -1,5 +1,17 @@
 # Release notes
 
+## 2.1.1
+
+- Align requests with the API's Weather, Models, and Atlas routes. Existing
+  Python functions, positional arguments, CLI commands, and model defaults are
+  retained. Legacy routes remain in use where the new routes do not preserve
+  the selected model's behavior or response format.
+- Hourly climatology accepts `min_time` / `max_time` in Python and
+  `--min-time` / `--max-time` in the CLI. Existing `start_time` / `end_time`
+  arguments and `--start-time` / `--end-time` flags remain supported. Requests
+  send the canonical `min_time` / `max_time` query parameters; response fields
+  are unchanged. Supplying both names for the same bound raises an error.
+
 ## 2.1.0
 
 - Custom Calculation validation, gridded Zarr downloads or temporary download

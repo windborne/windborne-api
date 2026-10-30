@@ -14,7 +14,7 @@ import windborne
 from windborne import api_request, custom_calculations_api as calculations
 
 
-BASE = 'https://api.windbornesystems.com/insights/v1/custom-calculations'
+BASE = 'https://api.windbornesystems.com/weather/v1/custom-calculations'
 INITIALIZATION = '2026-10-16T18:00:00Z'
 EXPRESSION = '[max_temperature_2m_3h] - [min_temperature_2m_3h]'
 COORDINATES = '37.7749,-122.4194;34.0522,-118.2437'

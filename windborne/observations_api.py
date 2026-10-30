@@ -10,6 +10,8 @@ from .utils import to_unix_timestamp, save_arbitrary_response, print_table
 from .track_formatting import save_track
 
 DATA_API_BASE_URL = f"{API_BASE_URL}/observations/v1"
+OBSERVATIONS_API_BASE_URL = f"{API_BASE_URL}/atlas/observations/v1"
+POSITIONS_API_BASE_URL = f"{API_BASE_URL}/atlas/positions/v1"
 
 # ------------
 # CORE RESOURCES
@@ -40,7 +42,7 @@ def get_observations_page(since=None, min_time=None, max_time=None, include_ids=
         dict: The API response containing filtered observations.
     """
 
-    url = f"{DATA_API_BASE_URL}/observations.json"
+    url = f"{OBSERVATIONS_API_BASE_URL}/observations.json"
     
     # Convert date strings to Unix timestamps
     params = {}
@@ -100,7 +102,7 @@ def get_super_observations_page(since=None, min_time=None, max_time=None, includ
         dict: The API response containing filtered super observations.
     """
 
-    url = f"{DATA_API_BASE_URL}/super_observations.json"
+    url = f"{OBSERVATIONS_API_BASE_URL}/super_observations.json"
 
     params = {}
     if since:
@@ -587,7 +589,7 @@ def get_flying_missions(output_file=None, print_results=False, *, print_response
         'page_size': page_size 
     }
 
-    url = f"{DATA_API_BASE_URL}/flying_missions.json"
+    url = f"{POSITIONS_API_BASE_URL}/flying_missions.json"
     flying_missions_response = make_api_request(url, params=query_params)
 
     flying_missions = flying_missions_response.get("missions", [])
@@ -655,7 +657,7 @@ def get_mission_launch_site(mission_id=None, output_file=None, print_result=Fals
         print("Must provide mission ID")
         return
 
-    url = f"{DATA_API_BASE_URL}/missions/{mission_id}/launch_site.json"
+    url = f"{POSITIONS_API_BASE_URL}/missions/{mission_id}/launch_site.json"
     response = make_api_request(url)
 
     if response and print_result:
@@ -737,7 +739,7 @@ def get_predicted_path(mission_id=None, output_file=None, print_result=False, *,
 
     mission = get_flying_mission(mission_id)
 
-    url = f"{DATA_API_BASE_URL}/missions/{mission.get('id')}/predicted_path.json"
+    url = f"{POSITIONS_API_BASE_URL}/missions/{mission.get('id')}/predicted_path.json"
     response = make_api_request(url)
 
     if response is None:
@@ -783,7 +785,7 @@ def get_current_location(mission_id=None, output_file=None, print_result=False, 
 
     mission = get_flying_mission(mission_id, verify_flying=verify_flying)
 
-    url = f"{DATA_API_BASE_URL}/missions/{mission.get('id')}/current_location.json"
+    url = f"{POSITIONS_API_BASE_URL}/missions/{mission.get('id')}/current_location.json"
     response = make_api_request(url)
 
     if response is None:
@@ -819,7 +821,7 @@ def get_flight_path(mission_id=None, output_file=None, print_result=False, *, pr
         print("A mission id is required to get a flight path")
         return
 
-    url = f"{DATA_API_BASE_URL}/missions/{mission_id}/flight_path.json"
+    url = f"{POSITIONS_API_BASE_URL}/missions/{mission_id}/flight_path.json"
     response = make_api_request(url)
 
     if response is None:
@@ -860,7 +862,7 @@ def get_constellation_status(output_file=None, print_results=False, *, print_res
         'page_size': page_size
     }
 
-    url = f"{DATA_API_BASE_URL}/constellation_status.json"
+    url = f"{POSITIONS_API_BASE_URL}/constellation_status.json"
     constellation_response = make_api_request(url, params=query_params)
 
     if not constellation_response:
@@ -973,7 +975,7 @@ def get_soundings(
     """
     if print_response is not None:
         print_results = print_response
-    url = f"{DATA_API_BASE_URL}/soundings"
+    url = f"{OBSERVATIONS_API_BASE_URL}/soundings"
 
     params = {}
     if mission_id is not None:
@@ -1043,7 +1045,7 @@ def get_sounding(sounding_id, output_file=None, print_result=False, *, print_res
         print("Must provide a sounding ID.")
         return {}
 
-    url = f"{DATA_API_BASE_URL}/soundings/{sounding_id}"
+    url = f"{OBSERVATIONS_API_BASE_URL}/soundings/{sounding_id}"
     response = make_api_request(url)
 
     if response is None:
@@ -1104,7 +1106,7 @@ def get_recent_asos_observations(
         print("Must provide a station.")
         return {}
 
-    url = f"{DATA_API_BASE_URL}/asos/recent"
+    url = f"{API_BASE_URL}/weather/v1/observations/asos/recent"
 
     params = {"station": station}
     if hours is not None:

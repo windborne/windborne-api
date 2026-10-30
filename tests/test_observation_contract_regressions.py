@@ -70,7 +70,7 @@ def test_public_pollers_advance_at_end_and_after_empty_pages(
     callbacks = []
 
     def request(url, params, raise_errors):
-        assert url == observations_api.DATA_API_BASE_URL + "/" + endpoint
+        assert url == observations_api.OBSERVATIONS_API_BASE_URL + "/" + endpoint
         assert raise_errors is True
         assert params["include_updated_at"] is True
         requested.append(params["since"])
@@ -225,7 +225,7 @@ def test_default_constellation_cli_prints_restricted_coordinates(capsys):
         with patch("sys.argv", ["windborne", "constellation_status"]):
             cli.main()
     request.assert_called_once_with(
-        observations_api.DATA_API_BASE_URL + "/constellation_status.json",
+        observations_api.POSITIONS_API_BASE_URL + "/constellation_status.json",
         params={"page": 0, "page_size": 64},
     )
     assert response == original

@@ -89,8 +89,10 @@ def add_public_api_commands(subparsers):
     _output(climatology, get_climatology)
     climatology.add_argument('coordinates', help='Semicolon-separated latitude,longitude pairs')
     climatology.add_argument('--time')
-    climatology.add_argument('--start-time')
-    climatology.add_argument('--end-time')
+    for canonical, legacy in (('min-time', 'start-time'), ('max-time', 'end-time')):
+        bound = climatology.add_mutually_exclusive_group()
+        bound.add_argument('--' + canonical)
+        bound.add_argument('--' + legacy, help='Alias for --' + canonical)
     climatology.add_argument('--normal')
     climatology.add_argument('--rolling-average-days', type=int)
     _optional_boolean(climatology, 'elevation-correction', 'Correct temperature and dewpoint for elevation')
