@@ -22,7 +22,7 @@ class WeatherContextApiTest(TestCase):
             with self.subTest(arguments=arguments):
                 weather_context_api.get_weather_context(**arguments)
                 request.assert_called_with(
-                    weather_context_api.API_BASE_URL + '/forecasts/v1/weather_context',
+                    weather_context_api.API_BASE_URL + '/weather/v1/context',
                     params=expected,
                 )
 

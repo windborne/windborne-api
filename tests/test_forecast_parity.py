@@ -289,7 +289,7 @@ class ForecastParityTests(unittest.TestCase):
         self.request.return_value = {'tropical_cyclone_id': 'EP072026', 'mean_path': []}
         api.get_tropical_cyclone('EP072026', initialization_time='2026072418', include_members=True, include_cones=True)
         self.assertTrue(self.request.call_args.kwargs['as_json'])
-        self.assertTrue(self.request.call_args.args[0].endswith('/wm-6/tropical_cyclones/EP072026'))
+        self.assertTrue(self.request.call_args.args[0].endswith('/weather/v1/events/tropical_cyclones/EP072026'))
         self.assertEqual(self.params()['include_members'], 'true')
         self.assertEqual(self.params()['include_cones'], 'true')
         self.request.return_value = Mock(content=b'EP, 07, A-deck\n', text='EP, 07, A-deck\n')
@@ -303,15 +303,15 @@ class ForecastParityTests(unittest.TestCase):
     def test_tc_index_bounds_pagination_and_availability_routes(self):
         self.request.return_value = {'tropical_cyclones': [], 'available': []}
         api.get_tropical_cyclone_index(basin='CP', min_time='2026072400', page=0, page_size=64)
-        self.assertTrue(self.request.call_args.args[0].endswith('/wm-6/tropical_cyclones/index'))
+        self.assertTrue(self.request.call_args.args[0].endswith('/weather/v1/events/tropical_cyclones/index'))
         self.assertEqual(self.params()['min_time'], '2026-07-24T00:00:00')
         self.assertNotIn('max_time', self.params())
         self.assertEqual(self.params()['page'], 0)
         self.assertEqual(self.params()['page_size'], 64)
         api.get_tropical_cyclone_init_times('AL022026')
-        self.assertTrue(self.request.call_args.args[0].endswith('/wm-6/tropical_cyclones/AL022026/init_times'))
+        self.assertTrue(self.request.call_args.args[0].endswith('/weather/v1/events/tropical_cyclones/AL022026/initialization_times'))
         api.get_calculation_times_tropical_cyclones()
-        self.assertTrue(self.request.call_args.args[0].endswith('/forecasts/v1/wm-6/calculation_times/tropical_cyclones'))
+        self.assertTrue(self.request.call_args.args[0].endswith('/models/v1/wm-6/calculation_times/tropical_cyclones'))
 
     def test_conditions_accept_coordinate_list_and_forward_interval(self):
         response = {'forecasts': [{'latitude': 37.77, 'longitude': -122.42, 'hourly': [{'start_time': 'a', 'end_time': 'b', 'text': 'Clear'}]}]}

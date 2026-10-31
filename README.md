@@ -71,6 +71,7 @@ windborne events list atmospheric_river
 | [Weather Context](https://api.windbornesystems.com/forecasts/version_1/context/weather-context) | `get_weather_context`, `get_climatology`, `get_climatology_summary`, `get_recent_asos_observations` |
 | [Tropical Cyclones](https://api.windbornesystems.com/forecasts/version_1/tropical-cyclones/about) | `get_tropical_cyclones`, `get_tropical_cyclone`, `get_tropical_cyclone_index`, `get_tropical_cyclone_init_times` |
 | [Weather Events](https://api.windbornesystems.com/insights/version_1/events/about) | `get_events`, `get_event`, `get_event_index`, `get_event_init_times`, `get_event_context` |
+| [Custom Calculations](https://api.windbornesystems.com/insights/version_1/custom-calculations/about/) | `validate_calculation`, `calculate_gridded`, `calculate_points`, `calculate_threshold` |
 | [Degree Days](https://api.windbornesystems.com/insights/version_1/population-weighted/hdd) | `get_population_weighted_hdds`, `get_population_weighted_cdds` |
 | [Webhooks](https://api.windbornesystems.com/technical-guides/webhooks/about-webhooks) | `create_webhook`, `list_webhooks`, `get_webhook`, `update_webhook`, `delete_webhook`, `add_webhook_subscription`, `update_webhook_subscription`, `delete_webhook_subscription`, `ping_webhook_subscription` |
 

@@ -1,4 +1,4 @@
-"""CLI commands for Events, context data, and customer webhook management."""
+"""CLI commands for Events, context data, calculations, and customer webhooks."""
 import argparse
 import inspect
 import json
@@ -11,6 +11,9 @@ from .events_api import (
 )
 from .climatology_api import get_climatology, get_climatology_summary
 from .weather_context_api import get_weather_context
+from .custom_calculations_api import (
+    validate_calculation, calculate_gridded, calculate_points, calculate_threshold,
+)
 from .webhooks_api import (
     WebhookOutputError,
     list_webhooks, get_webhook, create_webhook, update_webhook, delete_webhook,
@@ -86,8 +89,10 @@ def add_public_api_commands(subparsers):
     _output(climatology, get_climatology)
     climatology.add_argument('coordinates', help='Semicolon-separated latitude,longitude pairs')
     climatology.add_argument('--time')
-    climatology.add_argument('--start-time')
-    climatology.add_argument('--end-time')
+    for canonical, legacy in (('min-time', 'start-time'), ('max-time', 'end-time')):
+        bound = climatology.add_mutually_exclusive_group()
+        bound.add_argument('--' + canonical)
+        bound.add_argument('--' + legacy, help='Alias for --' + canonical)
     climatology.add_argument('--normal')
     climatology.add_argument('--rolling-average-days', type=int)
     _optional_boolean(climatology, 'elevation-correction', 'Correct temperature and dewpoint for elevation')
@@ -117,6 +122,20 @@ def add_public_api_commands(subparsers):
     context.add_argument('--climatology-normal')
     for option in ('conditions', 'observations', 'distribution', 'climatology', 'climatology-summary'):
         _optional_boolean(context, 'include-' + option, 'Include {} (true or false)'.format(option))
+
+    calculations = subparsers.add_parser('custom_calculations', help='Evaluate custom forecast expressions')
+    operations = calculations.add_subparsers(dest='operation')
+    operations.required = True
+    for operation, function, description in (
+        ('validate', validate_calculation, 'Validate calculation syntax; prints valid and errors'),
+        ('gridded', calculate_gridded, 'Save a Zarr ZIP with --output, or use as_url: true for JSON'),
+        ('points', calculate_points, 'Calculate values at coordinates and return JSON'),
+        ('threshold', calculate_threshold, 'Calculate threshold polygons and return GeoJSON'),
+    ):
+        command = operations.add_parser(operation, help=description, description=description)
+        _output(command, function)
+        command.add_argument('--body', required=True, type=_json_object_file,
+                             help='JSON request-body file; use - to read from stdin')
 
     webhooks = subparsers.add_parser('webhooks', help='Manage your webhooks and subscriptions')
     operations = webhooks.add_subparsers(dest='operation')
@@ -167,6 +186,9 @@ def run_public_api_command(args):
         inspect.signature(function).bind(**kwargs)
     except TypeError as error:
         args._api_parser.error(str(error))
+    if function is calculate_gridded and kwargs.get('as_url') is not True and not kwargs.get('output_file'):
+        args._api_parser.error('Gridded ZIP downloads require --output result.zarr.zip; '
+                               'set "as_url": true in the body to print a download URL instead.')
     try:
         function(**kwargs)
     except WebhookOutputError as error:
@@ -184,4 +206,8 @@ def run_public_api_command(args):
             except (OSError, ValueError):
                 pass
         raise SystemExit(1)
+    except (TypeError, ValueError) as error:
+        if args.command != 'custom_calculations':
+            raise
+        args._api_parser.error(str(error))
     return True

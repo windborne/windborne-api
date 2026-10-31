@@ -1,5 +1,42 @@
 # Release notes
 
+## 2.1.0
+
+- Align requests with the API's Weather, Models, and Atlas routes. Existing
+  Python functions, positional arguments, CLI commands, and model defaults are
+  retained. Legacy routes remain in use where the new routes do not preserve
+  the selected model's behavior or response format.
+- Hourly climatology accepts `min_time` / `max_time` in Python and
+  `--min-time` / `--max-time` in the CLI. Existing `start_time` / `end_time`
+  arguments and `--start-time` / `--end-time` flags remain supported. Requests
+  send the canonical `min_time` / `max_time` query parameters; response fields
+  are unchanged. Supplying both names for the same bound raises an error.
+
+- Custom Calculation validation, gridded Zarr downloads or temporary download
+  URLs, point values, and threshold GeoJSON, through Python helpers and the
+  `custom_calculations` CLI commands. Complete responses retain partial errors
+  and metadata. These helpers use the existing authentication configuration.
+  Expressions, including ensemble-member and forecast-hour aggregations, are
+  passed unchanged to the API for evaluation. Requests support geographic
+  `bounds` and forecast-hour selections as a single hour, list, or inclusive
+  `{"start": 0, "end": 12}` range.
+
+- Point forecast conditions accept `include_sky_state_icon=True` in Python and
+  `--include-sky-state-icon` in the CLI, preserving the additional sky-state
+  fields in the response. The option defaults to off.
+- Observation and super-observation downloads and polling raise authentication,
+  permission, and other request errors instead of retrying missing pages forever.
+  HTTP 502, connection, and timeout failures retain the five-attempt
+  limit; the pagination loop no longer restarts retries after a failed request.
+- Sounding-list requests raise on failed or malformed pages instead of returning
+  an empty list that could make an incomplete download look finished. Successful
+  empty pages still return an empty list.
+- Finite observation and super-observation exports sort and save once after all
+  pages succeed, avoiding repeated rewrites of the accumulated data. Output files
+  are now written at completion, with the same formats, columns, timestamp order,
+  and processed counts. Memory usage is unchanged. Continuous polling and custom
+  save callbacks retain intermediate batches, without a duplicate final save.
+
 ## 2.0.0
 
 ### Added

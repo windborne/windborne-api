@@ -7,7 +7,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, quote, urlsplit
 
 import requests
 from windborne import events_api as api
@@ -27,15 +27,56 @@ class EventsApiTests(unittest.TestCase):
         cases = [
             (api.get_events, ('atmospheric_river',), '/atmospheric_river', {}),
             (api.get_event_index, ('front',), '/front/index', {}),
-            (api.get_event, ('ar_00012026',), '/ar_00012026', {}),
-            (api.get_event_init_times, ('ar_00012026',), '/ar_00012026/init_times', {}),
-            (api.get_event_context, ('35,-129',), '/event-context', {'coordinates': '35,-129'}),
+            (api.get_event, ('ar_00012026',), '/atmospheric_river/ar_00012026/details', {}),
+            (api.get_event_init_times, ('ar_00012026',), '/atmospheric_river/ar_00012026/initialization_times', {}),
+            (api.get_event_context, ('35,-129',), '/for_location', {'coordinates': '35,-129'}),
         ]
         for function, args, path, params in cases:
             with self.subTest(function=function.__name__):
                 function(*args)
-                self.assertEqual(self.request.call_args.args[0], 'https://api.windbornesystems.com/insights/v1/wm-6' + path)
+                self.assertEqual(self.request.call_args.args[0], 'https://api.windbornesystems.com/weather/v1/events' + path)
                 self.assertEqual(self.params(), params)
+
+    def test_each_event_family_uses_its_own_detail_and_initialization_routes(self):
+        for prefix, event_type in [('ar', 'atmospheric_river'), ('hw', 'heatwave'),
+                                   ('cw', 'coldwave'), ('fr', 'front')]:
+            for function, suffix in [(api.get_event, 'details'),
+                                     (api.get_event_init_times, 'initialization_times')]:
+                with self.subTest(prefix=prefix, function=function.__name__):
+                    event_id = prefix + '_00012026'
+                    result = function(event_id)
+                    self.assertIs(result, self.request.return_value)
+                    self.assertEqual(self.request.call_args.args[0],
+                                     'https://api.windbornesystems.com/weather/v1/events/'
+                                     + event_type + '/' + event_id + '/' + suffix)
+
+    def test_legacy_models_keep_their_original_routes(self):
+        for function, args, suffix in [
+            (api.get_events, ('front',), '/front'),
+            (api.get_event_index, ('front',), '/front/index'),
+            (api.get_event, ('fr_123',), '/fr_123'),
+            (api.get_event_init_times, ('fr_123',), '/fr_123/init_times'),
+            (api.get_event_context, ('0,0',), '/event-context'),
+        ]:
+            with self.subTest(function=function.__name__):
+                result = function(*args, model='future-model')
+                self.assertIs(result, self.request.return_value)
+                self.assertEqual(self.request.call_args.args[0],
+                                 'https://api.windbornesystems.com/insights/v1/future-model' + suffix)
+
+    def test_unmapped_types_and_ids_still_reach_the_api(self):
+        # New or historical IDs must not be rejected by the SDK's route selection.
+        for event_id in ['front_00012026', 'new_1', 'fr_abc', 'fr_١', 'fr_123/extra']:
+            for function, suffix in [(api.get_event, ''), (api.get_event_init_times, '/init_times')]:
+                with self.subTest(event_id=event_id, function=function.__name__):
+                    function(event_id)
+                    self.assertEqual(self.request.call_args.args[0],
+                                     'https://api.windbornesystems.com/insights/v1/wm-6/'
+                                     + quote(event_id, safe='') + suffix)
+        for function, suffix in [(api.get_events, ''), (api.get_event_index, '/index')]:
+            function('new/type')
+            self.assertEqual(self.request.call_args.args[0],
+                             'https://api.windbornesystems.com/insights/v1/wm-6/new%2Ftype' + suffix)
 
     def test_list_sends_all_documented_filters_with_zero_and_false(self):
         response = {'model': 'wm-6', 'event_type': 'heatwave', 'init_time': '2026-09-14T05:00:00Z', 'events': {}, 'total': 0}

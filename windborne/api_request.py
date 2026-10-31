@@ -114,7 +114,7 @@ def get_verified_api_credentials():
     return VERIFIED_WB_CLIENT_ID, VERIFIED_WB_API_KEY
 
 
-def make_api_request(url, params=None, as_json=True, retry_counter=0, *, method='GET', json=None):
+def make_api_request(url, params=None, as_json=True, retry_counter=0, *, method='GET', json=None, raise_errors=False):
     """
     Make an authenticated request to the WindBorne API.
 
@@ -127,6 +127,7 @@ def make_api_request(url, params=None, as_json=True, retry_counter=0, *, method=
     :param retry_counter: The number of times the request has been retried
     :param method: HTTP method. Only GET requests are automatically retried.
     :param json: Optional JSON request body
+    :param raise_errors: Raise GET failures instead of returning None; transient retries remain bounded.
     :return:
     """
     method = method.upper()
@@ -167,7 +168,7 @@ def make_api_request(url, params=None, as_json=True, retry_counter=0, *, method=
             return response
 
     except requests.exceptions.HTTPError as http_err:
-        if method != 'GET':
+        if method != 'GET' or (raise_errors and http_err.response.status_code != 502):
             raise
         if http_err.response.status_code == 403:
             print("--------------------------------------")
@@ -199,7 +200,7 @@ def make_api_request(url, params=None, as_json=True, retry_counter=0, *, method=
             print(f"Temporary connection failure; sleeping for {2**retry_counter}s before retrying")
             print(f"Underlying error: 502 Bad Gateway")
             time.sleep(2**retry_counter)
-            return make_api_request(url, params, as_json, retry_counter + 1, method=method, json=json)
+            return make_api_request(url, params, as_json, retry_counter + 1, method=method, json=json, raise_errors=raise_errors)
         else:
             # Re-raise the HTTP error instead of exiting
             raise http_err
@@ -209,15 +210,15 @@ def make_api_request(url, params=None, as_json=True, retry_counter=0, *, method=
         print(f"Temporary connection failure; sleeping for {2**retry_counter}s before retrying")
         print(f"Underlying error: \n\n{conn_err}")
         time.sleep(2**retry_counter)
-        return make_api_request(url, params, as_json, retry_counter + 1, method=method, json=json)
+        return make_api_request(url, params, as_json, retry_counter + 1, method=method, json=json, raise_errors=raise_errors)
     except requests.exceptions.Timeout as timeout_err:
         if method != 'GET':
             raise
         print(f"Temporary connection failure; sleeping for {2**retry_counter}s before retrying")
         print(f"Underlying error: \n\n{timeout_err}")
         time.sleep(2**retry_counter)
-        return make_api_request(url, params, as_json, retry_counter + 1, method=method, json=json)
+        return make_api_request(url, params, as_json, retry_counter + 1, method=method, json=json, raise_errors=raise_errors)
     except requests.exceptions.RequestException as req_err:
-        if method != 'GET':
+        if method != 'GET' or raise_errors:
             raise
         print(f"An error occurred\n\n{req_err}")

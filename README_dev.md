@@ -39,8 +39,8 @@ The `windborne` package is a Python library and CLI tool for accessing WindBorne
 ## Publishing a new version
 
 Merging a PR does not publish the package. Include the version change in
-`pyproject.toml` and release notes in `CHANGELOG.md` in the release PR. Keep the
-release marked `Unreleased` until publication. A maintainer with permission to
+`pyproject.toml` and release notes in `CHANGELOG.md` in the release PR. Use the
+version number as the release heading. A maintainer with permission to
 publish `windborne` on PyPI uploads the package separately after merge.
 
 From a clean checkout of the merged release commit, build and check the artifacts:

@@ -77,6 +77,28 @@ class ObservationPrintAliasesTest(unittest.TestCase):
         self.assertFalse({"print_result", "print_results", "print_response"} & set(params))
         return result, output.getvalue()
 
+    def test_atlas_routes_preserve_existing_returns(self):
+        paths = {
+            'get_flying_missions': '/atlas/positions/v1/flying_missions.json',
+            'get_mission_launch_site': '/atlas/positions/v1/missions/mission/launch_site.json',
+            'get_predicted_path': '/atlas/positions/v1/missions/mission/predicted_path.json',
+            'get_current_location': '/atlas/positions/v1/missions/mission/current_location.json',
+            'get_flight_path': '/atlas/positions/v1/missions/mission/flight_path.json',
+            'get_constellation_status': '/atlas/positions/v1/constellation_status.json',
+            'get_soundings': '/atlas/observations/v1/soundings',
+            'get_sounding': '/atlas/observations/v1/soundings/sounding',
+        }
+        for name, args, _, response, expected in self.cases:
+            with self.subTest(helper=name):
+                with patch.object(observations_api, 'make_api_request',
+                                  return_value=copy.deepcopy(response)) as request:
+                    with patch.object(observations_api, 'get_flying_mission',
+                                      return_value={'id': 'mission', 'name': 'W-123'}):
+                        result = getattr(observations_api, name)(*args)
+                self.assertEqual(result, expected)
+                self.assertEqual(request.call_args.args[0],
+                                 'https://api.windbornesystems.com' + paths[name])
+
     def test_documented_alias_prints_same_response_as_legacy_keyword(self):
         for name, args, legacy, response, expected in self.cases:
             with self.subTest(helper=name):
@@ -128,9 +150,10 @@ class ObservationRequestOptionsTest(unittest.TestCase):
                     min_length=minimum, min_altitude=0, page=0, page_size=20
                 )
                 request.assert_called_with(
-                    observations_api.DATA_API_BASE_URL + "/soundings",
+                    observations_api.OBSERVATIONS_API_BASE_URL + "/soundings",
                     params={"min_altitude": 0, "min_length": minimum,
                             "page": 0, "page_size": 20},
+                    raise_errors=True,
                 )
                 self.assertEqual([{"id": "sounding"}], result)
         observations_api.get_soundings()
@@ -147,7 +170,7 @@ class ObservationRequestOptionsTest(unittest.TestCase):
                     include_high_frequency=requested,
                 )
                 request.assert_called_with(
-                    observations_api.DATA_API_BASE_URL + "/asos/recent",
+                    observations_api.API_BASE_URL + "/weather/v1/observations/asos/recent",
                     params={"station": "KDFW", "hours": 12,
                             "since": "2026-10-01T00:00:00Z",
                             "include_high_frequency": encoded},
@@ -155,7 +178,7 @@ class ObservationRequestOptionsTest(unittest.TestCase):
                 self.assertIs(response, result)
         observations_api.get_recent_asos_observations("KDFW")
         request.assert_called_with(
-            observations_api.DATA_API_BASE_URL + "/asos/recent",
+            observations_api.API_BASE_URL + "/weather/v1/observations/asos/recent",
             params={"station": "KDFW"},
         )
 
