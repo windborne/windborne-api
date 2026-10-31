@@ -1,6 +1,6 @@
 # Release notes
 
-## 2.1.1
+## 2.1.0
 
 - Align requests with the API's Weather, Models, and Atlas routes. Existing
   Python functions, positional arguments, CLI commands, and model defaults are
@@ -12,8 +12,6 @@
   send the canonical `min_time` / `max_time` query parameters; response fields
   are unchanged. Supplying both names for the same bound raises an error.
 
-## 2.1.0
-
 - Custom Calculation validation, gridded Zarr downloads or temporary download
   URLs, point values, and threshold GeoJSON, through Python helpers and the
   `custom_calculations` CLI commands. Complete responses retain partial errors
@@ -23,14 +21,12 @@
   `bounds` and forecast-hour selections as a single hour, list, or inclusive
   `{"start": 0, "end": 12}` range.
 
-## 2.0.1
-
 - Point forecast conditions accept `include_sky_state_icon=True` in Python and
   `--include-sky-state-icon` in the CLI, preserving the additional sky-state
   fields in the response. The option defaults to off.
 - Observation and super-observation downloads and polling raise authentication,
   permission, and other request errors instead of retrying missing pages forever.
-  Temporary gateway, connection, and timeout failures retain the five-attempt
+  HTTP 502, connection, and timeout failures retain the five-attempt
   limit; the pagination loop no longer restarts retries after a failed request.
 - Sounding-list requests raise on failed or malformed pages instead of returning
   an empty list that could make an incomplete download look finished. Successful
