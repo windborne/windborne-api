@@ -42,7 +42,7 @@ def test_published_tuple_examples(example, sounding, tmp_path, capsys):
     else:
         expected['time'] = '2026-01-20T12:00:00Z'
     request.assert_called_once_with(
-        forecasts_api.FORECASTS_API_BASE_URL + '/wm-6/point_forecast/interpolated_sounding',
+        forecasts_api.MODELS_API_BASE_URL + '/wm-6/point_forecast/interpolated_sounding',
         params=expected,
     )
     assert result is sounding

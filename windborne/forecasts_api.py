@@ -15,6 +15,8 @@ from .api_request import make_api_request, API_BASE_URL
 from .track_formatting import save_track
 
 FORECASTS_API_BASE_URL = f"{API_BASE_URL}/forecasts/v1"
+MODELS_API_BASE_URL = f"{API_BASE_URL}/models/v1"
+WEATHER_API_BASE_URL = f"{API_BASE_URL}/weather/v1"
 TCS_SUPPORTED_FORMATS = ('.csv', '.json', '.geojson', '.gpx', '.kml', '.little_r')
 
 
@@ -43,7 +45,7 @@ def get_run_information(initialization_time=None, ens_member=None, print_respons
     if domain is not None:
         params['domain'] = domain
 
-    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/run_information", params=params)
+    response = make_api_request(f"{MODELS_API_BASE_URL}/{model}/run_information", params=params)
 
     if print_response and response is not None:
         print("Initialization time:", response.get('initialization_time'))
@@ -90,7 +92,7 @@ def get_variables(print_response=False, model='wm'):
               levels, and available distribution selections.
     """
 
-    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/variables")
+    response = make_api_request(f"{MODELS_API_BASE_URL}/{model}/variables")
 
     if print_response and response is not None:
         sfc = response.get('sfc_variables', [])
@@ -277,7 +279,10 @@ def get_point_forecasts(coordinates=None, min_forecast_time=None, max_forecast_t
     if print_response:
         print("Generating point forecast...")
 
-    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/point_forecast", params=params)
+    url = f"{FORECASTS_API_BASE_URL}/{model}/point_forecast"
+    if model in ('wm', 'mm', 'metamesh'):
+        url = f"{WEATHER_API_BASE_URL}/point"
+    response = make_api_request(url, params=params)
 
     if output_file:
         save_arbitrary_response(output_file, response, csv_data_key='forecasts')
@@ -399,7 +404,7 @@ def get_gridded_forecast(variable, time=None, initialization_time=None, forecast
         if value is not None:
             request_params[name] = str(value).lower()
 
-    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/gridded", params=request_params, as_json=as_url is True)
+    response = make_api_request(f"{MODELS_API_BASE_URL}/{model}/gridded", params=request_params, as_json=as_url is True)
 
     if response is None:
         return None
@@ -603,7 +608,10 @@ def get_tropical_cyclones(initialization_time=None, basin=None, output_file=None
     if basin is not None:
         params['basin'] = _tropical_cyclone_basin(basin, legacy=legacy)
     suffix = '.geojson' if legacy and format == 'geojson' else ''
-    response = make_api_request(f'{FORECASTS_API_BASE_URL}/{model}/tropical_cyclones{suffix}', params=params)
+    url = f'{FORECASTS_API_BASE_URL}/{model}/tropical_cyclones{suffix}'
+    if not legacy:
+        url = f'{WEATHER_API_BASE_URL}/events/tropical_cyclones'
+    response = make_api_request(url, params=params)
     if response is None:
         return None
     if output_file:
@@ -636,7 +644,10 @@ def get_tropical_cyclone(tropical_cyclone_id, initialization_time=None, include_
     if initialization_time is not None and initialization_time != 'latest':
         params['initialization_time'] = parse_time(initialization_time, init_time_flag=True)
     tc_id = quote(tropical_cyclone_id, safe='')
-    response = make_api_request(f'{FORECASTS_API_BASE_URL}/{model}/tropical_cyclones/{tc_id}', params=params, as_json=format != 'deck')
+    url = f'{FORECASTS_API_BASE_URL}/{model}/tropical_cyclones/{tc_id}'
+    if model == 'wm-6':
+        url = f'{WEATHER_API_BASE_URL}/events/tropical_cyclones/{tc_id}'
+    response = make_api_request(url, params=params, as_json=format != 'deck')
     if response is None:
         return None
     if output_file:
@@ -665,7 +676,10 @@ def get_tropical_cyclone_index(basin=None, include_unofficial_ids=False, min_tim
     for name, value in [('page', page), ('page_size', page_size)]:
         if value is not None:
             params[name] = value
-    response = make_api_request(f'{FORECASTS_API_BASE_URL}/{model}/tropical_cyclones/index', params=params)
+    url = f'{FORECASTS_API_BASE_URL}/{model}/tropical_cyclones/index'
+    if model == 'wm-6':
+        url = f'{WEATHER_API_BASE_URL}/events/tropical_cyclones/index'
+    response = make_api_request(url, params=params)
     if response is None:
         return None
     cyclones = response.get('tropical_cyclones', {})
@@ -685,7 +699,10 @@ def get_tropical_cyclone_index(basin=None, include_unofficial_ids=False, min_tim
 def get_tropical_cyclone_init_times(tropical_cyclone_id, model='wm-6', print_response=False):
     """Get published initialization times containing this cyclone."""
     tc_id = quote(tropical_cyclone_id, safe='')
-    response = make_api_request(f'{FORECASTS_API_BASE_URL}/{model}/tropical_cyclones/{tc_id}/init_times')
+    url = f'{FORECASTS_API_BASE_URL}/{model}/tropical_cyclones/{tc_id}/init_times'
+    if model == 'wm-6':
+        url = f'{WEATHER_API_BASE_URL}/events/tropical_cyclones/{tc_id}/initialization_times'
+    response = make_api_request(url)
     if print_response and response is not None:
         print('Latest initialization time:', response.get('latest'))
         print('Available initialization times:')
@@ -696,7 +713,7 @@ def get_tropical_cyclone_init_times(tropical_cyclone_id, model='wm-6', print_res
 
 def get_calculation_times_tropical_cyclones(print_response=False, model='wm-6'):
     """Get completed, in-progress and incomplete tropical cyclone calculations."""
-    response = make_api_request(f'{FORECASTS_API_BASE_URL}/{model}/calculation_times/tropical_cyclones')
+    response = make_api_request(f'{MODELS_API_BASE_URL}/{model}/calculation_times/tropical_cyclones')
     if print_response and response is not None:
         print('Latest calculation time:', response.get('latest'))
         for key in ('available', 'in_progress', 'incomplete'):
@@ -706,12 +723,14 @@ def get_calculation_times_tropical_cyclones(print_response=False, model='wm-6'):
     return response
 
 
-def get_point_forecast_conditions(coordinates, hourly_interval=None, model='wm-6', output_file=None, print_response=False):
+def get_point_forecast_conditions(coordinates, hourly_interval=None, model='wm-6', output_file=None, print_response=False, include_sky_state_icon=False):
     """Get hourly, daily and day/night conditions for up to ten locations.
 
     coordinates accepts a semicolon-separated string or a list of coordinate
     pairs/dictionaries. hourly_interval defaults to 1 on the server; supported
     intervals are 1, 2, 3, 4, 6 and 8 hours.
+    include_sky_state_icon adds sky_state_icon_url and sky_state_condition to
+    each block when True; it defaults to False.
     output_file must use .json to preserve the full response, including its
     nested hourly, daily, and day_night arrays and metadata.
     """
@@ -725,7 +744,12 @@ def get_point_forecast_conditions(coordinates, hourly_interval=None, model='wm-6
     params = {'coordinates': coordinates}
     if hourly_interval is not None:
         params['hourly_interval'] = hourly_interval
-    response = make_api_request(f'{FORECASTS_API_BASE_URL}/{model}/point_forecast/conditions', params=params)
+    if include_sky_state_icon:
+        params['include_sky_state_icon'] = 'true'
+    url = f'{FORECASTS_API_BASE_URL}/{model}/point_forecast/conditions'
+    if model in ('wm-6', 'mm', 'metamesh'):
+        url = f'{MODELS_API_BASE_URL}/{model}/point_forecast/conditions'
+    response = make_api_request(url, params=params)
     if output_path is not None and response is not None:
         save_arbitrary_response(str(output_path), response)
     if print_response and response is not None:
@@ -751,7 +775,7 @@ def get_initialization_times(print_response=False, ens_member=None, model='wm', 
     if domain is not None:
         params['domain'] = domain
 
-    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/initialization_times", params=params)
+    response = make_api_request(f"{MODELS_API_BASE_URL}/{model}/initialization_times", params=params)
 
     if print_response:
         print("Latest initialization time:", response['latest'])
@@ -780,7 +804,7 @@ def get_archived_initialization_times(print_response=False, ens_member=None, mod
     for name, value in [('page', page), ('page_size', page_size), ('order', order), ('domain', domain)]:
         if value is not None:
             params[name] = value
-    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/initialization_times/archive", params=params)
+    response = make_api_request(f"{MODELS_API_BASE_URL}/{model}/initialization_times/archive", params=params)
 
     if print_response and response is not None:
         print("Available archived initialization times:")
@@ -846,7 +870,7 @@ def get_population_weighted_hdds(initialization_time=None, ens_member=None, outp
         params["initialization_time"] = parse_time(initialization_time, init_time_flag=True)
     if ens_member is not None:
         params["ens_member"] = ens_member
-    response = make_api_request(f"{API_BASE_URL}/insights/v1/{model}/hdds", params=params, as_json=True)
+    response = make_api_request(f"{WEATHER_API_BASE_URL}/events/degree_days/{model}/hdds", params=params, as_json=True)
     if response is None:
         return None
 
@@ -929,7 +953,7 @@ def get_population_weighted_cdds(initialization_time=None, ens_member=None, outp
         params["initialization_time"] = parse_time(initialization_time, init_time_flag=True)
     if ens_member is not None:
         params["ens_member"] = ens_member
-    response = make_api_request(f"{API_BASE_URL}/insights/v1/{model}/cdds", params=params, as_json=True)
+    response = make_api_request(f"{WEATHER_API_BASE_URL}/events/degree_days/{model}/cdds", params=params, as_json=True)
     if response is None:
         return None
 
@@ -1038,7 +1062,7 @@ def get_analysis_variables(source='ecmwf_det_anl', print_response=False):
     """
     # The variables catalog uses model names, unlike the analysis data routes.
     model = {'ecmwf_det_anl': 'ifs_anl', 'ecmwf_ens_anl': 'ens_anl'}.get(source, source)
-    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/variables")
+    response = make_api_request(f"{MODELS_API_BASE_URL}/{model}/variables")
 
     if print_response and response is not None:
         analysis = response.get('analysis', response)
@@ -1196,7 +1220,7 @@ def get_calculation_times_degree_days(ens_member=None, print_response=False, mod
     if ens_member is not None:
         params["ens_member"] = ens_member
 
-    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/calculation_times/degree_days", params=params, as_json=True)
+    response = make_api_request(f"{MODELS_API_BASE_URL}/{model}/calculation_times/degree_days", params=params, as_json=True)
 
     if print_response and response is not None:
         print("Latest calculation time:", response.get('latest'))
@@ -1228,7 +1252,12 @@ def get_available_stations(output_file=None, print_response=False, model='wm'):
     Returns:
         list: Array of station objects with station_id, station_name, latitude, longitude
     """
-    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/point_forecast/stations")
+    # The mm list is unwrapped; metamesh and other legacy routes retain their
+    # existing response shapes, so only mm has an equivalent product alias.
+    url = f"{FORECASTS_API_BASE_URL}/{model}/point_forecast/stations"
+    if model == 'mm':
+        url = f"{MODELS_API_BASE_URL}/mm/point_forecast/stations"
+    response = make_api_request(url)
 
     if output_file:
         save_arbitrary_response(output_file, response)
@@ -1272,7 +1301,7 @@ def get_station_forecast(station_id, initialization_time=None, output_file=None,
         if not station_id or ';' in station_id or ',' in station_id:
             raise ValueError('Provide one station ID; use get_point_forecasts for multiple stations.')
         params['stations'] = station_id
-        response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/point_forecast", params=params)
+        response = make_api_request(f"{WEATHER_API_BASE_URL}/point", params=params)
         if response is None:
             return None
 
@@ -1357,7 +1386,7 @@ def get_interpolated_sounding(coordinates, time=None, initialization_time=None, 
     elif time:
         params["time"] = parse_time(time)
 
-    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/point_forecast/interpolated_sounding", params=params)
+    response = make_api_request(f"{MODELS_API_BASE_URL}/{model}/point_forecast/interpolated_sounding", params=params)
 
     if output_file:
         save_arbitrary_response(output_file, response, csv_data_key='data')
@@ -1452,7 +1481,7 @@ def get_point_forecasts_interpolated(coordinates, min_forecast_time=None, max_fo
         print("Generating interpolated point forecast...")
 
     # Note: interpolated endpoint uses underscore path: point_forecast/interpolated
-    response = make_api_request(f"{FORECASTS_API_BASE_URL}/{model}/point_forecast/interpolated", params=params)
+    response = make_api_request(f"{MODELS_API_BASE_URL}/{model}/point_forecast/interpolated", params=params)
 
     if output_file:
         save_arbitrary_response(output_file, response, csv_data_key='forecasts')

@@ -5,12 +5,16 @@ forecast-hour details, or per-location results. Optional query parameters are
 omitted unless supplied, leaving defaults with the API.
 """
 import json
+import re
 from pathlib import Path
 from urllib.parse import quote
 
 from .api_request import API_BASE_URL, make_api_request
 from .forecasts_api import _format_point_forecast_coordinates
 from .utils import parse_time
+
+
+_EVENT_TYPES = {'ar': 'atmospheric_river', 'hw': 'heatwave', 'cw': 'coldwave', 'fr': 'front'}
 
 
 _TIME_PARAMETERS = {
@@ -33,7 +37,7 @@ def _event_params(**values):
     return params
 
 
-def _get_event_response(model, path, params, output_file, print_response):
+def _get_event_response(url, params, output_file, print_response):
     output_path = Path(output_file) if output_file is not None else None
     if output_path is not None:
         if output_path.suffix.lower() not in ('.json', '.geojson'):
@@ -41,7 +45,6 @@ def _get_event_response(model, path, params, output_file, print_response):
         if output_path.suffix.lower() == '.geojson' and params.get('format') != 'geojson':
             raise ValueError("Use format='geojson' to save a native .geojson response.")
 
-    url = f'{API_BASE_URL}/insights/v1/{quote(model, safe="")}/{path}'
     response = make_api_request(url, params=params)
     if response is None:
         return None
@@ -75,7 +78,10 @@ def get_events(event_type, initialization_time=None, include_details=None, forma
         min_latitude=min_latitude, max_latitude=max_latitude,
         min_longitude=min_longitude, max_longitude=max_longitude,
     )
-    return _get_event_response(model, quote(event_type, safe=''), params, output_file, print_response)
+    url = f'{API_BASE_URL}/insights/v1/{quote(model, safe="")}/{quote(event_type, safe="")}'
+    if model == 'wm-6' and event_type in _EVENT_TYPES.values():
+        url = f'{API_BASE_URL}/weather/v1/events/{event_type}'
+    return _get_event_response(url, params, output_file, print_response)
 
 
 def get_event_index(event_type, min_time=None, max_time=None,
@@ -96,7 +102,10 @@ def get_event_index(event_type, min_time=None, max_time=None,
         min_longitude=min_longitude, max_longitude=max_longitude,
         page=page, page_size=page_size,
     )
-    return _get_event_response(model, f'{quote(event_type, safe="")}/index', params, output_file, print_response)
+    url = f'{API_BASE_URL}/insights/v1/{quote(model, safe="")}/{quote(event_type, safe="")}/index'
+    if model == 'wm-6' and event_type in _EVENT_TYPES.values():
+        url = f'{API_BASE_URL}/weather/v1/events/{event_type}/index'
+    return _get_event_response(url, params, output_file, print_response)
 
 
 def get_event(event_id, initialization_time=None, format=None, model='wm-6',
@@ -110,7 +119,12 @@ def get_event(event_id, initialization_time=None, format=None, model='wm-6',
     geojson. Forecast-hour detail is included by the API without an extra flag.
     """
     params = _event_params(initialization_time=initialization_time, format=format)
-    return _get_event_response(model, quote(event_id, safe=''), params, output_file, print_response)
+    url = f'{API_BASE_URL}/insights/v1/{quote(model, safe="")}/{quote(event_id, safe="")}'
+    match = re.fullmatch(r'(ar|hw|cw|fr)_[0-9]+', event_id)
+    if model == 'wm-6' and match:
+        event_type = _EVENT_TYPES[match.group(1)]
+        url = f'{API_BASE_URL}/weather/v1/events/{event_type}/{event_id}/details'
+    return _get_event_response(url, params, output_file, print_response)
 
 
 def get_event_init_times(event_id, model='wm-6', output_file=None, print_response=False):
@@ -119,7 +133,12 @@ def get_event_init_times(event_id, model='wm-6', output_file=None, print_respons
     The API's available times are sorted earliest to latest. output_file saves
     the complete response to .json.
     """
-    return _get_event_response(model, f'{quote(event_id, safe="")}/init_times', {}, output_file, print_response)
+    url = f'{API_BASE_URL}/insights/v1/{quote(model, safe="")}/{quote(event_id, safe="")}/init_times'
+    match = re.fullmatch(r'(ar|hw|cw|fr)_[0-9]+', event_id)
+    if model == 'wm-6' and match:
+        event_type = _EVENT_TYPES[match.group(1)]
+        url = f'{API_BASE_URL}/weather/v1/events/{event_type}/{event_id}/initialization_times'
+    return _get_event_response(url, {}, output_file, print_response)
 
 
 def get_event_context(coordinates, initialization_time=None, min_forecast_time=None,
@@ -146,4 +165,7 @@ def get_event_context(coordinates, initialization_time=None, min_forecast_time=N
         min_forecast_time=min_forecast_time, max_forecast_time=max_forecast_time,
         event_type=event_type,
     )
-    return _get_event_response(model, 'event-context', params, output_file, print_response)
+    url = f'{API_BASE_URL}/insights/v1/{quote(model, safe="")}/event-context'
+    if model == 'wm-6':
+        url = f'{API_BASE_URL}/weather/v1/events/for_location'
+    return _get_event_response(url, params, output_file, print_response)

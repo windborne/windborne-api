@@ -27,7 +27,7 @@ CATALOG = {
 def test_analysis_source_uses_model_catalog_and_preserves_response(source, model, capsys):
     with patch.object(api, 'make_api_request', return_value=CATALOG) as request:
         result = api.get_analysis_variables(source)
-    request.assert_called_once_with(api.FORECASTS_API_BASE_URL + '/' + model + '/variables')
+    request.assert_called_once_with(api.MODELS_API_BASE_URL + '/' + model + '/variables')
     assert result is CATALOG
     assert capsys.readouterr().out == ''
 
@@ -35,14 +35,14 @@ def test_analysis_source_uses_model_catalog_and_preserves_response(source, model
 def test_default_analysis_source_uses_deterministic_analysis_catalog():
     with patch.object(api, 'make_api_request', return_value=CATALOG) as request:
         assert api.get_analysis_variables() is CATALOG
-    request.assert_called_once_with(api.FORECASTS_API_BASE_URL + '/ifs_anl/variables')
+    request.assert_called_once_with(api.MODELS_API_BASE_URL + '/ifs_anl/variables')
 
 
 @pytest.mark.parametrize('response', [CATALOG, {'analysis': CATALOG}])
 def test_positional_print_option_supports_both_existing_response_shapes(response, capsys):
     with patch.object(api, 'make_api_request', return_value=response) as request:
         assert api.get_analysis_variables('ecmwf_ens_anl', True) is response
-    request.assert_called_once_with(api.FORECASTS_API_BASE_URL + '/ens_anl/variables')
+    request.assert_called_once_with(api.MODELS_API_BASE_URL + '/ens_anl/variables')
     assert capsys.readouterr().out == (
         'Surface variables:\n - temperature_2m\n - pressure_msl\n'
         'Upper variables:\n - temperature\n - geopotential\n'
@@ -69,7 +69,7 @@ def test_cli_dispatch_reaches_catalog_and_prints_values(arguments, model, capsys
     with patch.object(api, 'make_api_request', return_value=CATALOG) as request:
         with patch('sys.argv', ['windborne', 'analysis_variables'] + arguments):
             cli.main()
-    request.assert_called_once_with(api.FORECASTS_API_BASE_URL + '/' + model + '/variables')
+    request.assert_called_once_with(api.MODELS_API_BASE_URL + '/' + model + '/variables')
     output = capsys.readouterr().out
     assert 'Surface variables:\n - temperature_2m\n - pressure_msl' in output
     assert 'Upper variables:\n - temperature\n - geopotential' in output

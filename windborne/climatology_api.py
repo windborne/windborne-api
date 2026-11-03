@@ -11,12 +11,14 @@ from .utils import parse_time, save_arbitrary_response
 
 def get_climatology(coordinates, *, time=None, start_time=None, end_time=None,
                     normal=None, rolling_average_days=None, elevation_correction=None,
-                    water_strategy=None, output_file=None, print_response=False):
+                    water_strategy=None, output_file=None, print_response=False,
+                    min_time=None, max_time=None):
     """Get hourly climate normals for coordinates in their requested order.
 
     coordinates accepts "latitude,longitude;latitude,longitude" or a list of
     coordinate entries, as in get_point_forecasts. Supply either time or both
-    start_time and end_time. The range includes both endpoints, up to 8,784
+    min_time and max_time. start_time and end_time remain supported aliases;
+    supply only one name for each bound. The range includes both endpoints, up to 8,784
     hours. Times must be hour-aligned; ISO 8601 and YYYYMMDDHH are accepted,
     and date-only inputs mean midnight UTC. Minutes and seconds are preserved
     so the API can reject times that are not hour-aligned.
@@ -38,18 +40,24 @@ def get_climatology(coordinates, *, time=None, start_time=None, end_time=None,
     formatted_coordinates = _format_point_forecast_coordinates(coordinates)
     if not formatted_coordinates:
         raise ValueError('Climatology requires at least one coordinate.')
+    if min_time is not None and start_time is not None:
+        raise ValueError('Provide min_time or start_time, not both.')
+    if max_time is not None and end_time is not None:
+        raise ValueError('Provide max_time or end_time, not both.')
+    min_time = start_time if min_time is None else min_time
+    max_time = end_time if max_time is None else max_time
     if time is not None:
-        if start_time is not None or end_time is not None:
-            raise ValueError('Provide either time or start_time and end_time, not both.')
-    elif start_time is None or end_time is None:
-        raise ValueError('Provide either time or both start_time and end_time.')
+        if min_time is not None or max_time is not None:
+            raise ValueError('Provide either time or min_time and max_time, not both.')
+    elif min_time is None or max_time is None:
+        raise ValueError('Provide either time or both min_time and max_time.')
 
     output_path = Path(output_file) if output_file is not None else None
     if output_path is not None and output_path.suffix.lower() not in ('.json', '.csv'):
         raise ValueError('Climatology output files must use .json or .csv.')
 
     params = {'coordinates': formatted_coordinates}
-    for name, value in (('time', time), ('start_time', start_time), ('end_time', end_time)):
+    for name, value in (('time', time), ('min_time', min_time), ('max_time', max_time)):
         if value is not None:
             normalized = parse_time(value)
             params[name] = normalized if normalized.endswith('Z') else normalized + 'Z'
@@ -60,7 +68,7 @@ def get_climatology(coordinates, *, time=None, start_time=None, end_time=None,
         if value is not None:
             params[name] = str(value).lower() if isinstance(value, bool) else value
 
-    response = make_api_request(f'{API_BASE_URL}/forecasts/v1/climatology', params=params)
+    response = make_api_request(f'{API_BASE_URL}/weather/v1/climatology/point', params=params)
     if response is None:
         return None
     if output_path is not None:
@@ -139,7 +147,7 @@ def get_climatology_summary(coordinates, *, date=None, start_date=None, end_date
         if value is not None:
             params[name] = str(value).lower() if isinstance(value, bool) else value
 
-    response = make_api_request(f'{API_BASE_URL}/forecasts/v1/climatology/summary', params=params)
+    response = make_api_request(f'{API_BASE_URL}/weather/v1/climatology/summary', params=params)
     if response is None:
         return None
     if output_path is not None:

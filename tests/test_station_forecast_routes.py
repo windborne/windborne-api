@@ -51,7 +51,7 @@ def test_metamesh_aliases_use_station_query_and_preserve_response(model, station
     with patch.object(forecasts_api, 'make_api_request', return_value=station_response) as request:
         result = forecasts_api.get_station_forecast(station, **options)
     request.assert_called_once_with(
-        forecasts_api.FORECASTS_API_BASE_URL + '/' + (model or 'wm') + '/point_forecast',
+        forecasts_api.WEATHER_API_BASE_URL + '/point',
         params={'stations': 'KJFK'},
     )
     assert result == expected_single_station(original)
@@ -135,7 +135,7 @@ def test_cli_parser_reaches_station_query_with_filename_after_options(
             patch.object(forecasts_api, 'make_api_request', return_value=station_response) as request:
         cli.main()
     request.assert_called_once_with(
-        forecasts_api.FORECASTS_API_BASE_URL + '/' + (model or 'wm') + '/point_forecast',
+        forecasts_api.WEATHER_API_BASE_URL + '/point',
         params={'stations': 'KJFK', 'initialization_time': '2026-10-22T05:00:00'},
     )
     assert json.loads(output.read_text()) == expected_single_station(station_response)

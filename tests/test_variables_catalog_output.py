@@ -35,7 +35,7 @@ def test_complete_catalog_is_visible_without_changing_the_response(entrypoint, c
                 cli.main()
 
     get.assert_called_once()
-    assert get.call_args.args[0] == 'https://api.windbornesystems.com/forecasts/v1/wm-6/variables'
+    assert get.call_args.args[0] == 'https://api.windbornesystems.com/models/v1/wm-6/variables'
     output = capsys.readouterr().out
     assert 'Derived surface variables:\n - wind_speed_10m' in output
     assert 'Derived upper variables:\n - wind_speed' in output

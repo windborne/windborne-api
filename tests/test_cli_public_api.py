@@ -38,7 +38,7 @@ def test_event_list_geojson_preserves_features(tmp_path):
         '--min-latitude', '0', '--max-latitude', '38',
         '--min-longitude=-124', '--max-longitude=-122', '-o', str(output),
     ], events_api, response)
-    assert call.args[0].endswith('/insights/v1/wm-6/atmospheric_river')
+    assert call.args[0].endswith('/weather/v1/events/atmospheric_river')
     assert call.kwargs['params']['min_latitude'] == 0
     assert call.kwargs['params']['include_details'] == 'false'
     assert call.kwargs['params']['format'] == 'geojson'
@@ -46,7 +46,7 @@ def test_event_list_geojson_preserves_features(tmp_path):
 
 
 @pytest.mark.parametrize('arguments,suffix', [
-    (['index', 'heatwave', '--page', '0', '--page-size', '20'], '/wm-6/heatwave/index'),
+    (['index', 'heatwave', '--page', '0', '--page-size', '20'], '/weather/v1/events/heatwave/index'),
     (['detail', 'heatwave_123', '--format', 'geojson'], '/wm-6/heatwave_123'),
     (['init-times', 'heatwave_123'], '/wm-6/heatwave_123/init_times'),
 ])
@@ -76,10 +76,35 @@ def test_climatology_range_flags_preserve_zero_and_false():
         '--end-time', '2026-07-15T13:00:00Z', '--normal', '2016-2025',
         '--rolling-average-days', '0', '--elevation-correction', 'false', '--water-strategy', 'allow',
     ], climatology_api, {'climatologies': []})
-    assert call.args[0].endswith('/forecasts/v1/climatology')
+    assert call.args[0].endswith('/weather/v1/climatology/point')
     assert call.kwargs['params']['rolling_average_days'] == 0
     assert call.kwargs['params']['elevation_correction'] == 'false'
     assert call.kwargs['params']['normal'] == '2016-2025'
+
+
+@pytest.mark.parametrize('lower', ['--min-time', '--start-time'])
+@pytest.mark.parametrize('upper', ['--max-time', '--end-time'])
+def test_climatology_new_and_legacy_flags_make_identical_requests(lower, upper):
+    call = invoke([
+        'climatology', '0,0', lower, '2026071500', upper, '2026-07-15T01:00:00Z',
+    ], climatology_api, {'climatologies': [[]]})
+    assert call.kwargs['params'] == {
+        'coordinates': '0,0', 'min_time': '2026-07-15T00:00:00Z',
+        'max_time': '2026-07-15T01:00:00Z',
+    }
+
+
+@pytest.mark.parametrize('canonical,legacy', [
+    ('--min-time', '--start-time'), ('--max-time', '--end-time'),
+])
+def test_climatology_duplicate_flags_fail_before_request(canonical, legacy):
+    with patch('sys.argv', ['windborne', 'climatology', '0,0',
+                            canonical, '2026-07-15', legacy, '2026-07-16']), \
+            patch.object(climatology_api, 'make_api_request') as request, \
+            pytest.raises(SystemExit) as error:
+        cli.main()
+    assert error.value.code == 2
+    request.assert_not_called()
 
 
 def test_weather_context_all_optional_datasets_survive(tmp_path):
@@ -94,7 +119,7 @@ def test_weather_context_all_optional_datasets_survive(tmp_path):
         '--min-forecast-hour', '0', '--max-forecast-hour', '0',
         '--observation-hours', '24', '--climatology-normal', '2016-2025', '-o', str(output),
     ], weather_context_api, response)
-    assert call.args[0].endswith('/forecasts/v1/weather_context')
+    assert call.args[0].endswith('/weather/v1/context')
     assert call.kwargs['params']['max_forecast_hour'] == 0
     assert call.kwargs['params']['include_distribution'] == 'false'
     assert call.kwargs['params']['include_conditions'] == 'true'
@@ -108,7 +133,7 @@ def test_climatology_summary_single_date_prints_full_response(capsys):
     call = invoke([
         'climatology-summary', '--date', '2027-09-28', '32.9,-97.04;0,0',
     ], climatology_api, response)
-    assert call.args[0] == climatology_api.API_BASE_URL + '/forecasts/v1/climatology/summary'
+    assert call.args[0] == climatology_api.API_BASE_URL + '/weather/v1/climatology/summary'
     assert call.kwargs['params'] == {'coordinates': '32.9,-97.04;0,0', 'date': '2027-09-28'}
     assert json.loads(capsys.readouterr().out) == response
 
@@ -121,7 +146,7 @@ def test_climatology_summary_grouped_range_and_output(tmp_path):
         '--end-date', '2027-09-29', '--group-by', 'period', '--normal', '2016-2025',
         '--elevation-correction', 'false', '--water-strategy', 'allow', '-o', str(output),
     ], climatology_api, response)
-    assert call.args[0] == climatology_api.API_BASE_URL + '/forecasts/v1/climatology/summary'
+    assert call.args[0] == climatology_api.API_BASE_URL + '/weather/v1/climatology/summary'
     assert call.kwargs['params'] == {
         'coordinates': '32.9,-97.04;0,0', 'start_date': '2027-09-28', 'end_date': '2027-09-29',
         'group_by': 'period', 'normal': '2016-2025', 'elevation_correction': 'false',

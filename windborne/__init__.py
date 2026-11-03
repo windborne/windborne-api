@@ -68,6 +68,12 @@ from .events_api import (
 )
 from .climatology_api import get_climatology, get_climatology_summary
 from .weather_context_api import get_weather_context
+from .custom_calculations_api import (
+    validate_calculation,
+    calculate_gridded,
+    calculate_points,
+    calculate_threshold,
+)
 from .webhooks_api import (
     WebhookOutputError,
     list_webhooks,
@@ -141,6 +147,10 @@ __all__ = [
     "get_climatology",
     "get_climatology_summary",
     "get_weather_context",
+    "validate_calculation",
+    "calculate_gridded",
+    "calculate_points",
+    "calculate_threshold",
     "WebhookOutputError",
     "list_webhooks",
     "get_webhook",

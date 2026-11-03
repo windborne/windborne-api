@@ -34,7 +34,7 @@ def test_default_model_uses_current_tracker_and_preserves_response(interface, in
             with patch('sys.argv', arguments + [str(output_path)]):
                 cli.main()
     request.assert_called_once_with(
-        'https://api.windbornesystems.com/forecasts/v1/wm-6/tropical_cyclones',
+        'https://api.windbornesystems.com/weather/v1/events/tropical_cyclones',
         params={'basin': 'AL', 'include_details': str(include_details).lower(),
                 'include_unofficial_ids': 'false', 'format': 'json'},
     )
@@ -70,7 +70,7 @@ def test_explicit_geojson_uses_legacy_extension_route_or_new_tracker_format(mode
 
     def gateway_response(url, params):
         if model == 'wm-6' and params['format'] == 'geojson':
-            assert url.endswith('/wm-6/tropical_cyclones')
+            assert url.endswith('/weather/v1/events/tropical_cyclones')
             return native_geojson
         # The legacy extensionless route proxies to /tcs/{model}.json, whose
         # path format overrides a format=geojson query parameter in Rails.
@@ -111,7 +111,8 @@ def test_geojson_filename_preserves_json_return_and_exports_tracks(model, format
     with patch.object(api, 'make_api_request', return_value=response) as request:
         result = api.get_tropical_cyclones(model=model, output_file=str(output_path), **format_options)
     request.assert_called_once()
-    assert request.call_args.args[0].endswith(f'/{model}/tropical_cyclones')
+    expected_path = '/weather/v1/events/tropical_cyclones' if model == 'wm-6' else f'/forecasts/v1/{model}/tropical_cyclones'
+    assert request.call_args.args[0] == api.API_BASE_URL + expected_path
     assert request.call_args.kwargs['params']['format'] == 'json'
     assert request.call_args.kwargs['params']['include_details'] == 'true'
     assert result is response
