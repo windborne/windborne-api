@@ -9,10 +9,9 @@ The `windborne` package wraps WindBorne's public API. Engine's docs at api.windb
 
 ## Before you change anything
 
-1. Confirm what the user wants.
-2. Read the endpoint in Engine and in its backend, both on their latest `origin` default branch, not a local checkout. In Engine, read the contract in `api_infra/schemas/` and the page under `frontends/api/src/pages/`.
-3. Validate that the SDK matches the docs and the backend. If they disagree, tell the user instead of picking one.
-4. Confirm compatibility with the user, and tell them backward compatibility is standard, though some changes call for a break. By default, keep existing calls working: add new keyword arguments after the existing ones.
+1. Read the endpoint in Engine and in its backend, both on their latest `origin` default branch, not a local checkout. In Engine, read the contract in `api_infra/schemas/` and the page under `frontends/api/src/pages/`.
+2. Validate that the SDK matches the docs and the backend. If they disagree, tell the user instead of picking one.
+3. Confirm compatibility with the user, and tell them backward compatibility is standard, though some changes call for a break. By default, keep existing calls working: add new keyword arguments after the existing ones.
 
 ## Release conventions
 
