@@ -9,21 +9,25 @@ The `windborne` package wraps WindBorne's public API. Engine's docs at api.windb
 
 ## Before you change anything
 
-1. Confirm what the user wants: which endpoint and helper, and whether the SDK should match the API exactly or add a convenience of its own.
+1. Confirm what the user wants.
 2. Read the endpoint in Engine and in its backend, both on their latest `origin` default branch, not a local checkout. In Engine, read the contract in `api_infra/schemas/` and the page under `frontends/api/src/pages/`.
-3. Make the SDK match what the backend actually does. If the docs and the backend disagree, tell the user instead of picking one.
-4. Keep existing calls working: add new keyword arguments after the existing ones.
+3. Validate that the SDK matches the docs and the backend. If they disagree, tell the user instead of picking one.
+4. Confirm compatibility with the user, and tell them backward compatibility is standard, though some changes call for a break. By default, keep existing calls working: add new keyword arguments after the existing ones.
 
-## Versioning
+## Release conventions
 
 The release PR changes the version in `pyproject.toml` and adds release notes under the same number in `CHANGELOG.md`. See "Publishing a new version" in `README_dev.md`.
 
 - **Patch** (2.1.1 → 2.1.2): bug fixes, and small changes or updates to an existing endpoint, such as a new optional parameter.
 - **Minor** (2.1.2 → 2.2.0): a new endpoint or set of endpoints.
-- **Major** (2.2.0 → 3.0.0): a large overhaul. This should be rare, so ask the user first.
+- **Major** (2.2.0 → 3.0.0): a large overhaul, which should be very rare.
+
+Always ask the user before setting the version. Keep release notes concise and precise, and follow the existing style in `CHANGELOG.md`.
 
 This is a public PyPI package: leave Claude attribution out of commits and PR descriptions.
 
 ## Before you finish
 
 Tell the user which version you chose and why, and whether Engine's docs need the same change. Engine's CI checks the Python and CLI examples on its docs pages against the published package, so publish the release before the Engine docs PR merges.
+
+On every PR in this windborne-api repo, request a review from Rohin (`@RohinJ444`), who can publish to PyPI. Kai (`@KMarshland`) and Vivek (`@VivekChaurasia03`) can also review and publish.
