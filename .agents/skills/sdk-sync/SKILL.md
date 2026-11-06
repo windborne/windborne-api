@@ -5,7 +5,7 @@ description: Use whenever you change the windborne Python SDK or CLI: a helper, 
 
 # Keep the SDK in sync, and version it
 
-The `windborne` package wraps WindBorne's public API. Engine's docs at api.windbornesystems.com describe each endpoint, and DLViz, WindMC or sensor-data-api serves it. Engine's `api_infra/nginx.conf` maps each public path to its backend.
+The `windborne` package wraps WindBorne's public API. Engine's docs at api.windbornesystems.com (`windborne/engine`) describe each endpoint, and DLViz (`windborne/dlviz`), WindMC (`windborne/windmc`) or sensor-data-api (`windborne/sensor-data-api`) serves it. Engine's `api_infra/nginx.conf` maps each public path to its backend.
 
 ## Before you change anything
 
