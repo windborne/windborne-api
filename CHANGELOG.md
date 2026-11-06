@@ -2,13 +2,11 @@
 
 ## 2.1.1
 
-- Point forecast conditions accept `min_forecast_hour`, `max_forecast_hour`,
-  `min_forecast_time` and `max_forecast_time` in Python and
-  `--min-forecast-hour`, `--max-forecast-hour`, `--min-forecast-time` and
-  `--max-forecast-time` in the CLI. The response then keeps only the blocks
-  that contain a time in that inclusive range, returned whole. Times accept
-  ISO 8601 or YYYYMMDDHH and are sent in UTC. Without them, the full forecast
-  horizon is returned as before.
+- Point forecast conditions accept `min_forecast_time` and `max_forecast_time`
+  in Python and `--min-forecast-time` and `--max-forecast-time` in the CLI. The
+  response then keeps only the blocks that contain a time in that inclusive
+  range, returned whole. Times accept ISO 8601 or YYYYMMDDHH and are sent in
+  UTC. Without them, the full forecast horizon is returned as before.
 
 ## 2.1.0
 

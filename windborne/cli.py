@@ -239,8 +239,6 @@ def main():
     conditions_parser.add_argument('-m', '--model', default='wm-6', help='Forecast model (wm-6 or metamesh)')
     conditions_parser.add_argument('--hourly-interval', type=int, choices=[1, 2, 3, 4, 6, 8], help='Hours per condition block (default 1)')
     conditions_parser.add_argument('--include-sky-state-icon', action='store_true', help='Include a sky-state icon and condition in each block (default off)')
-    conditions_parser.add_argument('--min-forecast-hour', type=int, help='Return only blocks containing this forecast hour or later')
-    conditions_parser.add_argument('--max-forecast-hour', type=int, help='Return only blocks containing this forecast hour or earlier')
     conditions_parser.add_argument('--min-forecast-time', help='Return only blocks containing this time (ISO 8601, UTC if no offset) or later')
     conditions_parser.add_argument('--max-forecast-time', help='Return only blocks containing this time (ISO 8601, UTC if no offset) or earlier')
     conditions_parser.add_argument('output_file', nargs='?', help='Output JSON file; omitted to print the response')
@@ -660,8 +658,6 @@ def main():
             coordinates=args.coordinates,
             hourly_interval=args.hourly_interval,
             include_sky_state_icon=args.include_sky_state_icon,
-            min_forecast_hour=args.min_forecast_hour,
-            max_forecast_hour=args.max_forecast_hour,
             min_forecast_time=args.min_forecast_time,
             max_forecast_time=args.max_forecast_time,
             model=args.model,
