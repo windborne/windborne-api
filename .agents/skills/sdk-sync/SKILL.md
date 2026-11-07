@@ -1,6 +1,6 @@
 ---
 name: sdk-sync
-description: Use whenever you change the windborne Python SDK or CLI: a helper, its arguments or defaults, a CLI command or flag, how a response is handled, or the package version. Keeps the SDK in sync with WindBorne's API docs and backends, and sets the version number.
+description: "Use whenever you change the windborne Python SDK or CLI, or validate a release: a helper, its arguments or defaults, a CLI command or flag, how a response is handled, or the package version. Keeps the SDK in sync with WindBorne's API docs and backends, and covers versioning and release validation."
 ---
 
 # Keep the SDK in sync, and version it
@@ -24,6 +24,14 @@ The release PR changes the version in `pyproject.toml` and adds release notes un
 Always ask the user before setting the version. Keep release notes concise and precise, and follow the existing style in `CHANGELOG.md`.
 
 This is a public PyPI package: leave Claude attribution out of commits and PR descriptions.
+
+## Validate the release
+
+Before calling a release ready to publish, follow the build and installed-wheel procedure in `README_dev.md`:
+
+1. Build the wheel and source distribution from the final release commit. Check both with `twine check --strict`, rebuild a wheel from the source distribution, and confirm the packaged code matches. Install the wheel in clean Python 3.11 and 3.14 environments, run `pip check` and the entire test suite, and exercise the installed `windborne` command. Run outside the checkout so imports use the installed package.
+2. Test the installed Python helpers and CLI against production with a user-approved credential. Cover the changed behavior, existing calls and defaults, and bounded checks across the SDK's endpoint families. Check returned data and saved files, not just HTTP status. Test pagination, retry limits, access failures, and webhook writes with local fixtures; production writes or deliveries need separate approval.
+3. Report the commit, artifact hashes, Python versions, test results, and anything not verified live. Access denials or unavailable data are coverage gaps, not passing tests. Fix or explicitly flag failures before recommending publication. Publish only the tested artifacts, with approval; if the release code changes, rebuild and repeat the checks.
 
 ## Before you finish
 
