@@ -314,6 +314,12 @@ class CliParityTests(unittest.TestCase):
         self.assertEqual(kwargs['min_forecast_time'], '2026-11-05T06:00:00Z')
         self.assertEqual(kwargs['max_forecast_time'], '2026-11-06T00:00:00Z')
         self.assertEqual(kwargs['output_file'], 'output.json')
+        kwargs = self.invoke(
+            ['point_forecast_conditions', '37.77,-122.42', '-mt', '2026-11-05T06:00:00Z', '-xt', '2026-11-06T00:00:00Z'],
+            'get_point_forecast_conditions',
+        )
+        self.assertEqual(kwargs['min_forecast_time'], '2026-11-05T06:00:00Z')
+        self.assertEqual(kwargs['max_forecast_time'], '2026-11-06T00:00:00Z')
         kwargs = self.invoke(['point_forecast_conditions', '37.77,-122.42'], 'get_point_forecast_conditions')
         for name in ('min_forecast_time', 'max_forecast_time'):
             self.assertIsNone(kwargs[name])

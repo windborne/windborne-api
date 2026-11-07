@@ -97,6 +97,14 @@ def parse_time(time, init_time_flag=None, require_past=False):
         exit(2)
 
 
+def parse_time_utc(time):
+    """Normalize a timestamp like parse_time, marking a time without an offset as UTC."""
+    normalized = parse_time(time)
+    if normalized is None or normalized.endswith('Z'):
+        return normalized
+    return normalized + 'Z'
+
+
 def save_arbitrary_response(output_file, response, csv_data_key=None):
     """
     Save Data API response data to a file in either JSON or CSV format.

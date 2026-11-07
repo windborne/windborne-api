@@ -239,8 +239,8 @@ def main():
     conditions_parser.add_argument('-m', '--model', default='wm-6', help='Forecast model (wm-6 or metamesh)')
     conditions_parser.add_argument('--hourly-interval', type=int, choices=[1, 2, 3, 4, 6, 8], help='Hours per condition block (default 1)')
     conditions_parser.add_argument('--include-sky-state-icon', action='store_true', help='Include a sky-state icon and condition in each block (default off)')
-    conditions_parser.add_argument('--min-forecast-time', help='Return only blocks containing this time (ISO 8601, UTC if no offset) or later')
-    conditions_parser.add_argument('--max-forecast-time', help='Return only blocks containing this time (ISO 8601, UTC if no offset) or earlier')
+    conditions_parser.add_argument('-mt', '--min-forecast-time', help='Return only blocks containing this time (ISO 8601 or YYYYMMDDHH, UTC if no offset) or later')
+    conditions_parser.add_argument('-xt', '--max-forecast-time', help='Return only blocks containing this time (ISO 8601 or YYYYMMDDHH, UTC if no offset) or earlier')
     conditions_parser.add_argument('output_file', nargs='?', help='Output JSON file; omitted to print the response')
 
     # Station Forecasts

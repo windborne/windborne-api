@@ -6,7 +6,7 @@ from pathlib import Path
 
 from .api_request import API_BASE_URL, make_api_request
 from .forecasts_api import _format_point_forecast_coordinates
-from .utils import parse_time, save_arbitrary_response
+from .utils import parse_time_utc, save_arbitrary_response
 
 
 def get_climatology(coordinates, *, time=None, start_time=None, end_time=None,
@@ -59,8 +59,7 @@ def get_climatology(coordinates, *, time=None, start_time=None, end_time=None,
     params = {'coordinates': formatted_coordinates}
     for name, value in (('time', time), ('min_time', min_time), ('max_time', max_time)):
         if value is not None:
-            normalized = parse_time(value)
-            params[name] = normalized if normalized.endswith('Z') else normalized + 'Z'
+            params[name] = parse_time_utc(value)
     for name, value in (
         ('normal', normal), ('rolling_average_days', rolling_average_days),
         ('elevation_correction', elevation_correction), ('water_strategy', water_strategy),

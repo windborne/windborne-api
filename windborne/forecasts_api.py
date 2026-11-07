@@ -7,6 +7,7 @@ import requests
 
 from .utils import (
     parse_time,
+    parse_time_utc,
     save_arbitrary_response,
     print_table
 )
@@ -753,8 +754,7 @@ def get_point_forecast_conditions(coordinates, hourly_interval=None, model='wm-6
         params['include_sky_state_icon'] = 'true'
     for name, value in (('min_forecast_time', min_forecast_time), ('max_forecast_time', max_forecast_time)):
         if value is not None:
-            normalized = parse_time(value)
-            params[name] = normalized if normalized.endswith('Z') else normalized + 'Z'
+            params[name] = parse_time_utc(value)
     url = f'{FORECASTS_API_BASE_URL}/{model}/point_forecast/conditions'
     if model in ('wm-6', 'mm', 'metamesh'):
         url = f'{MODELS_API_BASE_URL}/{model}/point_forecast/conditions'
