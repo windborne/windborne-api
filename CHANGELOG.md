@@ -1,5 +1,13 @@
 # Release notes
 
+## 2.1.1
+
+- Point forecast conditions accept `min_forecast_time` and `max_forecast_time`
+  in Python and `-mt/--min-forecast-time` and `-xt/--max-forecast-time` in the
+  CLI. The response then keeps only the blocks that contain a time in that
+  inclusive range, returned whole. Times accept ISO 8601 or YYYYMMDDHH and are
+  sent in UTC. Without them, the full forecast horizon is returned as before.
+
 ## 2.1.0
 
 - Align requests with the API's Weather, Models, and Atlas routes. Existing

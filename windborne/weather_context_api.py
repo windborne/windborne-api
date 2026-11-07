@@ -5,7 +5,7 @@ from pathlib import Path
 
 from .api_request import API_BASE_URL, make_api_request
 from .forecasts_api import _format_point_forecast_coordinates, _format_point_forecast_stations
-from .utils import parse_time
+from .utils import parse_time_utc
 
 
 def get_weather_context(coordinates=None, stations=None, *, include_conditions=None,
@@ -78,8 +78,7 @@ def get_weather_context(coordinates=None, stations=None, *, include_conditions=N
         ('min_forecast_time', min_forecast_time), ('max_forecast_time', max_forecast_time),
     ):
         if value is not None:
-            normalized = parse_time(value)
-            params[name] = normalized if normalized.endswith('Z') else normalized + 'Z'
+            params[name] = parse_time_utc(value)
 
     response = make_api_request(f'{API_BASE_URL}/weather/v1/context', params=params)
     if response is None:

@@ -323,6 +323,15 @@ class ForecastParityTests(unittest.TestCase):
         self.assertTrue(self.request.call_args.args[0].endswith('/wm-6/point_forecast/conditions'))
         self.assertIn('Clear', printed.getvalue())
 
+    def test_conditions_forward_utc_time_bounds(self):
+        api.get_point_forecast_conditions(
+            '37.77,-122.42', min_forecast_time='2026-11-05T06:00:00-08:00', max_forecast_time='2026110600',
+        )
+        self.assertEqual(self.params(), {
+            'coordinates': '37.77,-122.42',
+            'min_forecast_time': '2026-11-05T14:00:00Z', 'max_forecast_time': '2026-11-06T00:00:00Z',
+        })
+
     def test_new_helpers_handle_missing_response(self):
         self.request.return_value = None
         for function, kwargs in [

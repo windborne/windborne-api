@@ -7,6 +7,7 @@ import requests
 
 from .utils import (
     parse_time,
+    parse_time_utc,
     save_arbitrary_response,
     print_table
 )
@@ -723,7 +724,8 @@ def get_calculation_times_tropical_cyclones(print_response=False, model='wm-6'):
     return response
 
 
-def get_point_forecast_conditions(coordinates, hourly_interval=None, model='wm-6', output_file=None, print_response=False, include_sky_state_icon=False):
+def get_point_forecast_conditions(coordinates, hourly_interval=None, model='wm-6', output_file=None, print_response=False, include_sky_state_icon=False,
+                                  min_forecast_time=None, max_forecast_time=None):
     """Get hourly, daily and day/night conditions for up to ten locations.
 
     coordinates accepts a semicolon-separated string or a list of coordinate
@@ -731,6 +733,10 @@ def get_point_forecast_conditions(coordinates, hourly_interval=None, model='wm-6
     intervals are 1, 2, 3, 4, 6 and 8 hours.
     include_sky_state_icon adds sky_state_icon_url and sky_state_condition to
     each block when True; it defaults to False.
+    min_forecast_time and max_forecast_time limit the response to the blocks
+    that contain a time in that inclusive range; blocks are returned whole.
+    Times accept ISO 8601 or YYYYMMDDHH; inputs without a timezone are UTC.
+    Omit both for the full forecast horizon.
     output_file must use .json to preserve the full response, including its
     nested hourly, daily, and day_night arrays and metadata.
     """
@@ -746,6 +752,9 @@ def get_point_forecast_conditions(coordinates, hourly_interval=None, model='wm-6
         params['hourly_interval'] = hourly_interval
     if include_sky_state_icon:
         params['include_sky_state_icon'] = 'true'
+    for name, value in (('min_forecast_time', min_forecast_time), ('max_forecast_time', max_forecast_time)):
+        if value is not None:
+            params[name] = parse_time_utc(value)
     url = f'{FORECASTS_API_BASE_URL}/{model}/point_forecast/conditions'
     if model in ('wm-6', 'mm', 'metamesh'):
         url = f'{MODELS_API_BASE_URL}/{model}/point_forecast/conditions'
