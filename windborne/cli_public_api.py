@@ -1,5 +1,6 @@
 """CLI commands for Events, context data, calculations, and customer webhooks."""
 import argparse
+from functools import partial
 import inspect
 import json
 import os
@@ -15,17 +16,20 @@ from .custom_calculations_api import (
     validate_calculation, calculate_gridded, calculate_points, calculate_threshold,
 )
 from .webhooks_api import (
-    WebhookOutputError,
+    WebhookArgumentError, WebhookOutputError,
     list_webhooks, get_webhook, create_webhook, update_webhook, delete_webhook,
     add_webhook_subscription, update_webhook_subscription,
     delete_webhook_subscription, ping_webhook_subscription,
+    list_triggers, get_trigger, create_trigger, update_trigger, delete_trigger,
 )
 
 
-def _json_object_file(path):
+def _json_object_file(path, *, allow_inline=False):
     try:
         if path == '-':
             value = json.load(sys.stdin)
+        elif allow_inline and path.lstrip().startswith('{') and not os.path.exists(path):
+            value = json.loads(path)
         else:
             with open(path, encoding='utf-8') as stream:
                 value = json.load(stream)
@@ -137,7 +141,7 @@ def add_public_api_commands(subparsers):
         command.add_argument('--body', required=True, type=_json_object_file,
                              help='JSON request-body file; use - to read from stdin')
 
-    webhooks = subparsers.add_parser('webhooks', help='Manage your webhooks and subscriptions')
+    webhooks = subparsers.add_parser('webhooks', help='Manage your webhooks, subscriptions and weather triggers')
     operations = webhooks.add_subparsers(dest='operation')
     operations.required = True
     webhook_functions = {
@@ -147,24 +151,32 @@ def add_public_api_commands(subparsers):
         'update_subscription': update_webhook_subscription,
         'delete_subscription': delete_webhook_subscription,
         'ping': ping_webhook_subscription,
+        'list_triggers': list_triggers, 'get_trigger': get_trigger, 'create_trigger': create_trigger,
+        'update_trigger': update_trigger, 'delete_trigger': delete_trigger,
     }
     for operation, function in webhook_functions.items():
         aliases = [operation.replace('_', '-')] if '_' in operation else []
         command = operations.add_parser(operation, aliases=aliases)
         _output(command, function)
-        if operation == 'list':
+        if operation in ('list', 'list_triggers'):
             command.add_argument('--page', type=int)
             command.add_argument('--page-size', type=int)
+            _optional_boolean(command, 'active', 'Filter by active state; omit to return all states')
+        if operation == 'list':
             command.add_argument('--url')
             command.add_argument('--subscription-type')
-            _optional_boolean(command, 'active', 'Filter by active state; omit to return all states')
-        if operation not in ('list', 'create'):
+        if operation in ('get_trigger', 'update_trigger', 'delete_trigger'):
+            command.add_argument('trigger_id', help='Numeric ID of the saved weather trigger')
+        elif operation not in ('list', 'create', 'list_triggers', 'create_trigger'):
             command.add_argument('webhook_id')
         if operation in ('update_subscription', 'delete_subscription', 'ping'):
             command.add_argument('subscription_id')
         if operation in ('create', 'update', 'add_subscription', 'update_subscription'):
             command.add_argument('--body', required=True, type=_json_object_file,
                                  help='JSON request-body file; use - to read from stdin')
+        if operation in ('create_trigger', 'update_trigger'):
+            command.add_argument('--body', required=True, type=partial(_json_object_file, allow_inline=True),
+                                 help='JSON object, path to a JSON file, or - to read from stdin')
 
 
 def run_public_api_command(args):
@@ -207,7 +219,8 @@ def run_public_api_command(args):
                 pass
         raise SystemExit(1)
     except (TypeError, ValueError) as error:
-        if args.command != 'custom_calculations':
+        trigger_argument_error = hasattr(args, 'trigger_id') and isinstance(error, WebhookArgumentError)
+        if args.command != 'custom_calculations' and not trigger_argument_error:
             raise
         args._api_parser.error(str(error))
     return True

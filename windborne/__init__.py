@@ -85,6 +85,11 @@ from .webhooks_api import (
     update_webhook_subscription,
     delete_webhook_subscription,
     ping_webhook_subscription,
+    list_triggers,
+    get_trigger,
+    create_trigger,
+    update_trigger,
+    delete_trigger,
 )
 
 # Define what should be available when users import *
@@ -161,6 +166,11 @@ __all__ = [
     "update_webhook_subscription",
     "delete_webhook_subscription",
     "ping_webhook_subscription",
+    "list_triggers",
+    "get_trigger",
+    "create_trigger",
+    "update_trigger",
+    "delete_trigger",
 
     # API helpers
     "API_BASE_URL",

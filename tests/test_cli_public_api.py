@@ -23,6 +23,7 @@ def test_public_helpers_are_exported():
         'get_climatology', 'get_climatology_summary', 'get_weather_context', 'list_webhooks', 'get_webhook',
         'create_webhook', 'update_webhook', 'delete_webhook', 'add_webhook_subscription',
         'update_webhook_subscription', 'delete_webhook_subscription', 'ping_webhook_subscription',
+        'list_triggers', 'get_trigger', 'create_trigger', 'update_trigger', 'delete_trigger',
     ]
     for name in functions:
         assert name in windborne.__all__
@@ -173,6 +174,56 @@ def test_webhook_list_filters():
     }
 
 
+def test_trigger_list_preserves_page_zero_and_false():
+    call = invoke(['webhooks', 'list-triggers', '--page', '0', '--page-size', '2', '--active', 'false'],
+                  webhooks_api, {'triggers': [], 'page': 0, 'page_size': 2, 'total': 0})
+    assert call.args[0].endswith('/webhooks/v1/triggers')
+    assert call.kwargs['params'] == {'page': 0, 'page_size': 2, 'active': 'false'}
+
+
+@pytest.mark.parametrize('rule', [
+    {'type': 'calculation', 'calculation': '([temperature_2m] - 273.15) > 30'},
+    {'type': 'event', 'event_type': 'heatwave', 'min_severity': 'P95', 'min_duration_hours': 3},
+    {'type': 'event', 'event_type': 'front', 'min_cycles': 2},
+])
+def test_create_trigger_accepts_the_documented_inline_json(rule):
+    body = {
+        'model': 'wm-6', 'trigger': rule,
+        'locations': [{'id': 'sj', 'geometry': {'type': 'Point', 'coordinates': [-121.9, 37.3]}}],
+        'forecast_window': {'min_forecast_hour': 0, 'max_forecast_hour': 72},
+    }
+    call = invoke(['webhooks', 'create_trigger', '--body', json.dumps(body)], webhooks_api, {'id': 42})
+    assert call.args[0].endswith('/webhooks/v1/triggers')
+    assert call.kwargs == {'method': 'POST', 'json': body}
+
+
+@pytest.mark.parametrize('destination', [{'webhook': {'url': 'https://example.com/webhook'}}, {'webhook_id': 7}])
+def test_create_trigger_cli_forwards_the_destination_in_its_json_body(destination):
+    body = {'model': 'wm-6', 'trigger': {'type': 'event', 'event_type': 'front'}, 'locations': [],
+            'forecast_window': {'min_forecast_hour': 0, 'max_forecast_hour': 24}, **destination}
+    call = invoke(['webhooks', 'create_trigger', '--body', json.dumps(body)], webhooks_api, {'id': 42, 'webhook_id': 7})
+    assert call.kwargs['json'] == body
+
+
+@pytest.mark.parametrize('filename', ['{trigger}.json', '{}'])
+def test_trigger_body_reads_an_existing_path_starting_with_a_brace(tmp_path, monkeypatch, filename):
+    monkeypatch.chdir(tmp_path)
+    body = {'active': False}
+    (tmp_path / filename).write_text(json.dumps(body))
+    call = invoke(['webhooks', 'update-trigger', '42', '--body', filename], webhooks_api, {'id': 42})
+    assert call.kwargs['json'] == body
+
+
+def test_conflicting_location_edits_show_a_usage_error_before_sending(capsys):
+    body = json.dumps({'locations': [], 'remove_location_ids': ['sj']})
+    with patch('sys.argv', ['windborne', 'webhooks', 'update_trigger', '42', '--body', body]), \
+            patch.object(webhooks_api, 'make_api_request') as request, pytest.raises(SystemExit) as error:
+        cli.main()
+    assert error.value.code == 2
+    assert 'locations cannot be combined' in capsys.readouterr().err
+    request.assert_not_called()
+
+
 @pytest.mark.parametrize('value,expected', [('TRUE', 'true'), ('False', 'false')])
 def test_public_boolean_options_accept_mixed_case(value, expected):
     call = invoke(['webhooks', 'list', '--active', value], webhooks_api, {'webhooks': []})
@@ -201,6 +252,10 @@ def test_invalid_public_options_fail_before_request(arguments):
      'PATCH', '/webhooks/v1/42/subscriptions'),
     (['update-subscription', '42', '81'], {'filters': {}, 'response_options': None},
      'PATCH', '/webhooks/v1/42/subscriptions/81'),
+    (['add-subscription', '9'], {'subscription_type': 'weather_trigger.fired', 'filters': {'trigger_ids': [42]}},
+     'PATCH', '/webhooks/v1/9/subscriptions'),
+    (['update-trigger', '42'], {'add_locations': [{'id': 'sj', 'geometry': {'type': 'Point', 'coordinates': [-121.9, 37.3]}}],
+                                'remove_location_ids': ['sf']}, 'PATCH', '/webhooks/v1/triggers/42'),
 ])
 def test_webhook_json_files_reach_write_endpoints(tmp_path, arguments, body, method, suffix):
     body_file = tmp_path / 'body.json'
@@ -216,6 +271,8 @@ def test_webhook_json_files_reach_write_endpoints(tmp_path, arguments, body, met
     (['delete', '42'], 'DELETE', '/webhooks/v1/42'),
     (['delete-subscription', '42', '81'], 'DELETE', '/webhooks/v1/42/subscriptions/81'),
     (['ping', '42', '81'], 'POST', '/webhooks/v1/42/subscriptions/81/ping'),
+    (['get_trigger', '42'], 'GET', '/webhooks/v1/triggers/42'),
+    (['delete-trigger', '42'], 'DELETE', '/webhooks/v1/triggers/42'),
 ])
 def test_webhook_bodyless_commands(arguments, method, suffix):
     call = invoke(['webhooks'] + arguments, webhooks_api)
@@ -224,10 +281,11 @@ def test_webhook_bodyless_commands(arguments, method, suffix):
     assert call.kwargs.get('json') is None
 
 
-def test_webhook_body_can_be_read_from_stdin():
+@pytest.mark.parametrize('operation', ['update', 'update_trigger'])
+def test_webhook_body_can_be_read_from_stdin(operation):
     with patch('sys.stdin') as stream:
         stream.read.return_value = '{"active": false, "note": null}'
-        call = invoke(['webhooks', 'update', '42', '--body', '-'], webhooks_api, {'id': 42})
+        call = invoke(['webhooks', operation, '42', '--body', '-'], webhooks_api, {'id': 42})
     assert call.kwargs['json'] == {'active': False, 'note': None}
 
 
