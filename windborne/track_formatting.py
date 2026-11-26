@@ -167,7 +167,7 @@ def save_track_as_gpx(filename, track_data, time_key='time'):
                 gpx += '    <trkseg>\n'
                 for point in current_segment:
                     gpx += f'      <trkpt lat="{point["latitude"]}" lon="{point["longitude"]}">\n'
-                    gpx += f'        <time>{point["time"]}</time>\n'
+                    gpx += f'        <time>{point[time_key]}</time>\n'
                     gpx += '      </trkpt>\n'
                 gpx += '    </trkseg>\n'
 
@@ -195,6 +195,16 @@ def save_track_as_gpx(filename, track_data, time_key='time'):
     print(f"Saved to {filename}")
 
 
+def _date_line_latitude(lon0, lat0, lon1, lat1):
+    """Latitude where the segment from (lon0, lat0) to (lon1, lat1) crosses the date line."""
+    # Shift lon1 by 360 so both ends are on the same side and the segment is continuous
+    lon1 = lon1 + 360 if lon0 > 0 else lon1 - 360
+    seam = 180 if lon0 > 0 else -180
+    if lon1 == lon0:
+        return lat0
+    return lat0 + (lat1 - lat0) * (seam - lon0) / (lon1 - lon0)
+
+
 def save_track_as_geojson(filename, track_data, time_key='time'):
     """Convert and save track data as GeoJSON, handling meridian crossing."""
     features = []
@@ -211,24 +221,25 @@ def save_track_as_geojson(filename, track_data, time_key='time'):
                 current_segment.append([lon, lat])
                 continue
 
-            prev_lon = current_segment[-1][0]
+            prev_lon, prev_lat = current_segment[-1]
 
             # Check if we've crossed the meridian (large longitude jump)
             if abs(lon - prev_lon) > 180:
+                crossing_lat = _date_line_latitude(prev_lon, prev_lat, lon, lat)
                 # If previous longitude was positive and current is negative
                 if prev_lon > 0 and lon < 0:
-                    # Add point at 180° with same latitude
-                    current_segment.append([180, lat])
+                    # Add point at 180° where the path crosses it
+                    current_segment.append([180, crossing_lat])
                     line_segments.append(current_segment)
                     # Start new segment at -180°
-                    current_segment = [[-180, lat], [lon, lat]]
+                    current_segment = [[-180, crossing_lat], [lon, lat]]
                 # If previous longitude was negative and current is positive
                 elif prev_lon < 0 and lon > 0:
-                    # Add point at -180° with same latitude
-                    current_segment.append([-180, lat])
+                    # Add point at -180° where the path crosses it
+                    current_segment.append([-180, crossing_lat])
                     line_segments.append(current_segment)
                     # Start new segment at 180°
-                    current_segment = [[180, lat], [lon, lat]]
+                    current_segment = [[180, crossing_lat], [lon, lat]]
             else:
                 current_segment.append([lon, lat])
 
@@ -241,8 +252,8 @@ def save_track_as_geojson(filename, track_data, time_key='time'):
             "type": "Feature",
             "properties": {
                 "id": id,
-                "start_time": tracks[0][time_key],
-                "end_time": tracks[-1][time_key]
+                "start_time": tracks[0][time_key] if tracks else None,
+                "end_time": tracks[-1][time_key] if tracks else None
             },
             "geometry": {
                 "type": "MultiLineString",
